@@ -36,21 +36,26 @@ n = floor(sqrt(k2-k1))+1
 * Create a jump point table jP = [G,2G,4G,8G,...,2^nG], 
 * Create a jump distance table jD = [1,2,4,8,....,2^n]
  
-tame<sub>i</sub> = rand(0..(k2-k1))</br>
-tamePos<sub>i</sub> = tame<sub>i</sub>.G  # Group operation</br>
-wild<sub>i</sub> = rand(0..(k2-k1))</br>
-wildPos<sub>i</sub> = P + wild<sub>i</sub>.G # Group operation</br>
- 
-while not collision between tamePos<sub>i</sub> and wildPos<sub>i</sub> {</br>
-&nbsp;&nbsp; tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n] # Group operation</br>
-&nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n]</br>
-&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n] # Group operation</br>
-&nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n]</br>
+for all i in herdSize</br>
+&nbsp;&nbsp;tame<sub>i</sub> = rand(0..(k2-k1))</br>
+&nbsp;&nbsp;tamePos<sub>i</sub> = tame<sub>i</sub>.G  # Group operation</br>
+&nbsp;&nbsp;wild<sub>i</sub> = rand(0..(k2-k1))</br>
+&nbsp;&nbsp;wildPos<sub>i</sub> = P + wild<sub>i</sub>.G # Group operation</br>
+
+found = false</br>
+
+while not found {</br>
+&nbsp;&nbsp;for all i in herdSize</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n] # Group operation</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n]</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n] # Group operation</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n]</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  add tamePos<sub>i</sub> and wildPos<sub>i</sub> to hashTable</br>
+&nbsp;&nbsp;found = is there a collision in hashTable between a tame and a wild kangaroo ?</br>
 }</br>
 
 (t,w) = index of collision</br>
 K = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
-
 
 # Example of usage
 
