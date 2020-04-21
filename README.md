@@ -29,12 +29,12 @@ The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kango
 can be solved. Due to the birtday paradox, a collision happens (in average) after 2*sqrt(k2-k1) iterations, the 2 herds have the 
 same size. Here is a brief description of the algoritm:
 
-We have to solve P = k.G, we know that k lies in the range ]k1,k2], G is the SecpK1 generator point.
+We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
 
 n = floor(sqrt(k2-k1))+1
 
-* Create a jump table point jP = [G,2G,4G,8G,...2^nG], 
-* Create a jump distance table jD = [1,2,4,8,....2^n]
+* Create a jump table point jP = [G,2G,4G,8G,...,2^nG], 
+* Create a jump distance table jD = [1,2,4,8,....,2^n]
  
 tame<sub>i</sub> = rand(0..k2-k1)</br>
 tamePos<sub>i</sub> = tame<sub>i</sub>.G</br>
