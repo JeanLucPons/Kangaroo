@@ -6,7 +6,7 @@
 SRC = SECPK1/IntGroup.cpp main.cpp SECPK1/Random.cpp \
       Timer.cpp SECPK1/Int.cpp SECPK1/IntMod.cpp \
       SECPK1/Point.cpp SECPK1/SECP256K1.cpp \
-      BSGS.cpp HashTable.cpp Thread.cpp
+      Kangaroo.cpp HashTable.cpp Thread.cpp
 
 OBJDIR = obj
 
@@ -14,7 +14,7 @@ OBJET = $(addprefix $(OBJDIR)/, \
       SECPK1/IntGroup.o main.o SECPK1/Random.o \
       Timer.o SECPK1/Int.o SECPK1/IntMod.o \
       SECPK1/Point.o SECPK1/SECP256K1.o \
-      BSGS.o HashTable.o Thread.o)
+      Kangaroo.o HashTable.o Thread.o)
 
 CXX        = g++
 
@@ -33,8 +33,8 @@ $(OBJDIR)/%.o : %.cpp
 all: bsgs
 
 bsgs: $(OBJET)
-	@echo Making BSGS...
-	$(CXX) $(OBJET) $(LFLAGS) -o bsgs
+	@echo Making Kangaroo...
+	$(CXX) $(OBJET) $(LFLAGS) -o kangaroo
 
 $(OBJET): | $(OBJDIR) $(OBJDIR)/SECPK1
 

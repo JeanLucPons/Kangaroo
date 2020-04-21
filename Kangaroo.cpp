@@ -408,6 +408,13 @@ void Kangaroo::Run(int nbThread) {
     JoinThreads(thHandles,nbCPUThread);
     FreeHandles(thHandles,nbCPUThread);
 
+    // Free
+    for(i = 0; i < nbCPUThread; i++) {
+      for(int j = 0; j<CPU_GRP_SIZE; j++)
+        free(params[i].herd[j]);
+    }
+    hashTable.Reset();
+
   }
 
   double t1 = Timer::get_tick();

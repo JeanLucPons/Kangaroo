@@ -75,7 +75,7 @@ public:
   HashTable();
   bool Add(Int *x,KANGAROO *k);
   ENTRY *CreateEntry(int256_t *i,KANGAROO *k);
-  int HashTable::compare(int256_t *i1,int256_t *i2);
+  int compare(int256_t *i1,int256_t *i2);
   uint64_t GetNbItem();
   void Reset();
   double GetSizeMB();
