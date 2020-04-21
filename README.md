@@ -44,7 +44,7 @@ for all i in herdSize</br>
 
 found = false</br>
 
-while not found {</br>
+while not found</br>
 &nbsp;&nbsp;for all i in herdSize</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n] # Group operation</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n]</br>
@@ -52,7 +52,7 @@ while not found {</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n]</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  add tamePos<sub>i</sub> and wildPos<sub>i</sub> to hashTable</br>
 &nbsp;&nbsp;found = is there a collision in hashTable between a tame and a wild kangaroo ?</br>
-}</br>
+</br>
 
 (t,w) = index of collision</br>
 K = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
