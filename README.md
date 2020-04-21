@@ -1,6 +1,6 @@
 # Pollard's kangaroo for SECPK1
 
-A simple Pollard's kangaroo solver for SECPK1
+A simple Pollard's kangaroo ECDLP solver for SECPK1
 
 Structure of the input file:
 * All values are in hex format
@@ -25,9 +25,8 @@ ex
 
 # How it works
 
-The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroo (a wild one and a tame one) collide, the key
-can be solved. Due to the birtday paradox, a collision happens (in average) after 2*sqrt(k2-k1) iterations, the 2 herds have the 
-same size. Here is a brief description of the algoritm:
+The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the key
+can be solved. Due to the birtday paradox, a collision happens (in average) after 2.sqrt(k2-k1) group operations, the 2 herds have the same size. Here is a brief description of the algoritm:
 
 We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
 
@@ -36,15 +35,15 @@ n = floor(sqrt(k2-k1))+1
 * Create a jump table point jP = [G,2G,4G,8G,...,2^nG], 
 * Create a jump distance table jD = [1,2,4,8,....,2^n]
  
-tame<sub>i</sub> = rand(0..k2-k1)</br>
-tamePos<sub>i</sub> = tame<sub>i</sub>.G</br>
-wild<sub>i</sub> = rand(0..k2-k1)</br>
-wildPos<sub>i</sub> = P + wild<sub>i</sub>.G</br>
+tame<sub>i</sub> = rand(0..(k2-k1))</br>
+tamePos<sub>i</sub> = tame<sub>i</sub>.G  # Group operation</br>
+wild<sub>i</sub> = rand(0..(k2-k1))</br>
+wildPos<sub>i</sub> = P + wild<sub>i</sub>.G # Group operation</br>
  
 while not collision between tamePos<sub>i</sub> and wildPos<sub>i</sub> {</br>
-&nbsp;&nbsp; tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n]</br>
+&nbsp;&nbsp; tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n] # Group operation</br>
 &nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n]</br>
-&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n]</br>
+&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n] # Group operation</br>
 &nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n]</br>
 }</br>
 
