@@ -27,7 +27,9 @@ ex
 
 The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the 
 key can be solved. Due to the birthday paradox, a collision happens (in average) after 2.sqrt(k2-k1) group operations, the 2 
-herds have the same size. Here is a brief description of the algoritm:
+herds have the same size. To detect collision, the distinguished points method is used with a hashtable.
+
+Here is a brief description of the algorithm:
 
 We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
 
@@ -50,7 +52,7 @@ while not found</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n]</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n] # Group operation</br>
 &nbsp;&nbsp;&nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n]</br>
-&nbsp;&nbsp;&nbsp;&nbsp;  add tamePos<sub>i</sub> and wildPos<sub>i</sub> to hashTable</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  add (tamePos<sub>i</sub>,tame<sub>i</sub>) and (wildPos<sub>i</sub>,wild<sub>i</sub>) to hashTable</br>
 &nbsp;&nbsp;found = is there a collision in hashTable between a tame and a wild kangaroo ?</br>
 </br>
 
