@@ -25,14 +25,15 @@ ex
 
 # How it works
 
-The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the key
-can be solved. Due to the birtday paradox, a collision happens (in average) after 2.sqrt(k2-k1) group operations, the 2 herds have the same size. Here is a brief description of the algoritm:
+The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the 
+key can be solved. Due to the birthday paradox, a collision happens (in average) after 2.sqrt(k2-k1) group operations, the 2 
+herds have the same size. Here is a brief description of the algoritm:
 
 We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
 
 n = floor(sqrt(k2-k1))+1
 
-* Create a jump table point jP = [G,2G,4G,8G,...,2^nG], 
+* Create a jump point table jP = [G,2G,4G,8G,...,2^nG], 
 * Create a jump distance table jD = [1,2,4,8,....,2^n]
  
 tame<sub>i</sub> = rand(0..(k2-k1))</br>
