@@ -40,7 +40,7 @@ n = floor(sqrt(k2-k1))+1
  
 for all i in herdSize</br>
 &nbsp;&nbsp;tame<sub>i</sub> = rand(0..(k2-k1))</br>
-&nbsp;&nbsp;tamePos<sub>i</sub> = tame<sub>i</sub>.G  # Group operation</br>
+&nbsp;&nbsp;tamePos<sub>i</sub> = (k1+tame<sub>i</sub>).G # Group operation</br>
 &nbsp;&nbsp;wild<sub>i</sub> = rand(0..(k2-k1))</br>
 &nbsp;&nbsp;wildPos<sub>i</sub> = P + wild<sub>i</sub>.G # Group operation</br>
 
