@@ -33,7 +33,7 @@ Here is a brief description of the algorithm:
 
 We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
 
-n = floor(sqrt(k2-k1))+1
+n = floor(log2(sqrt(k2-k1)))+1
 
 * Create a jump point table jP = [G,2G,4G,8G,...,2^nG], 
 * Create a jump distance table jD = [1,2,4,8,....,2^n]
