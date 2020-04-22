@@ -1,5 +1,5 @@
 /*
- * This file is part of the BSGS distribution (https://github.com/JeanLucPons/BSGS).
+ * This file is part of the BSGS distribution (https://github.com/JeanLucPons/Kangaroo).
  * Copyright (c) 2020 Jean Luc PONS.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -31,18 +31,19 @@ using namespace std;
 
 // ----------------------------------------------------------------------------
 
-Int jumpDistance[256];
-Point jumpPoint[256];
+Int jumpDistance[129];
+Point jumpPoint[129];
 
-Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize) {
+Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu) {
 
   this->secp = secp;
   this->initDPSize = initDPSize;
+  this->useGpu = useGpu;
 
   // Kangaroo jumps
   jumpPoint[0] = secp->G;
   jumpDistance[0].SetInt32(1);
-  for(int i = 1; i < 256; ++i) {
+  for(int i = 1; i < 129; ++i) {
     jumpDistance[i].Add(&jumpDistance[i - 1],&jumpDistance[i - 1]);
     jumpPoint[i] = secp->DoubleDirect(jumpPoint[i - 1]);
   }
@@ -144,27 +145,163 @@ void Kangaroo::SetDP(int size) {
 
 }
 
+// ----------------------------------------------------------------------------
+
+void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
+
+  initDPSize = 8;
+  SetDP(initDPSize);
+  jumpModulo = 128;
+  rangePower = 256;
+
+#ifdef WITHGPU
+
+  // Check gpu
+  if(useGpu) {
+
+    ::printf("GPU allocate memory:");
+    int x = gridSize[0];
+    int y = gridSize[1];
+    if(!GPUEngine::GetGridSize(gpuId[0],&x,&y)) {
+      return;
+    }
+
+    GPUEngine h(x,y,gpuId[0],65536);
+    ::printf(" done\n");
+    ::printf("GPU: %s\n",h.deviceName.c_str());
+    ::printf("GPU: %.1f MB\n",h.GetMemory() / 1048576.0);
+
+    int nb = h.GetNbThread() * GPU_GRP_SIZE;
+
+    vector<KANGAROO *> K;
+    Int *px = new Int[nb];
+    Int *py = new Int[nb];
+    Int *d = new Int[nb];
+    vector<ITEM> gpuFound;
+
+    Int pk;
+    pk.Rand(256);
+    keyToSearch = secp->ComputePublicKey(&pk);
+
+    for(int i=0;i<nb;i++) {
+      K.push_back(Create(i%2));
+      px[i].Set(&K[i]->pos.x);
+      py[i].Set(&K[i]->pos.y);
+      d[i].Set(&K[i]->distance);
+    }
+
+    h.SetParams(dMask,jumpModulo);
+
+    h.SetKangaroos(px,py,d,false);
+
+    // Test single
+    uint64_t r = rndl() % nb;
+    K[r] = Create(r%2);
+    h.SetKangaroo(r,&K[r]->pos.x,&K[r]->pos.y,&K[r]->distance);
+
+    h.Launch(gpuFound);
+    h.GetKangaroos(px,py,d);
+    h.Launch(gpuFound);
+    ::printf("DP found: %d\n",(int)gpuFound.size());
+
+    // Do the same on CPU
+    for(int r=0;r<NB_RUN;r++) {
+      for(int i=0;i<nb;i++) {
+        uint64_t jmp = (K[i]->pos.x.bits64[0] % jumpModulo);
+        K[i]->pos = secp->AddDirect(K[i]->pos,jumpPoint[jmp]);
+        K[i]->distance.ModAddK1order(&jumpDistance[jmp]);
+
+        if( IsDP(K[i]->pos.x.bits64[3])) {
+
+          // Search for DP found
+          bool found = false;
+          int j = 0;
+          while(!found && j<(int)gpuFound.size()) {            
+            found = gpuFound[j].x.IsEqual( &K[i]->pos.x ) &&
+                    gpuFound[j].d.IsEqual( &K[i]->distance ) &&
+                    gpuFound[j].kIdx == (uint64_t)i;
+            if(!found) j++;
+          }
+
+          if(found) {
+            gpuFound.erase(gpuFound.begin()+j);
+          } else {
+            ::printf("DP Mismatch:\n");
+#ifdef WIN64
+            ::printf("[%d] %s [0x%016I64X]\n",j,gpuFound[j].x.GetBase16().c_str(),gpuFound[j].kIdx);
+#else
+            ::printf("[%d] %s [0x%" PRIx64 "]\n",j,gpuFound[j].x.GetBase16().c_str(),found[j].kIdx);
+#endif
+            ::printf("[%d] %s \n",i,K[gpuFound[i].kIdx]->pos.x.GetBase16().c_str());
+            return;
+          }
+
+        }
+
+      }
+    }
+
+    // Compare kangaroos
+    int nbFault = 0;
+    bool firstFaut = true;
+    for(int i = 0; i<nb; i++) {
+      bool ok = px[i].IsEqual(&K[i]->pos.x) && 
+                py[i].IsEqual(&K[i]->pos.y) &&
+                d[i].IsEqual(&K[i]->distance);
+      if(!ok) {
+        nbFault++;
+        if(firstFaut) {
+          ::printf("CPU Kx=%s\n",K[i]->pos.x.GetBase16().c_str());
+          ::printf("CPU Ky=%s\n",K[i]->pos.y.GetBase16().c_str());
+          ::printf("CPU Kd=%s\n",K[i]->distance.GetBase16().c_str());
+          ::printf("GPU Kx=%s\n",px[i].GetBase16().c_str());
+          ::printf("GPU Ky=%s\n",py[i].GetBase16().c_str());
+          ::printf("GPU Kd=%s\n",d[i].GetBase16().c_str());
+          firstFaut = false;
+        }
+      }
+
+    }
+
+    if(nbFault) {
+      ::printf("CPU/GPU not ok: %d/%d faults\n",nbFault,nb);
+      return;
+    }    
+
+    // Comapre DP
+
+    
+    ::printf("CPU/GPU ok\n");
+
+  }
+
+#endif
+
+}
 
 // ----------------------------------------------------------------------------
 
-void Kangaroo::SolveKey(TH_PARAM *ph) {
+void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
   // Global init
   int thId = ph->threadId;
-  ph->hasStarted = true;
   counters[thId] = 0;
 
-  if(keyIdx==0) {
-    if(ph->herd[0]->type==TAME)
-      ::printf("Solvekey Thread %d: %d TAME kangaroos\n",ph->threadId,CPU_GRP_SIZE);
-    else
-      ::printf("Solvekey Thread %d: %d WILD kangaroos\n",ph->threadId,CPU_GRP_SIZE);
-  }
+  // Create Kangaroos
+  KANGAROO *herd[CPU_GRP_SIZE];
+  for(int j = 0; j<CPU_GRP_SIZE; j++)
+    herd[j] = Create(j%2);
 
   IntGroup *grp = new IntGroup(CPU_GRP_SIZE);
   Int *dx = new Int[CPU_GRP_SIZE];
 
-  // Affine coord
+  if(keyIdx==0) {
+    ::printf("SolveKeyCPU Thread %d: %d kangaroos\n",ph->threadId,CPU_GRP_SIZE);
+  }
+
+  ph->hasStarted = true;
+
+  // Using Affine coord
   Int dy;
   Int rx;
   Int ry;
@@ -175,9 +312,9 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
 
     for(int g = 0; g < CPU_GRP_SIZE; g++) {
 
-      uint64_t jmp = ph->herd[g]->pos.x.bits64[0] % jumpModulo;
+      uint64_t jmp = herd[g]->pos.x.bits64[0] % jumpModulo;
       Int *p1x = &jumpPoint[jmp].x;
-      Int *p2x = &ph->herd[g]->pos.x;
+      Int *p2x = &herd[g]->pos.x;
       dx[g].ModSub(p2x,p1x);
 
     }
@@ -186,11 +323,11 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
 
     for(int g = 0; g < CPU_GRP_SIZE; g++) {
 
-      uint64_t jmp = ph->herd[g]->pos.x.bits64[0] % jumpModulo;
+      uint64_t jmp = herd[g]->pos.x.bits64[0] % jumpModulo;
       Int *p1x = &jumpPoint[jmp].x;
       Int *p1y = &jumpPoint[jmp].y;
-      Int *p2x = &ph->herd[g]->pos.x;
-      Int *p2y = &ph->herd[g]->pos.y;
+      Int *p2x = &herd[g]->pos.x;
+      Int *p2y = &herd[g]->pos.y;
 
       dy.ModSub(p2y,p1y);
       _s.ModMulK1(&dy,&dx[g]);
@@ -203,26 +340,26 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
       ry.ModMulK1(&_s);
       ry.ModSub(p2y);
 
-      ph->herd[g]->pos.x.Set(&rx);
-      ph->herd[g]->pos.y.Set(&ry);
-      ph->herd[g]->distance.Add(&jumpDistance[jmp]);
+      herd[g]->pos.x.Set(&rx);
+      herd[g]->pos.y.Set(&ry);
+      herd[g]->distance.ModAddK1order(&jumpDistance[jmp]);
 
     }
 
     for(int g = 0; g < CPU_GRP_SIZE; g++) {
-      if(IsDP(ph->herd[g]->pos.x.bits64[3])) {
+      if(IsDP(herd[g]->pos.x.bits64[3])) {
         LOCK(ghMutex);
         if(!endOfSearch) {
-          if(hashTable.Add(&ph->herd[g]->pos.x,ph->herd[g])) {
+          if(hashTable.Add(&herd[g]->pos.x,&herd[g]->distance,herd[g]->type)) {
 
             int type = hashTable.GetType();
 
-            if(type == ph->herd[g]->type) {
+            if(type == herd[g]->type) {
               
               // Collision inside the same herd
               // We need to reset the kangaroo
-              free(ph->herd[g]);
-              ph->herd[g] = Create(type);
+              free(herd[g]);
+              herd[g] = Create(type);
               collisionInSameHerd++;
 
             } else {
@@ -230,12 +367,12 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
               // K = startRange + dtame - dwild
               Int pk(&rangeStart);
 
-              if(ph->herd[g]->type==TAME) {
-                pk.ModAddK1order(&ph->herd[g]->distance);
+              if(herd[g]->type==TAME) {
+                pk.ModAddK1order(&herd[g]->distance);
                 pk.ModSubK1order(hashTable.GetD());
               } else {
                 pk.ModAddK1order(hashTable.GetD());
-                pk.ModSubK1order(&ph->herd[g]->distance);
+                pk.ModSubK1order(&herd[g]->distance);
               }
               
               Point P = secp->ComputePublicKey(&pk);
@@ -261,8 +398,8 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
                 } else {
                   ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
                   // Should not happen, reset the kangaroo
-                  free(ph->herd[g]);
-                  ph->herd[g] = Create(type);
+                  free(herd[g]);
+                  herd[g] = Create(type);
                 }
 
               }
@@ -280,8 +417,143 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
 
   }
 
+  // Free
   delete grp;
   delete dx;
+  for(int j = 0; j<CPU_GRP_SIZE; j++)
+    free(herd[j]);
+
+  ph->isRunning = false;
+
+}
+
+// ----------------------------------------------------------------------------
+
+void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
+
+  // Global init
+  int thId = ph->threadId;
+  counters[thId] = 0;
+
+  vector<ITEM> hashFound;
+  GPUEngine *gpu;
+  Int *px;
+  Int *py;
+  Int *d;
+
+  gpu = new GPUEngine(ph->gridSizeX,ph->gridSizeY,ph->gpuId,65536 * 2);
+  printf("GPU: %s (%.1f MB used)\n",gpu->deviceName.c_str(),gpu->GetMemory() / 1048576.0);
+
+  if(keyIdx == 0)
+    ::printf("SolveKeyGPU Thread GPU#%d: creating kangaroos...\n",ph->gpuId);
+
+  // Create Kangaroos
+  uint64_t nbKangaroo = gpu->GetNbThread() * GPU_GRP_SIZE;
+  px = new Int[nbKangaroo];
+  py = new Int[nbKangaroo];
+  d = new Int[nbKangaroo];
+
+  for(int j = 0; j<nbKangaroo; j++) {
+    KANGAROO *K = Create(j % 2);
+    px[j].Set(&K->pos.x);
+    py[j].Set(&K->pos.y);
+    d[j].Set(&K->distance);
+    free(K);
+  }
+
+  gpu->SetParams(dMask,jumpModulo);
+  gpu->SetKangaroos(px,py,d);
+
+  if(keyIdx == 0)
+    ::printf("SolveKeyGPU Thread GPU#%d: 2^%.2f kangaroos\n",ph->gpuId,log2((double)nbKangaroo));
+
+  ph->hasStarted = true;
+
+  while(!endOfSearch) {
+
+    gpu->Launch(hashFound);
+    counters[thId] += nbKangaroo * NB_RUN;
+
+    if(hashFound.size() > 0) {
+      
+      LOCK(ghMutex);
+
+      for(int g=0;!endOfSearch && g<hashFound.size();g++) {
+
+        uint32_t kType = (uint32_t)(hashFound[g].kIdx % 2);
+
+        if(hashTable.Add(&hashFound[g].x,&hashFound[g].d,kType)) {
+
+          uint32_t type = hashTable.GetType();
+
+          if(type == kType) {
+
+            // Collision inside the same herd
+            // We need to reset the kangaroo
+            KANGAROO *K = Create(kType);
+            gpu->SetKangaroo(hashFound[g].kIdx,&K->pos.x,&K->pos.y,&K->distance);
+            free(K);
+            collisionInSameHerd++;
+
+          } else {
+
+            // K = startRange + dtame - dwild
+            Int pk(&rangeStart);
+
+            if(kType == TAME) {
+              pk.ModAddK1order(&hashFound[g].d);
+              pk.ModSubK1order(hashTable.GetD());
+            } else {
+              pk.ModAddK1order(hashTable.GetD());
+              pk.ModSubK1order(&hashFound[g].d);
+            }
+
+            Point P = secp->ComputePublicKey(&pk);
+
+            if(P.equals(keyToSearch)) {
+
+              // Key solved
+              ::printf("\nKey#%2d Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,P).c_str());
+              ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+              endOfSearch = true;
+
+            } else {
+
+              // We may have the symetric key
+              pk.Neg();
+              pk.Add(&secp->order);
+              P = secp->ComputePublicKey(&pk);
+              if(P.equals(keyToSearch)) {
+                // Key solved
+                ::printf("\nKey#%2d Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,P).c_str());
+                ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+                endOfSearch = true;
+              }
+              else {
+                ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
+                // Should not happen, reset the kangaroo
+                KANGAROO *K = Create(kType);
+                gpu->SetKangaroo(hashFound[g].kIdx,&K->pos.x,&K->pos.y,&K->distance);
+                free(K);
+              }
+
+            }
+
+          }
+
+
+        }
+      }
+      UNLOCK(ghMutex);
+    }
+
+  }
+
+
+  delete px;
+  delete py;
+  delete d;
+  delete gpu;
   ph->isRunning = false;
 
 }
@@ -289,12 +561,22 @@ void Kangaroo::SolveKey(TH_PARAM *ph) {
 // ----------------------------------------------------------------------------
 
 #ifdef WIN64
-DWORD WINAPI _SolveKey(LPVOID lpParam) {
+DWORD WINAPI _SolveKeyCPU(LPVOID lpParam) {
 #else
-void *_SolveKey(void *lpParam) {
+void *_SolveKeyCPU(void *lpParam) {
 #endif
   TH_PARAM *p = (TH_PARAM *)lpParam;
-  p->obj->SolveKey(p);
+  p->obj->SolveKeyCPU(p);
+  return 0;
+}
+
+#ifdef WIN64
+DWORD WINAPI _SolveKeyGPU(LPVOID lpParam) {
+#else
+void *_SolveKeyGPU(void *lpParam) {
+#endif
+  TH_PARAM *p = (TH_PARAM *)lpParam;
+  p->obj->SolveKeyGPU(p);
   return 0;
 }
 
@@ -330,19 +612,48 @@ KANGAROO *Kangaroo::Create(int type) {
 
 // ----------------------------------------------------------------------------
 
-void Kangaroo::Run(int nbThread) {
+void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize) {
 
   double t0 = Timer::get_tick();
 
   nbCPUThread = nbThread;
+  nbGPUThread = (useGpu ? (int)gpuId.size() : 0);
   endOfSearch = false;
+  uint64_t totalRW = 0;
 
-  TH_PARAM *params = (TH_PARAM *)malloc(nbCPUThread * sizeof(TH_PARAM));
-  THREAD_HANDLE *thHandles = (THREAD_HANDLE *)malloc(nbCPUThread * sizeof(THREAD_HANDLE));
+#ifndef WITHGPU
 
-  memset(params, 0, nbCPUThread * sizeof(TH_PARAM));
+  if(nbGPUThread>0) {
+    ::printf("GPU code not compiled, use -DWITHGPU when compiling.\n");
+    nbGPUThread = 0;
+  }
+
+#endif
+
+  TH_PARAM *params = (TH_PARAM *)malloc((nbCPUThread + nbGPUThread) * sizeof(TH_PARAM));
+  THREAD_HANDLE *thHandles = (THREAD_HANDLE *)malloc((nbCPUThread + nbGPUThread) * sizeof(THREAD_HANDLE));
+
+  memset(params, 0,(nbCPUThread + nbGPUThread) * sizeof(TH_PARAM));
   memset(counters, 0, sizeof(counters));
   ::printf("Number of CPU thread: %d\n", nbCPUThread);
+
+#ifdef WITHGPU
+
+  // Compute grid size
+  for(int i = 0; i < nbGPUThread; i++) {
+    int x = gridSize[2 * i];
+    int y = gridSize[2 * i + 1];
+    if(!GPUEngine::GetGridSize(gpuId[i],&x,&y)) {
+      return;
+    }
+    else {
+      params[nbCPUThread + i].gridSizeX = x;
+      params[nbCPUThread + i].gridSizeY = y;
+    }
+    totalRW += GPU_GRP_SIZE * x*y;
+  }
+
+#endif
 
   // Set starting parameters
   Int range(&rangeEnd);
@@ -350,13 +661,14 @@ void Kangaroo::Run(int nbThread) {
   rangePower = range.GetBitLength();
   ::printf("Range width: 2^%d\n",rangePower);
   jumpModulo = rangePower/2 + 1;
+  if(jumpModulo>129) jumpModulo = 129;
 
   // Compute optimal distinguished bits number.
   // If dp is too large comparing to the total number of parallel random walks
   // an overload appears due to the fact that computed paths become too short
   // and decrease significantly the probability that distiguised points collide 
   // inside the centralized hash table.
-  uint64_t totalRW = nbCPUThread * CPU_GRP_SIZE;
+  totalRW += nbCPUThread * CPU_GRP_SIZE;
   int optimalDP = (int)((double)rangePower / 2.0 - log2((double)totalRW) - 2);
   if(optimalDP < 0) optimalDP = 0;
   ::printf("Number of random walk: 2^%.2f (Max DP=%d)\n",log2((double)totalRW),optimalDP);
@@ -370,49 +682,36 @@ void Kangaroo::Run(int nbThread) {
 
   SetDP(initDPSize);
 
-
-
   for(keyIdx =0; keyIdx<keysToSearch.size(); keyIdx++) {
 
     keyToSearch = keysToSearch[keyIdx];
     endOfSearch = false;
     collisionInSameHerd = 0;
 
-    // Lanch Tame Kangoro threads
-
-    int i = 0;
-    for(; i < nbCPUThread/2; i++) {
-
-      for(int j=0;j<CPU_GRP_SIZE;j++)
-        params[i].herd[j] = Create(TAME);      
+    // Lanch CPU threads
+    for(int i=0; i < nbCPUThread; i++) {
       params[i].threadId = i;
       params[i].isRunning = true;
-      thHandles[i] = LaunchThread(_SolveKey,params + i);
-
+      thHandles[i] = LaunchThread(_SolveKeyCPU,params + i);
     }
 
-    // Lanch Wild Kangoro threads
+#ifdef WITHGPU
 
-    for(; i < nbCPUThread; i++) {
-
-      for(int j = 0; j<CPU_GRP_SIZE; j++)
-        params[i].herd[j] = Create(WILD);
-      params[i].threadId = i;
-      params[i].isRunning = true;
-      thHandles[i] = LaunchThread(_SolveKey,params + i);
-
+    // Launch GPU threads
+    for(int i = 0; i < nbGPUThread; i++) {
+      int id = nbCPUThread + i;
+      params[id].threadId = 0x80L + i;
+      params[id].isRunning = true;
+      params[id].gpuId = gpuId[i];
+      thHandles[id] = LaunchThread(_SolveKeyGPU,params + id);
     }
+
+#endif
 
     // Wait for end
     Process(params,"MKey/s");
-    JoinThreads(thHandles,nbCPUThread);
-    FreeHandles(thHandles,nbCPUThread);
-
-    // Free
-    for(i = 0; i < nbCPUThread; i++) {
-      for(int j = 0; j<CPU_GRP_SIZE; j++)
-        free(params[i].herd[j]);
-    }
+    JoinThreads(thHandles,nbCPUThread + nbGPUThread);
+    FreeHandles(thHandles,nbCPUThread + nbGPUThread);
     hashTable.Reset();
 
   }

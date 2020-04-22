@@ -1,5 +1,5 @@
 /*
- * This file is part of the BSGS distribution (https://github.com/JeanLucPons/BSGS).
+ * This file is part of the BSGS distribution (https://github.com/JeanLucPons/Kangaroo).
  * Copyright (c) 2020 Jean Luc PONS.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,17 +28,6 @@
 #define HASH_SIZE_BIT 16
 #define HASH_SIZE (1<<HASH_SIZE_BIT)
 #define HASH_MASK (HASH_SIZE-1)
-
-#define TAME 0  // Tame kangaroo
-#define WILD 1  // Wild kangaroo
-
-typedef struct {
-
-  int   type;      // Kangaroo type (TAME or WILD)
-  Point pos;       // Current position
-  Int   distance;  // Travelled distance
-
-} KANGAROO;
 
 
 union int256_s {
@@ -73,8 +62,8 @@ class HashTable {
 public:
 
   HashTable();
-  bool Add(Int *x,KANGAROO *k);
-  ENTRY *CreateEntry(int256_t *i,KANGAROO *k);
+  bool Add(Int *x,Int *d,uint32_t type);
+  ENTRY *CreateEntry(int256_t *i,int256_t *d,uint32_t type);
   int compare(int256_t *i1,int256_t *i2);
   uint64_t GetNbItem();
   void Reset();
@@ -91,8 +80,8 @@ private:
   HASH_ENTRY    E[HASH_SIZE];
 
   // Collision
-  Int d;
-  uint32_t type;
+  Int      kDist;
+  uint32_t kType;
 
 };
 

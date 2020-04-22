@@ -1,5 +1,5 @@
 /*
- * This file is part of the BSGS distribution (https://github.com/JeanLucPons/BSGS).
+ * This file is part of the BSGS distribution (https://github.com/JeanLucPons/Kangaroo).
  * Copyright (c) 2020 Jean Luc PONS.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -54,11 +54,11 @@ uint64_t HashTable::GetNbItem() {
 
 }
 
-ENTRY *HashTable::CreateEntry(int256_t *i,KANGAROO *k) {
+ENTRY *HashTable::CreateEntry(int256_t *i,int256_t *d,uint32_t type) {
   ENTRY *e = (ENTRY *)malloc(sizeof(ENTRY));
-  e->type = k->type;
+  e->type = type;
   e->x = *i;
-  e->d = *(int256_t *)(k->distance.bits64);
+  e->d = *d;
   return e;
 }
 
@@ -69,7 +69,7 @@ ENTRY *HashTable::CreateEntry(int256_t *i,KANGAROO *k) {
   E[h].items[st] = entry;                  \
   E[h].nbItem++;}
 
-bool HashTable::Add(Int *x,KANGAROO *k) {
+bool HashTable::Add(Int *x,Int *d,uint32_t type) {
 
   uint64_t h = (x->bits64[3] & HASH_MASK);
 
@@ -79,7 +79,7 @@ bool HashTable::Add(Int *x,KANGAROO *k) {
   }
 
   if(E[h].nbItem == 0) {
-    E[h].items[0] = CreateEntry((int256_t *)(x->bits64),k);
+    E[h].items[0] = CreateEntry((int256_t *)(x->bits64),(int256_t *)(d->bits64),type);
     E[h].nbItem = 1;
     return false;
   }
@@ -103,16 +103,16 @@ bool HashTable::Add(Int *x,KANGAROO *k) {
       ed = mi - 1;
     } else if (comp==0) {
       // Collision
-      d.SetInt32(0);
-      memcpy(d.bits64,&(GET(h,mi)->d),sizeof(int256_t));
-      type = GET(h,mi)->type;
+      kDist.SetInt32(0);
+      memcpy(kDist.bits64,&(GET(h,mi)->d),sizeof(int256_t));
+      kType = GET(h,mi)->type;
       return true;
     } else {
       st = mi + 1;
     }
   }
 
-  ENTRY *entry = CreateEntry((int256_t *)(x->bits64),k);
+  ENTRY *entry = CreateEntry((int256_t *)(x->bits64),(int256_t *)(d->bits64),type);
   ADD_ENTRY(entry);
   return false;
 
@@ -141,11 +141,11 @@ int HashTable::compare(int256_t *i1,int256_t *i2) {
 }
 
 Int *HashTable::GetD() {
-  return &d;
+  return &kDist;
 }
 
 uint32_t HashTable::GetType() {
-  return type;
+  return kType;
 }
 
 double HashTable::GetSizeMB() {

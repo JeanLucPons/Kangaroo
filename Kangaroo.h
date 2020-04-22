@@ -1,5 +1,5 @@
 /*
- * This file is part of the BSGS distribution (https://github.com/JeanLucPons/BSGS).
+ * This file is part of the BSGS distribution (https://github.com/JeanLucPons/Kangaroo).
  * Copyright (c) 2020 Jean Luc PONS.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 #include "SECPK1/SECP256k1.h"
 #include "HashTable.h"
 #include "SECPK1/IntGroup.h"
+#include "GPU/GPUEngine.h"
 
 #ifdef WIN64
 #include <Windows.h>
@@ -44,6 +45,17 @@ class Kangaroo;
 #define CPU_GRP_SIZE 1024
 #define MAX_TWIN 1024
 
+#define TAME 0  // Tame kangaroo
+#define WILD 1  // Wild kangaroo
+
+typedef struct {
+
+  int   type;      // Kangaroo type (TAME or WILD)
+  Point pos;       // Current position
+  Int   distance;  // Travelled distance
+
+} KANGAROO;
+
 // Input thread parameters
 typedef struct {
 
@@ -52,7 +64,12 @@ typedef struct {
   bool isRunning;
   bool hasStarted;
   bool isWaiting;
-  KANGAROO *herd[CPU_GRP_SIZE];  // Jumping kangaroos
+
+#ifdef WITHGPU
+  int  gridSizeX;
+  int  gridSizeY;
+  int  gpuId;
+#endif
 
 } TH_PARAM;
 
@@ -61,12 +78,14 @@ class Kangaroo {
 
 public:
 
-  Kangaroo(Secp256K1 *secp,int32_t initDPSize);
-  void Run(int nbThread);
+  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu);
+  void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
   bool ParseConfigFile(std::string fileName);
+  void Check(std::vector<int> gpuId,std::vector<int> gridSize);
 
   // Threaded procedures
-  void SolveKey(TH_PARAM *p);
+  void SolveKeyCPU(TH_PARAM *p);
+  void SolveKeyGPU(TH_PARAM *p);
 
 private:
 
@@ -89,6 +108,7 @@ private:
   void Process(TH_PARAM *params,std::string unit);
 
   uint64_t getCPUCount();
+  uint64_t getGPUCount();
   bool isAlive(TH_PARAM *p);
   bool hasStarted(TH_PARAM *p);
   bool isWaiting(TH_PARAM *p);
@@ -97,6 +117,7 @@ private:
   HashTable hashTable;
   uint64_t counters[256];
   int  nbCPUThread;
+  int  nbGPUThread;
   double startTime;
 
   Int rangeStart;
@@ -111,6 +132,7 @@ private:
   Point keyToSearch;
   int keyIdx;
   bool endOfSearch;
+  bool useGpu;
 
 };
 

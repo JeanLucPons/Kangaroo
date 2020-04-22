@@ -1,5 +1,5 @@
 /*
- * This file is part of the BSGS distribution (https://github.com/JeanLucPons/BSGS).
+ * This file is part of the BSGS distribution (https://github.com/JeanLucPons/Kangaroo).
  * Copyright (c) 2020 Jean Luc PONS.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -63,7 +63,7 @@ void  Kangaroo::FreeHandles(THREAD_HANDLE *handles, int nbThread) {
 bool Kangaroo::isAlive(TH_PARAM *p) {
 
   bool isAlive = false;
-  int total = nbCPUThread;
+  int total = nbCPUThread + nbGPUThread;
   for(int i=0;i<total;i++)
     isAlive = isAlive || p[i].isRunning;
 
@@ -76,7 +76,7 @@ bool Kangaroo::isAlive(TH_PARAM *p) {
 bool Kangaroo::hasStarted(TH_PARAM *p) {
 
   bool hasStarted = true;
-  int total = nbCPUThread;
+  int total = nbCPUThread + nbGPUThread;
   for (int i = 0; i < total; i++)
     hasStarted = hasStarted && p[i].hasStarted;
 
@@ -89,11 +89,22 @@ bool Kangaroo::hasStarted(TH_PARAM *p) {
 bool Kangaroo::isWaiting(TH_PARAM *p) {
 
   bool isWaiting = true;
-  int total = nbCPUThread;
+  int total = nbCPUThread + nbGPUThread;
   for (int i = 0; i < total; i++)
     isWaiting = isWaiting && p[i].isWaiting;
 
   return isWaiting;
+
+}
+
+// ----------------------------------------------------------------------------
+
+uint64_t Kangaroo::getGPUCount() {
+
+  uint64_t count = 0;
+  for(int i = 0; i<nbGPUThread; i++)
+    count += counters[0x80L + i];
+  return count;
 
 }
 
@@ -156,22 +167,24 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
   double t0;
   double t1;
 
-#ifndef WIN64
-  setvbuf(stdout,NULL,_IONBF,0);
-#endif
-
-  uint64_t lastCount = 0;
-  double avgKeyRate;
   uint64_t count;
+  uint64_t lastCount = 0;
+  uint64_t gpuCount = 0;
+  uint64_t lastGPUCount = 0;
+  double avgKeyRate = 0.0;
+  double avgGpuKeyRate = 0.0;
 
   // Key rate smoothing filter
 #define FILTER_SIZE 8
   double lastkeyRate[FILTER_SIZE];
+  double lastGpukeyRate[FILTER_SIZE];
   uint32_t filterPos = 0;
 
   double keyRate = 0.0;
+  double gpuKeyRate = 0.0;
 
   memset(lastkeyRate,0,sizeof(lastkeyRate));
+  memset(lastGpukeyRate,0,sizeof(lastkeyRate));
 
   // Wait that all threads have started
   while(!hasStarted(params))
@@ -188,48 +201,55 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
       delay -= 50;
     }
 
-    count = getCPUCount();
+    gpuCount = getGPUCount();
+    count = getCPUCount() + gpuCount;
 
     t1 = Timer::get_tick();
     keyRate = (double)(count - lastCount) / (t1 - t0);
+    gpuKeyRate = (double)(gpuCount - lastGPUCount) / (t1 - t0);
     lastkeyRate[filterPos%FILTER_SIZE] = keyRate;
+    lastGpukeyRate[filterPos%FILTER_SIZE] = gpuKeyRate;
     filterPos++;
 
     // KeyRate smoothing
-    avgKeyRate = 0.0;
     uint32_t nbSample;
     for(nbSample = 0; (nbSample < FILTER_SIZE) && (nbSample < filterPos); nbSample++) {
       avgKeyRate += lastkeyRate[nbSample];
+      avgGpuKeyRate += lastGpukeyRate[nbSample];
     }
     avgKeyRate /= (double)(nbSample);
+    avgGpuKeyRate /= (double)(nbSample);
 
-    if(isAlive(params) && !endOfSearch) {
+    if(isAlive(params)) {
 
-      ::printf("\r[%.2f %s][Count 2^%.2f][%s][Dead %d][%.1fMB]  ",
+      printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s][%.1fMB]  ",
         avgKeyRate / 1000000.0,unit.c_str(),
+        avgGpuKeyRate / 1000000.0,unit.c_str(),
         log2((double)count),
-        GetTimeStr(t1 - startTime).c_str(),
         collisionInSameHerd,
+        GetTimeStr(t1 - startTime).c_str(),
         hashTable.GetSizeMB()
         );
 
     }
 
     lastCount = count;
+    lastGPUCount = gpuCount;
     t0 = t1;
 
   }
 
-  count = getCPUCount();
+  count = getCPUCount() + getCPUCount();
   t1 = Timer::get_tick();
   
   if( !endOfSearch ) {
-    ::printf("\r[%.2f %s][Cnt 2^%.2f][%s][%.1fMB]  \n",
+    printf("\r[%.2f %s][GPU %.2f %s][Cnt 2^%.2f][%s][%.1fMB]  ",
       avgKeyRate / 1000000.0,unit.c_str(),
+      avgGpuKeyRate / 1000000.0,unit.c_str(),
       log2((double)count),
       GetTimeStr(t1 - startTime).c_str(),
       hashTable.GetSizeMB()
-    );
+      );
   }
 
 }

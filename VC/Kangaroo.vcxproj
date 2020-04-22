@@ -134,7 +134,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITHGPU;_CRT_SECURE_NO_WARNINGS;WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -159,6 +159,10 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\GPU\GPUCompute.h" />
+    <ClInclude Include="..\GPU\GPUEngine.h" />
+    <ClInclude Include="..\GPU\GPUGroup.h" />
+    <ClInclude Include="..\GPU\GPUMath.h" />
     <ClInclude Include="..\SECPK1\Int.h" />
     <ClInclude Include="..\SECPK1\IntGroup.h" />
     <ClInclude Include="..\SECPK1\Point.h" />
@@ -169,6 +173,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\Kangaroo.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\GPU\GPUGenerate.cpp" />
     <ClCompile Include="..\SECPK1\Int.cpp" />
     <ClCompile Include="..\SECPK1\IntGroup.cpp" />
     <ClCompile Include="..\SECPK1\IntMod.cpp" />
@@ -182,6 +187,9 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClCompile Include="..\HashTable.cpp" />
     <ClCompile Include="..\Kangaroo.cpp" />
     <Text Include="in.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\GPU\GPUEngine.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
