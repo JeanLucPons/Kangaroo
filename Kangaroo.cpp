@@ -444,10 +444,11 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
   Int *d;
 
   gpu = new GPUEngine(ph->gridSizeX,ph->gridSizeY,ph->gpuId,65536 * 2);
-  printf("GPU: %s (%.1f MB used)\n",gpu->deviceName.c_str(),gpu->GetMemory() / 1048576.0);
 
-  if(keyIdx == 0)
+  if(keyIdx == 0) {
+    ::printf("GPU: %s (%.1f MB used)\n",gpu->deviceName.c_str(),gpu->GetMemory() / 1048576.0);
     ::printf("SolveKeyGPU Thread GPU#%d: creating kangaroos...\n",ph->gpuId);
+  }
 
   // Create Kangaroos
   uint64_t nbKangaroo = gpu->GetNbThread() * GPU_GRP_SIZE;
