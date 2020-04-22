@@ -61,8 +61,6 @@ K = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
 
 # Example of usage
 
-On a Xeon X5647 2.93GHz with 12GB of RAM (Ubuntu 18.04)
-
 Input file: in.txt
 
 ```
@@ -86,7 +84,7 @@ Input file: in.txt
 0455B95BEF84A6045A505D015EF15E136E0A31CC2AA00FA4BCA62E5DF215EE981B3B4D6BCE33718DC6CF59F28B550648D7E8B2796AC36F25FF0C01F8BC42A16FD9
 ```
 
-Result:
+Result: On a Xeon X5647 2.93GHz with 12GB of RAM (Ubuntu 18.04) CPU Only
 
 ```
 pons@linpons:~/Kangaroo$ ./kangaroo in.txt 
@@ -158,7 +156,7 @@ Key#15 Pub:  0x0355B95BEF84A6045A505D015EF15E136E0A31CC2AA00FA4BCA62E5DF215EE981
 Done: Total time 03:07:38 
 ```
 
-On a GTX 1050 Ti:
+On an i7-4770 with a GTX 1050 Ti (GPU only):
 
 ```
 C:\C++\Kangaroo\VC_CUDA10\x64\Release>Kangaroo.exe -t 0 -gpu ..\..\in.txt
