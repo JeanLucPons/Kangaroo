@@ -49,6 +49,7 @@ public:
   int GetMemory();
   static void GenerateCode(Secp256K1 *secp);
   bool callKernelAndWait();
+  bool callKernel();
 
   std::string deviceName;
 
@@ -59,7 +60,6 @@ public:
 
 private:
 
-  bool callKernel();
 
   int nbThread;
   int nbThreadPerGroup;

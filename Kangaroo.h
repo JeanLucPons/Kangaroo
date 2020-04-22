@@ -91,7 +91,7 @@ private:
 
   bool IsDP(uint64_t x);
   void SetDP(int size);
-  KANGAROO *Create(int type);
+  KANGAROO *Create(int type,bool lock=true);
 
   std::string GetTimeStr(double s);
 

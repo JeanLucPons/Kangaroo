@@ -230,7 +230,7 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 #ifdef WIN64
             ::printf("[%d] %s [0x%016I64X]\n",j,gpuFound[j].x.GetBase16().c_str(),gpuFound[j].kIdx);
 #else
-            ::printf("[%d] %s [0x%" PRIx64 "]\n",j,gpuFound[j].x.GetBase16().c_str(),found[j].kIdx);
+            ::printf("[%d] %s [0x%" PRIx64 "]\n",j,gpuFound[j].x.GetBase16().c_str(),gpuFound[j].kIdx);
 #endif
             ::printf("[%d] %s \n",i,K[gpuFound[i].kIdx]->pos.x.GetBase16().c_str());
             return;
@@ -359,7 +359,7 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
               // Collision inside the same herd
               // We need to reset the kangaroo
               free(herd[g]);
-              herd[g] = Create(type);
+              herd[g] = Create(type,false);
               collisionInSameHerd++;
 
             } else {
@@ -435,7 +435,9 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
   int thId = ph->threadId;
   counters[thId] = 0;
 
-  vector<ITEM> hashFound;
+#ifdef WITHGPU
+
+  vector<ITEM> gpuFound;
   GPUEngine *gpu;
   Int *px;
   Int *py;
@@ -463,6 +465,7 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
   gpu->SetParams(dMask,jumpModulo);
   gpu->SetKangaroos(px,py,d);
+  gpu->callKernel();
 
   if(keyIdx == 0)
     ::printf("SolveKeyGPU Thread GPU#%d: 2^%.2f kangaroos\n",ph->gpuId,log2((double)nbKangaroo));
@@ -471,18 +474,18 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
   while(!endOfSearch) {
 
-    gpu->Launch(hashFound);
+    gpu->Launch(gpuFound);
     counters[thId] += nbKangaroo * NB_RUN;
 
-    if(hashFound.size() > 0) {
+    if(gpuFound.size() > 0) {
       
       LOCK(ghMutex);
 
-      for(int g=0;!endOfSearch && g<hashFound.size();g++) {
+      for(int g=0;!endOfSearch && g<gpuFound.size();g++) {
 
-        uint32_t kType = (uint32_t)(hashFound[g].kIdx % 2);
+        uint32_t kType = (uint32_t)(gpuFound[g].kIdx % 2);
 
-        if(hashTable.Add(&hashFound[g].x,&hashFound[g].d,kType)) {
+        if(hashTable.Add(&gpuFound[g].x,&gpuFound[g].d,kType)) {
 
           uint32_t type = hashTable.GetType();
 
@@ -490,8 +493,8 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
             // Collision inside the same herd
             // We need to reset the kangaroo
-            KANGAROO *K = Create(kType);
-            gpu->SetKangaroo(hashFound[g].kIdx,&K->pos.x,&K->pos.y,&K->distance);
+            KANGAROO *K = Create(kType,false);
+            gpu->SetKangaroo(gpuFound[g].kIdx,&K->pos.x,&K->pos.y,&K->distance);
             free(K);
             collisionInSameHerd++;
 
@@ -501,11 +504,11 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
             Int pk(&rangeStart);
 
             if(kType == TAME) {
-              pk.ModAddK1order(&hashFound[g].d);
+              pk.ModAddK1order(&gpuFound[g].d);
               pk.ModSubK1order(hashTable.GetD());
             } else {
               pk.ModAddK1order(hashTable.GetD());
-              pk.ModSubK1order(&hashFound[g].d);
+              pk.ModSubK1order(&gpuFound[g].d);
             }
 
             Point P = secp->ComputePublicKey(&pk);
@@ -533,7 +536,7 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
                 ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
                 // Should not happen, reset the kangaroo
                 KANGAROO *K = Create(kType);
-                gpu->SetKangaroo(hashFound[g].kIdx,&K->pos.x,&K->pos.y,&K->distance);
+                gpu->SetKangaroo(gpuFound[g].kIdx,&K->pos.x,&K->pos.y,&K->distance);
                 free(K);
               }
 
@@ -554,6 +557,13 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
   delete py;
   delete d;
   delete gpu;
+
+#else
+
+  ph->hasStarted = true;
+
+#endif
+
   ph->isRunning = false;
 
 }
@@ -582,16 +592,19 @@ void *_SolveKeyGPU(void *lpParam) {
 
 // ----------------------------------------------------------------------------
 
-KANGAROO *Kangaroo::Create(int type) {
+KANGAROO *Kangaroo::Create(int type,bool lock) {
 
   // pos of WILD kangooro is keyToSolve + distance.G
   // pos of TAME kangooro is (startRange + distance).G
 
   KANGAROO *k = new KANGAROO;
   
+  if(lock) LOCK(ghMutex);
+  k->distance.Rand(rangePower);
+  if(lock) UNLOCK(ghMutex);
+
   if( type==TAME ) {
 
-    k->distance.Rand(rangePower);
     Int pk(&k->distance);
     pk.Add(&rangeStart);
     k->pos = secp->ComputePublicKey(&pk);
@@ -599,7 +612,6 @@ KANGAROO *Kangaroo::Create(int type) {
 
   } else {
 
-    k->distance.Rand(rangePower);
     Point o = secp->ComputePublicKey(&k->distance);
     k->pos = secp->AddDirect(keyToSearch,o);
     k->type = WILD;
