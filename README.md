@@ -1,6 +1,22 @@
 # Pollard's kangaroo for SECPK1
 
-A simple Pollard's kangaroo ECDLP solver for SECPK1
+A simple Pollard's kangaroo ECDLP solver for SECPK1.
+
+Usage:
+```
+Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
+         [-gpuId gpuId1[,gpuId2,...]] [-g g1x,g1y[,g2x,g2y,...]]
+         inFile
+ -v: Print version
+ -gpu: Enable gpu calculation
+ -gpu gpuId1,gpuId2,...: List of GPU(s) to use, default is 0
+ -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)
+ -d: Specify number of leading zeros for the DP method (default is auto)
+ -t nbThread: Secify number of thread
+ -l: List cuda enabled devices
+ -check: Check GPU kernel vs CPU
+ inFile: intput configuration file
+```
 
 Structure of the input file:
 * All values are in hex format
@@ -58,6 +74,73 @@ while not found</br>
 
 (t,w) = index of collision</br>
 K = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
+
+# Compilation
+
+## Windows
+
+Install CUDA SDK and open Kangaroo.sln in Visual C++ 2017.\
+You may need to reset your *Windows SDK version* in project properties.\
+In Build->Configuration Manager, select the *Release* configuration.\
+Build and enjoy.\
+\
+Note: The current release has been compiled with CUDA SDK 10.0, if you have a different release of the CUDA SDK, you may need to update CUDA SDK paths in Kangaroo.vcxproj using a text editor. The current nvcc option are set up to architecture starting at 3.0 capability, for older hardware, add the desired compute capabilities to the list in GPUEngine.cu properties, CUDA C/C++, Device, Code Generation.
+
+## Linux
+
+Install CUDA SDK.\
+Depending on the CUDA SDK version and on your Linux distribution you may need to install an older g++ (just for the CUDA SDK).\
+Edit the makefile and set up the good CUDA SDK path and appropriate compiler for nvcc. 
+
+```
+CUDA       = /usr/local/cuda-8.0
+CXXCUDA    = /usr/bin/g++-4.8
+```
+
+You can enter a list of architecture (refer to nvcc documentation) if you have several GPU with different architecture. Compute capability 2.0 (Fermi) is deprecated for recent CUDA SDK.
+Kangaroo need to be compiled and linked with a recent gcc (>=7). The current release has been compiled with gcc 7.3.0.\
+Go to the Kangaroo directory. ccap is the desired compute capability.
+
+```
+$ g++ -v
+gcc version 7.3.0 (Ubuntu 7.3.0-27ubuntu1~18.04)
+$ make all (for build without CUDA support)
+or
+$ make gpu=1 ccap=20 all
+```
+Runnig Kangaroo (Intel(R) Xeon(R) CPU, 8 cores,  @ 2.93GHz, Quadro 600 (x2))
+
+```
+$pons@linpons:~/Kangaroo$cat in.txt 
+0
+FFFFFFFFFFFFFF
+02E9F43F810784FF1E91D8BC7C4FF06BFEE935DA71D7350734C3472FE305FEF82A
+pons@linpons:~/Kangaroo$export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64
+pons@linpons:~/Kangaroo$./kangaroo -t 4 -gpu -gpuId 0,1 in.txt 
+Kangaroo v1.2
+Start:0
+Stop :FFFFFFFFFFFFFF
+Keys :1
+Number of CPU thread: 4
+Range width: 2^56
+Number of random walk: 2^16.64 (Max DP=9)
+DP size: 9 [0xff80000000000000]
+SolveKeyCPU Thread 0: 1024 kangaroos
+SolveKeyCPU Thread 2: 1024 kangaroos
+SolveKeyCPU Thread 1: 1024 kangaroos
+SolveKeyCPU Thread 3: 1024 kangaroos
+GPU: GPU #0 Quadro 600 (2x48 cores) Grid(4x96) (13.5 MB used)
+SolveKeyGPU Thread GPU#0: creating kangaroos...
+GPU: GPU #1 Quadro 600 (2x48 cores) Grid(4x96) (13.5 MB used)
+SolveKeyGPU Thread GPU#1: creating kangaroos...
+SolveKeyGPU Thread GPU#0: 2^15.58 kangaroos in 334.8ms
+SolveKeyGPU Thread GPU#1: 2^15.58 kangaroos in 364.7ms
+[22.67 MKey/s][GPU 13.04 MKey/s][Count 2^29.06][Dead 0][28s][89.1MB]  
+Key# 0 Pub:  0x02E9F43F810784FF1E91D8BC7C4FF06BFEE935DA71D7350734C3472FE305FEF82A 
+       Priv: 0x378ABDEC51BC5D 
+
+Done: Total time 29s 
+```
 
 # Example of usage
 
