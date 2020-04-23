@@ -37,6 +37,8 @@ void printUsage() {
   printf("         inFile\n");
   printf(" -v: Print version\n");
   printf(" -gpu: Enable gpu calculation\n");
+  printf(" -gpu gpuId1,gpuId2,...: List of GPU(s) to use, default is 0\n");
+  printf(" -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)\n");
   printf(" -d: Specify number of leading zeros for the DP method (default is auto)\n");
   printf(" -t nbThread: Secify number of thread\n");
   printf(" -l: List cuda enabled devices\n");
