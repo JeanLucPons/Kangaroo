@@ -154,6 +154,43 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
   jumpModulo = 128;
   rangePower = 256;
 
+  double t0;
+  double t1;
+  int nbKey = 16384;
+  vector<Point> pts1;
+  vector<Point> pts2;
+  vector<Int> priv;
+
+  for(int i=0;i<nbKey;i++) {
+    Int rnd;
+    rnd.Rand(256);
+    priv.push_back(rnd);
+  }
+
+  t0 = Timer::get_tick();
+  for(int i = 0; i<nbKey; i++)
+    pts1.push_back( secp->ComputePublicKey(&priv[i]) );
+  t1 = Timer::get_tick();
+  ::printf("ComputePublicKey %d : %.3f KKey/s\n",nbKey,(double)nbKey/((t1-t0)*1000.0));
+
+  t0 = Timer::get_tick();
+  pts2 = secp->ComputePublicKeys(priv);
+  t1 = Timer::get_tick();
+  ::printf("ComputePublicKeys %d : %.3f KKey/s\n",nbKey,(double)nbKey / ((t1 - t0)*1000.0));
+
+  bool ok = true;
+  int i = 0;
+  for(;ok && i<nbKey;) {
+    ok = pts1[i].equals(pts2[i]);
+    if(ok) i++;
+  }
+
+  if(!ok) {
+    ::printf("ComputePublicKeys wrong at %d\n",i);
+    ::printf("%s\n",pts1[i].toString().c_str());
+    ::printf("%s\n",pts2[i].toString().c_str());
+  }
+
 #ifdef WITHGPU
 
   // Check gpu
@@ -450,26 +487,62 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
     ::printf("SolveKeyGPU Thread GPU#%d: creating kangaroos...\n",ph->gpuId);
   }
 
+  double t0 = Timer::get_tick();
+
   // Create Kangaroos
-  uint64_t nbKangaroo = gpu->GetNbThread() * GPU_GRP_SIZE;
+  uint64_t nbThread = gpu->GetNbThread();
+  uint64_t nbKangaroo = nbThread * GPU_GRP_SIZE;
   px = new Int[nbKangaroo];
   py = new Int[nbKangaroo];
   d = new Int[nbKangaroo];
+  Point rgP = secp->ComputePublicKey(&rangeStart);
 
-  for(int j = 0; j<nbKangaroo; j++) {
-    KANGAROO *K = Create(j % 2);
-    px[j].Set(&K->pos.x);
-    py[j].Set(&K->pos.y);
-    d[j].Set(&K->distance);
-    free(K);
+  int k = 0;
+  for(uint64_t i = 0; i<nbThread; i++) {
+
+    vector<Int> pk;
+    vector<Point> S;
+    vector<Point> Sp;
+    pk.reserve(GPU_GRP_SIZE);
+    S.reserve(GPU_GRP_SIZE);
+    Sp.reserve(GPU_GRP_SIZE);
+
+    // Choose random starting distance
+    LOCK(ghMutex);
+    for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
+      d[i*GPU_GRP_SIZE + j].Rand(rangePower);
+      pk.push_back(d[i*GPU_GRP_SIZE + j]);
+    }
+    UNLOCK(ghMutex);
+
+    // Compute starting pos
+    S = secp->ComputePublicKeys(pk);
+
+    for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
+      if(j % 2 == TAME) {
+        Sp.push_back(rgP);
+      } else {
+        Sp.push_back(keyToSearch);
+      }
+    }
+
+    S = secp->AddDirect(Sp,S);
+
+    for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
+      px[i*GPU_GRP_SIZE + j].Set(&S[j].x);
+      py[i*GPU_GRP_SIZE + j].Set(&S[j].y);
+    }
+
   }
 
   gpu->SetParams(dMask,jumpModulo);
   gpu->SetKangaroos(px,py,d);
   gpu->callKernel();
 
+  double t1 = Timer::get_tick();
+
   if(keyIdx == 0)
-    ::printf("SolveKeyGPU Thread GPU#%d: 2^%.2f kangaroos\n",ph->gpuId,log2((double)nbKangaroo));
+    ::printf("SolveKeyGPU Thread GPU#%d: 2^%.2f kangaroos in %.1fms\n",ph->gpuId,log2((double)nbKangaroo),(t1-t0)*1000.0);
 
   ph->hasStarted = true;
 
@@ -607,7 +680,7 @@ KANGAROO *Kangaroo::Create(int type,bool lock) {
   if( type==TAME ) {
 
     Int pk(&k->distance);
-    pk.Add(&rangeStart);
+    pk.ModAddK1order(&rangeStart);
     k->pos = secp->ComputePublicKey(&pk);
     k->type = TAME;
 

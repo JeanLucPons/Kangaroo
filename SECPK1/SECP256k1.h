@@ -29,7 +29,8 @@ public:
   Secp256K1();
   ~Secp256K1();
   void  Init();
-  Point ComputePublicKey(Int *privKey);
+  Point ComputePublicKey(Int *privKey,bool reduce=true);
+  std::vector<Point> ComputePublicKeys(std::vector<Int> &privKeys);
   Point NextKey(Point &key);
   bool  EC(Point &p);
 
@@ -41,6 +42,8 @@ public:
   Point AddDirect(Point &p1, Point &p2);
   Point Double(Point &p);
   Point DoubleDirect(Point &p);
+
+  std::vector<Point> AddDirect(std::vector<Point> &p1,std::vector<Point> &p2);
 
   Point G;                 // Generator
   Int   order;             // Curve order

@@ -16,6 +16,7 @@
 */
 
 #include "SECP256k1.h"
+#include "IntGroup.h"
 #include <string.h>
 
 Secp256K1::Secp256K1() {
@@ -55,7 +56,7 @@ void Secp256K1::Init() {
 Secp256K1::~Secp256K1() {
 }
 
-Point Secp256K1::ComputePublicKey(Int *privKey) {
+Point Secp256K1::ComputePublicKey(Int *privKey,bool reduce) {
 
   int i = 0;
   uint8_t b;
@@ -68,8 +69,11 @@ Point Secp256K1::ComputePublicKey(Int *privKey) {
     if(b)
       break;
   }
-  Q = GTable[256 * i + (b-1)];
-  i++;
+
+  if(i<32) {
+    Q = GTable[256 * i + (b-1)];
+    i++;
+  }
 
   for(; i < 32; i++) {
     b = privKey->GetByte(i);
@@ -77,8 +81,35 @@ Point Secp256K1::ComputePublicKey(Int *privKey) {
       Q = Add2(Q, GTable[256 * i + (b-1)]);
   }
 
-  Q.Reduce();
+  if(reduce) Q.Reduce();
   return Q;
+
+}
+
+std::vector<Point> Secp256K1::ComputePublicKeys(std::vector<Int> &privKeys) {
+
+  std::vector<Point> pts;
+  IntGroup grp((int)privKeys.size());
+  Int *inv = new Int[privKeys.size()];
+  pts.reserve(privKeys.size());
+
+  for(int i=0;i<privKeys.size();i++) {
+    Point P = ComputePublicKey(&privKeys[i],false);
+    inv[i].Set(&P.z);
+    pts.push_back(P);
+  }
+
+  grp.Set(inv);
+  grp.ModInv();
+
+  for(int i = 0; i<privKeys.size(); i++) {
+    pts[i].x.ModMulK1(inv + i);
+    pts[i].y.ModMulK1(inv + i);
+    pts[i].z.SetInt32(1);
+  }
+
+  delete inv;
+  return pts;
 
 }
 
@@ -228,6 +259,66 @@ Point Secp256K1::AddDirect(Point &p1,Point &p2) {
   r.y.ModSub(&p2.y);       // ry = - p2.y - s*(ret.x-p2.x);  
 
   return r;
+
+}
+
+std::vector<Point> Secp256K1::AddDirect(std::vector<Point> &p1,std::vector<Point> &p2) {
+
+  if(p1.size()!=p2.size()) {
+    // Fatal error
+    ::printf("Secp256K1::AddDirect: vectors have not the same size\n");
+    exit(-1);
+  }
+
+  // Accept p1=0
+
+  int size = (int)p1.size();
+
+  std::vector<Point> pts;
+  IntGroup grp(size);
+  Int *dx = new Int[size];
+  pts.reserve(size);
+
+  Int _s;
+  Int _p;
+  Int dy;
+  Point r;
+
+  // Compute DX
+  for(int i=0;i<size;i++) {
+    dx[i].ModSub(&p2[i].x,&p1[i].x);
+  }
+  grp.Set(dx);
+  grp.ModInv();
+
+  for(int i = 0; i<size; i++) {
+
+    if(p1[i].x.IsZero()) {
+
+      pts.push_back(p2[i]);
+
+    } else {
+
+      dy.ModSub(&p2[i].y,&p1[i].y);
+      _s.ModMulK1(&dy,&dx[i]);     // s = (p2.y-p1.y)*inverse(p2.x-p1.x);
+
+      _p.ModSquareK1(&_s);       // _p = pow2(s)
+
+      r.x.ModSub(&_p,&p1[i].x);
+      r.x.ModSub(&p2[i].x);       // rx = pow2(s) - p1.x - p2.x;
+
+      r.y.ModSub(&p2[i].x,&r.x);
+      r.y.ModMulK1(&_s);
+      r.y.ModSub(&p2[i].y);       // ry = - p2.y - s*(ret.x-p2.x);  
+
+      pts.push_back(r);
+
+    }
+
+  }
+
+  delete dx;
+  return pts;
 
 }
 
