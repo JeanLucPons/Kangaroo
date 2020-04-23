@@ -134,6 +134,9 @@ private:
   bool endOfSearch;
   bool useGpu;
 
+  Int jumpDistance[129];
+  Point jumpPoint[129];
+
 };
 
 #endif // KANGAROOH
