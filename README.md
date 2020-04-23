@@ -39,6 +39,12 @@ ex
 0335BB25364370D4DD14A9FC2B406D398C4B53C85BE58FCC7297BD34004602EBEC
 ```
 
+# Note on Time/Memory tradeoff of the DP method
+
+The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dp zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.
+This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is (in average) nbKangaroo*2^dp until a collision is detected. If dp is too small a large number of point will enter in the central table and will decrease performance.
+**Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
+
 # How it works
 
 The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the 
