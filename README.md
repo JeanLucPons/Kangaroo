@@ -54,6 +54,7 @@ herds have the same size. To detect collision, the distinguished points method i
 Here is a brief description of the algorithm:
 
 We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
+Group operation are addition on elliptic curve, scalar operation are modulo order of the curve.
 
 n = floor(log2(sqrt(k2-k1)))+1
 
@@ -61,25 +62,28 @@ n = floor(log2(sqrt(k2-k1)))+1
 * Create a jump distance table jD = [1,2,4,8,....,2^n]
  
 for all i in herdSize</br>
-&nbsp;&nbsp;tame<sub>i</sub> = rand(0..(k2-k1))</br>
-&nbsp;&nbsp;tamePos<sub>i</sub> = (k1+tame<sub>i</sub>).G # Group operation</br>
-&nbsp;&nbsp;wild<sub>i</sub> = rand(0..(k2-k1))</br>
-&nbsp;&nbsp;wildPos<sub>i</sub> = P + wild<sub>i</sub>.G # Group operation</br>
+&nbsp;&nbsp;tame<sub>i</sub> = rand(0..(k2-k1)) <em># Scalar operation</em></br>
+&nbsp;&nbsp;tamePos<sub>i</sub> = (k1+tame<sub>i</sub>).G <em># Group operation</em></br>
+&nbsp;&nbsp;wild<sub>i</sub> = rand(0..(k2-k1)) - (k2-k1)/2 <em># Scalar operation</em></br>
+&nbsp;&nbsp;wildPos<sub>i</sub> = P + wild<sub>i</sub>.G <em># Group operation</em></br>
 
 found = false</br>
 
 while not found</br>
 &nbsp;&nbsp;for all i in herdSize</br>
-&nbsp;&nbsp;&nbsp;&nbsp;  tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n] # Group operation</br>
-&nbsp;&nbsp;&nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n]</br>
-&nbsp;&nbsp;&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n] # Group operation</br>
-&nbsp;&nbsp;&nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n]</br>
-&nbsp;&nbsp;&nbsp;&nbsp;  add (tamePos<sub>i</sub>,tame<sub>i</sub>) and (wildPos<sub>i</sub>,wild<sub>i</sub>) to hashTable</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  tamePos<sub>i</sub> = tamePos<sub>i</sub> + jP[tamePos<sub>i</sub>.x % n] <em># Group operation</em></br>
+&nbsp;&nbsp;&nbsp;&nbsp;  tame<sub>i</sub> += jD[tamePos<sub>i</sub>.x % n] <em># Scalar operation</em></br>
+&nbsp;&nbsp;&nbsp;&nbsp;  wildPos<sub>i</sub> = wildPos<sub>i</sub> + jP[wildPos<sub>i</sub>.x % n] <em># Group operation</em></br>
+&nbsp;&nbsp;&nbsp;&nbsp;  wild<sub>i</sub> += jD[wildPos<sub>i</sub>.x % n] <em># Scalar operation</em></br>
+&nbsp;&nbsp;&nbsp;&nbsp;  if tamePos<sub>i</sub> is distinguished</br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  add (TAME,tamePos<sub>i</sub>,tame<sub>i</sub>) to hashTable</br>
+&nbsp;&nbsp;&nbsp;&nbsp;  if wildPos<sub>i</sub> is distinguished</br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  add (WILD,wildPos<sub>i</sub>,wild<sub>i</sub>) to hashTable</br>
 &nbsp;&nbsp;found = is there a collision in hashTable between a tame and a wild kangaroo ?</br>
 </br>
 
 (t,w) = index of collision</br>
-K = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
+k = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
 
 # Compilation
 
