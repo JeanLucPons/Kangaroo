@@ -24,6 +24,7 @@
       <Filter>SECPK1</Filter>
     </ClCompile>
     <ClCompile Include="..\Thread.cpp" />
+    <ClCompile Include="..\Check.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Timer.h" />
