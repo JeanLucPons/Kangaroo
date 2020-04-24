@@ -24,7 +24,7 @@
 #include <string.h>
 #include <stdexcept>
 
-#define RELEASE "1.2"
+#define RELEASE "1.3"
 
 using namespace std;
 
