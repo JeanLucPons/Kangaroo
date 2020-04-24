@@ -337,6 +337,12 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
     LOCK(ghMutex);
     for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
       d[i*GPU_GRP_SIZE + j].Rand(rangePower);
+      if(j % 2 == WILD) {
+        // Spread Wild kangoroos with a halfwidht translation
+        d[i*GPU_GRP_SIZE + j].Sub(&rangeHalfWidth);
+        if(d[i*GPU_GRP_SIZE + j].IsNegative())
+          d[i*GPU_GRP_SIZE + j].Add(&secp->order);
+      }
       pk.push_back(d[i*GPU_GRP_SIZE + j]);
     }
     UNLOCK(ghMutex);
@@ -567,12 +573,13 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 #endif
 
   // Set starting parameters
-  Int range(&rangeEnd);
-  range.Sub(&rangeStart);
-  rangePower = range.GetBitLength();
+  rangeHalfWidth.Set(&rangeEnd);
+  rangeHalfWidth.Sub(&rangeStart);
+  rangePower = rangeHalfWidth.GetBitLength();
   ::printf("Range width: 2^%d\n",rangePower);
   jumpModulo = rangePower/2 + 1;
-  if(jumpModulo>129) jumpModulo = 129;
+  if(jumpModulo>128) jumpModulo = 128;
+  rangeHalfWidth.ShiftR(1);
 
   // Compute optimal distinguished bits number.
   // If dp is too large comparing to the total number of parallel random walks

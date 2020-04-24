@@ -121,6 +121,7 @@ private:
   double startTime;
 
   Int rangeStart;
+  Int rangeHalfWidth;
   Int rangeEnd;
   uint64_t jumpModulo;
   uint64_t dMask;
