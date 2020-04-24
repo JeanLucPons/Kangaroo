@@ -517,6 +517,10 @@ KANGAROO *Kangaroo::Create(int type,bool lock) {
 
   } else {
 
+    // Spread Wild kangoroos with a halfwidht translation
+    k->distance.Sub(&rangeHalfWidth);
+    if(k->distance.IsNegative())
+      k->distance.Add(&secp->order);
     Point o = secp->ComputePublicKey(&k->distance);
     k->pos = secp->AddDirect(keyToSearch,o);
     k->type = WILD;
