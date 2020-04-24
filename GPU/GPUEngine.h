@@ -25,7 +25,7 @@
 #define ITEM_SIZE32 (ITEM_SIZE/4)
 
 #define GPU_GRP_SIZE 128
-#define NB_RUN 4
+#define NB_RUN 16
 
 typedef struct {
   Int x;

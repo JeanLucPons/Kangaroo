@@ -19,7 +19,7 @@
 
 // -----------------------------------------------------------------------------------------
 
-__device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *out,uint64_t dpMask,uint64_t jumpModulo) {
+__device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *out,uint64_t dpMask,uint64_t jumpModulo64) {
 
   uint64_t px[GPU_GRP_SIZE][4];
   uint64_t py[GPU_GRP_SIZE][4];
@@ -31,6 +31,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
   uint64_t ry[4];
   uint64_t _s[4];
   uint64_t _p[4];
+  uint8_t jmpModulo = (uint8_t)jumpModulo64;
 
   __syncthreads();
   LoadKangaroos(kangaroos,px,py,dist);
@@ -43,7 +44,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
     // P2 = kangaroo
 
     for(int g = 0; g < GPU_GRP_SIZE; g++) {
-      uint64_t jmp = (px[g][0] % jumpModulo);
+      uint8_t jmp = ((uint8_t)px[g][0] % jmpModulo);
       ModSub256(dx[g],px[g],jPx[jmp]);
     }
 
@@ -51,7 +52,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
 
     for(int g = 0; g < GPU_GRP_SIZE; g++) {
 
-      uint64_t jmp = (px[g][0] % jumpModulo);
+      uint8_t jmp = ((uint8_t)px[g][0] % jmpModulo);
 
       ModSub256(dy,py[g],jPy[jmp]);
       _ModMult(_s,dy,dx[g]);

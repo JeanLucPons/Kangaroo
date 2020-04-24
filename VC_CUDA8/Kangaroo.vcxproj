@@ -190,7 +190,9 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <Text Include="in.txt" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="..\GPU\GPUEngine.cu" />
+    <CudaCompile Include="..\GPU\GPUEngine.cu">
+      <CodeGeneration Condition="'$(Configuration)|$(Platform)'=='Release|x64'">compute_20,sm_20</CodeGeneration>
+    </CudaCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
