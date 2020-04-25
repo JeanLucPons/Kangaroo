@@ -585,22 +585,27 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   if(jumpModulo>128) jumpModulo = 128;
   rangeHalfWidth.ShiftR(1);
 
-  // Compute optimal distinguished bits number.
-  // If dp is too large comparing to the total number of parallel random walks
-  // an overload appears due to the fact that computed paths become too short
-  // and decrease significantly the probability that distiguised points collide 
-  // inside the centralized hash table.
+  // Compute optimal distinguished bits number (see README)
   totalRW += nbCPUThread * CPU_GRP_SIZE;
-  int optimalDP = (int)((double)rangePower / 2.0 - log2((double)totalRW) - 2);
+  int optimalDP = (int)((double)rangePower / 2.0 - log2((double)totalRW) - 1);
   if(optimalDP < 0) optimalDP = 0;
-  ::printf("Number of random walk: 2^%.2f (Max DP=%d)\n",log2((double)totalRW),optimalDP);
 
   if(initDPSize > optimalDP) {
     ::printf("Warning, DP is too large, it may cause significant overload.\n");
-    ::printf("Hint: decrease number of threads, gridSize, or decrese dp using -d.\n");
+    ::printf("Hint: decrease number of threads, gridSize, or decrease dp using -d.\n");
   }
   if(initDPSize < 0)
     initDPSize = optimalDP;
+
+  expectedNbOp =  pow(2.0,(double)rangePower/2.0 + 1.0) + pow(2.0,(double)initDPSize)*(double)totalRW;
+  expectedMem = (double)sizeof(HASH_ENTRY)*HASH_SIZE + 
+                (double)(sizeof(ENTRY)+sizeof(ENTRY *)) * (expectedNbOp/pow(2.0,(double)initDPSize));
+  expectedMem /= (1024.0*1024.0);
+
+  ::printf("Number of kangaroos: 2^%.2f\n",log2((double)totalRW));
+  ::printf("Suggested DP: %d\n",optimalDP);
+  ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
+  ::printf("Expected RAM: %.1fMB\n",expectedMem);
 
   SetDP(initDPSize);
 
@@ -631,7 +636,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 #endif
 
     // Wait for end
-    Process(params,"MKey/s");
+    Process(params,"MK/s");
     JoinThreads(thHandles,nbCPUThread + nbGPUThread);
     FreeHandles(thHandles,nbCPUThread + nbGPUThread);
     hashTable.Reset();

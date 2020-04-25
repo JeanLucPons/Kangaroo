@@ -223,15 +223,16 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
     }
     avgKeyRate /= (double)(nbSample);
     avgGpuKeyRate /= (double)(nbSample);
+    double expectedTime = expectedNbOp / avgKeyRate;
 
     if(isAlive(params)) {
 
-      printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s][%.1fMB]  ",
+      printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%.1fMB]  ",
         avgKeyRate / 1000000.0,unit.c_str(),
         avgGpuKeyRate / 1000000.0,unit.c_str(),
         log2((double)count),
         collisionInSameHerd,
-        GetTimeStr(t1 - startTime).c_str(),
+        GetTimeStr(t1 - startTime).c_str(),GetTimeStr(expectedTime).c_str(),
         hashTable.GetSizeMB()
         );
 

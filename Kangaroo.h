@@ -134,6 +134,8 @@ private:
   int keyIdx;
   bool endOfSearch;
   bool useGpu;
+  double expectedNbOp;
+  double expectedMem;
 
   Int jumpDistance[129];
   Point jumpPoint[129];
