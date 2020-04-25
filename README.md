@@ -59,8 +59,8 @@ Group operations are additions on the elliptic curve, scalar operations are done
 
 n = floor(log2(sqrt(k2-k1)))+1
 
-* Create a jump point table jP = [G,2G,4G,8G,...,2^nG], 
-* Create a jump distance table jD = [1,2,4,8,....,2^n]
+* Create a jump point table jP = [G,2G,4G,8G,...,2<sup>n-1</sup>.G]
+* Create a jump distance table jD = [1,2,4,8,....,2<sup>n-1</sup>]
  
 for all i in herdSize</br>
 &nbsp;&nbsp;tame<sub>i</sub> = rand(0..(k2-k1)) <em># Scalar operation</em></br>
