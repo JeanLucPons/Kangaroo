@@ -41,9 +41,10 @@ ex
 
 # Note on Time/Memory tradeoff of the DP method
 
-The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dp zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.
-This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo*2^dp until a collision is detected. If dp is too small a large number of point will enter in the central table and will decrease performance.
+The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dp zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.\
+This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dp</sup> until a collision is detected. If dp is too small a large number of point will enter in the central table, will decrease performance and quicly fill the RAM.
 **Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
+Yau can change manualy the dp size using the -d option, take in considration that it will require about nbKangaroo.2<sup>dp</sup> more operations to complete.
 
 # How it works
 
@@ -53,8 +54,8 @@ herds have the same size. To detect collision, the distinguished points method i
 
 Here is a brief description of the algorithm:
 
-We have to solve P = k.G, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.
-Group operation are addition on elliptic curve, scalar operation are modulo order of the curve.
+We have to solve P = k.G, P is the public key, we know that k lies in the range [k1,k2], G is the SecpK1 generator point.\
+Group operations are additions on the elliptic curve, scalar operations are done modulo the order of the curve.
 
 n = floor(log2(sqrt(k2-k1)))+1
 
@@ -82,8 +83,8 @@ while not found</br>
 &nbsp;&nbsp;found = is there a collision in hashTable between a tame and a wild kangaroo ?</br>
 </br>
 
-(t,w) = index of collision</br>
-k = k1 + tame<sub>t</sub> - wild<sub>w</sub></br>
+(Tame,Wild) = Collision</br>
+k = k1 + Tame.dist - Wild.dist</br>
 
 # Compilation
 
