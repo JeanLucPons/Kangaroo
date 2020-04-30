@@ -54,9 +54,6 @@
     <ClInclude Include="..\GPU\GPUCompute.h">
       <Filter>GPU</Filter>
     </ClInclude>
-    <ClInclude Include="..\GPU\GPUGroup.h">
-      <Filter>GPU</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="SECPK1">

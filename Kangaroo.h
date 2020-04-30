@@ -41,10 +41,6 @@ typedef pthread_t THREAD_HANDLE;
 
 class Kangaroo;
 
-// Group size
-#define CPU_GRP_SIZE 1024
-#define MAX_TWIN 1024
-
 #define TAME 0  // Tame kangaroo
 #define WILD 1  // Wild kangaroo
 
@@ -91,7 +87,8 @@ private:
 
   bool IsDP(uint64_t x);
   void SetDP(int size);
-  KANGAROO *Create(int type,bool lock=true);
+  void Create(KANGAROO *K,int type,bool lock=true);
+  void CreateJumpTable();
 
   std::string GetTimeStr(double s);
 
@@ -123,7 +120,6 @@ private:
   Int rangeStart;
   Int rangeHalfWidth;
   Int rangeEnd;
-  uint64_t jumpModulo;
   uint64_t dMask;
   uint32_t dpSize;
   int32_t initDPSize;
@@ -137,8 +133,11 @@ private:
   double expectedNbOp;
   double expectedMem;
 
-  Int jumpDistance[129];
-  Point jumpPoint[129];
+  Int jumpDistance[NB_JUMP];
+  Int jumpPointx[NB_JUMP];
+  Int jumpPointy[NB_JUMP];
+
+  int CPU_GRP_SIZE;
 
 };
 

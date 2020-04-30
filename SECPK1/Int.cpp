@@ -629,6 +629,22 @@ void Int::Mult(Int *a,uint32_t b) {
 
 // ------------------------------------------------
 
+double Int::ToDouble() {
+
+  double base = 1.0;
+  double sum = 0;
+  double pw32 = pow(2.0,32.0);
+  for(int i=0;i<NB32BLOCK;i++) {
+    sum += (double)(bits[i]) * base;
+    base *= pw32;
+  }
+
+  return sum;
+
+}
+
+// ------------------------------------------------
+
 static uint32_t bitLength(uint32_t dw) {
   
   uint32_t mask = 0x80000000;

@@ -33,7 +33,6 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 
   initDPSize = 8;
   SetDP(initDPSize);
-  jumpModulo = 128;
   rangePower = 256;
 
   double t0;
@@ -92,7 +91,7 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 
     int nb = h.GetNbThread() * GPU_GRP_SIZE;
 
-    vector<KANGAROO *> K;
+    vector<KANGAROO> K;
     Int *px = new Int[nb];
     Int *py = new Int[nb];
     Int *d = new Int[nb];
@@ -103,20 +102,25 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
     keyToSearch = secp->ComputePublicKey(&pk);
 
     for(int i = 0; i<nb; i++) {
-      K.push_back(Create(i % 2));
-      px[i].Set(&K[i]->pos.x);
-      py[i].Set(&K[i]->pos.y);
-      d[i].Set(&K[i]->distance);
+      KANGAROO k;
+      Create(&k,i % 2);
+      K.push_back(k);
+      px[i].Set(&K[i].pos.x);
+      py[i].Set(&K[i].pos.y);
+      d[i].Set(&K[i].distance);
     }
 
-    h.SetParams(dMask,jumpModulo);
+
+    CreateJumpTable();
+
+    h.SetParams(dMask,jumpDistance,jumpPointx,jumpPointy);
 
     h.SetKangaroos(px,py,d,false);
 
     // Test single
     uint64_t r = rndl() % nb;
-    K[r] = Create(r % 2);
-    h.SetKangaroo(r,&K[r]->pos.x,&K[r]->pos.y,&K[r]->distance);
+    Create(&K[r],r % 2);
+    h.SetKangaroo(r,&K[r].pos.x,&K[r].pos.y,&K[r].distance);
 
     h.Launch(gpuFound);
     h.GetKangaroos(px,py,d);
@@ -124,20 +128,23 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
     ::printf("DP found: %d\n",(int)gpuFound.size());
 
     // Do the same on CPU
+    Int _1;
+    _1.SetInt32(1);
     for(int r = 0; r<NB_RUN; r++) {
       for(int i = 0; i<nb; i++) {
-        uint64_t jmp = (K[i]->pos.x.bits64[0] % jumpModulo);
-        K[i]->pos = secp->AddDirect(K[i]->pos,jumpPoint[jmp]);
-        K[i]->distance.ModAddK1order(&jumpDistance[jmp]);
+        uint8_t jmp = (uint8_t)(K[i].pos.x.bits64[0] % NB_JUMP);
+        Point J(&jumpPointx[jmp],&jumpPointy[jmp],&_1);
+        K[i].pos = secp->AddDirect(K[i].pos,J);
+        K[i].distance.ModAddK1order(&jumpDistance[jmp]);
 
-        if(IsDP(K[i]->pos.x.bits64[3])) {
+        if(IsDP(K[i].pos.x.bits64[3])) {
 
           // Search for DP found
           bool found = false;
           int j = 0;
           while(!found && j<(int)gpuFound.size()) {
-            found = gpuFound[j].x.IsEqual(&K[i]->pos.x) &&
-              gpuFound[j].d.IsEqual(&K[i]->distance) &&
+            found = gpuFound[j].x.IsEqual(&K[i].pos.x) &&
+              gpuFound[j].d.IsEqual(&K[i].distance) &&
               gpuFound[j].kIdx == (uint64_t)i;
             if(!found) j++;
           }
@@ -152,7 +159,7 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 #else
             ::printf("[%d] %s [0x%" PRIx64 "]\n",j,gpuFound[j].x.GetBase16().c_str(),gpuFound[j].kIdx);
 #endif
-            ::printf("[%d] %s \n",i,K[gpuFound[i].kIdx]->pos.x.GetBase16().c_str());
+            ::printf("[%d] %s \n",i,K[gpuFound[i].kIdx].pos.x.GetBase16().c_str());
             return;
           }
 
@@ -165,15 +172,15 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
     int nbFault = 0;
     bool firstFaut = true;
     for(int i = 0; i<nb; i++) {
-      bool ok = px[i].IsEqual(&K[i]->pos.x) &&
-        py[i].IsEqual(&K[i]->pos.y) &&
-        d[i].IsEqual(&K[i]->distance);
+      bool ok = px[i].IsEqual(&K[i].pos.x) &&
+        py[i].IsEqual(&K[i].pos.y) &&
+        d[i].IsEqual(&K[i].distance);
       if(!ok) {
         nbFault++;
         if(firstFaut) {
-          ::printf("CPU Kx=%s\n",K[i]->pos.x.GetBase16().c_str());
-          ::printf("CPU Ky=%s\n",K[i]->pos.y.GetBase16().c_str());
-          ::printf("CPU Kd=%s\n",K[i]->distance.GetBase16().c_str());
+          ::printf("CPU Kx=%s\n",K[i].pos.x.GetBase16().c_str());
+          ::printf("CPU Ky=%s\n",K[i].pos.y.GetBase16().c_str());
+          ::printf("CPU Kd=%s\n",K[i].distance.GetBase16().c_str());
           ::printf("GPU Kx=%s\n",px[i].GetBase16().c_str());
           ::printf("GPU Ky=%s\n",py[i].GetBase16().c_str());
           ::printf("GPU Kd=%s\n",d[i].GetBase16().c_str());

@@ -28,15 +28,14 @@
 #include "../Timer.h"
 
 #include "GPUMath.h"
-#include "GPUGroup.h"
 #include "GPUCompute.h"
 
 // ---------------------------------------------------------------------------------------
 
-__global__ void comp_kangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *found,uint64_t dpMask,uint64_t jumpModulo) {
+__global__ void comp_kangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *found,uint64_t dpMask) {
 
   int xPtr = (blockIdx.x*blockDim.x*GPU_GRP_SIZE) * 12; // x[4] , y[4] , d[4]
-  ComputeKangaroos(kangaroos + xPtr,maxFound,found,dpMask,jumpModulo);
+  ComputeKangaroos(kangaroos + xPtr,maxFound,found,dpMask);
 
 }
 
@@ -140,6 +139,7 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
   inputKangarooPinned = NULL;
   outputItem = NULL;
   outputItemPinned = NULL;
+  jumpPinned = NULL;
 
   // Input kangaroos
   kangarooSize = nbThread * GPU_GRP_SIZE * 96;
@@ -171,6 +171,14 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
     return;
   }
 
+  // Jump array
+  jumpSize = NB_JUMP * 8 * 4;
+  err = cudaHostAlloc(&jumpPinned,jumpSize,cudaHostAllocMapped);
+  if(err != cudaSuccess) {
+    printf("GPUEngine: Allocate jump pinned memory: %s\n",cudaGetErrorString(err));
+    return;
+  }
+
   lostWarning = false;
   initialised = true;
 
@@ -183,12 +191,13 @@ GPUEngine::~GPUEngine() {
   if(inputKangarooPinned) cudaFreeHost(inputKangarooPinned);
   if(inputKangarooSinglePinned) cudaFreeHost(inputKangarooSinglePinned);
   if(outputItemPinned) cudaFreeHost(outputItemPinned);
+  if(jumpPinned) cudaFreeHost(jumpPinned);
 
 }
 
 
 int GPUEngine::GetMemory() {
-  return kangarooSize + outputSize;
+  return kangarooSize + outputSize + jumpSize;
 }
 
 
@@ -452,7 +461,7 @@ bool GPUEngine::callKernel() {
 
   // Call the kernel (Perform STEP_SIZE keys per thread)
   comp_kangaroos << < nbThread / nbThreadPerGroup,nbThreadPerGroup >> >
-      (inputKangaroo,maxFound,outputItem,dpMask,jumpModulo);
+      (inputKangaroo,maxFound,outputItem,dpMask);
 
   cudaError_t err = cudaGetLastError();
   if(err != cudaSuccess) {
@@ -464,9 +473,37 @@ bool GPUEngine::callKernel() {
 
 }
 
-void GPUEngine::SetParams(uint64_t dpMask,uint64_t jumpModulo) {
+void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
+  
   this->dpMask = dpMask;
-  this->jumpModulo = jumpModulo;
+
+  for(int i=0;i< NB_JUMP;i++)
+    memcpy(jumpPinned + 4*i,distance[i].bits64,32);
+  cudaMemcpyToSymbol(jD,jumpPinned,jumpSize);
+  cudaError_t err = cudaGetLastError();
+  if(err != cudaSuccess) {
+    printf("GPUEngine: SetParams: Failed to copy to constant memory: %s\n",cudaGetErrorString(err));
+    return;
+  }
+
+  for(int i = 0; i < NB_JUMP; i++)
+    memcpy(jumpPinned + 4 * i,px[i].bits64,32);
+  cudaMemcpyToSymbol(jPx,jumpPinned,jumpSize);
+  err = cudaGetLastError();
+  if(err != cudaSuccess) {
+    printf("GPUEngine: SetParams: Failed to copy to constant memory: %s\n",cudaGetErrorString(err));
+    return;
+  }
+
+  for(int i = 0; i < NB_JUMP; i++)
+    memcpy(jumpPinned + 4 * i,py[i].bits64,32);
+  cudaMemcpyToSymbol(jPy,jumpPinned,jumpSize);
+  err = cudaGetLastError();
+  if(err != cudaSuccess) {
+    printf("GPUEngine: SetParams: Failed to copy to constant memory: %s\n",cudaGetErrorString(err));
+    return;
+  }
+
 }
 
 bool GPUEngine::callKernelAndWait() {

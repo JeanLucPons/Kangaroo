@@ -17,7 +17,6 @@
   <ItemGroup>
     <ClInclude Include="..\GPU\GPUCompute.h" />
     <ClInclude Include="..\GPU\GPUEngine.h" />
-    <ClInclude Include="..\GPU\GPUGroup.h" />
     <ClInclude Include="..\GPU\GPUMath.h" />
     <ClInclude Include="..\HashTable.h" />
     <ClInclude Include="..\SECPK1\Int.h" />

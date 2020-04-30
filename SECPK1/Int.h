@@ -89,6 +89,8 @@ public:
   bool IsEven();
   bool IsOdd();
 
+  double ToDouble();
+
   // Modular arithmetic
 
   // Setup field

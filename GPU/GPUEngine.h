@@ -21,6 +21,8 @@
 #include <vector>
 #include "../SECPK1/SECP256k1.h"
 
+#define NB_JUMP 64
+
 #define ITEM_SIZE   72
 #define ITEM_SIZE32 (ITEM_SIZE/4)
 
@@ -39,7 +41,7 @@ public:
 
   GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t maxFound);
   ~GPUEngine();
-  void SetParams(uint64_t dpMask,uint64_t jumpModulo);
+  void SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py);
   void SetKangaroos(Int *px,Int *py,Int *d,bool freePinned = true);
   void GetKangaroos(Int *px,Int *py,Int *d);
   void SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d);
@@ -69,12 +71,13 @@ private:
   uint64_t *inputKangarooSinglePinned;
   uint32_t *outputItem;
   uint32_t *outputItemPinned;
+  uint64_t *jumpPinned;
   bool initialised;
   bool lostWarning;
   uint32_t maxFound;
   uint32_t outputSize;
+  uint32_t jumpSize;
   uint64_t dpMask;
-  uint64_t jumpModulo;
 
 };
 
