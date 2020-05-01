@@ -316,3 +316,8 @@ Key#15 Pub:  0x0355B95BEF84A6045A505D015EF15E136E0A31CC2AA00FA4BCA62E5DF215EE981
 
 Done: Total time 29:44
 ```
+
+# Articles
+
+ - [1] Using Equivalence Classes to Accelerate Solvingthe Discrete Logarithm Problem in a Short Interval
+       https://www.iacr.org/archive/pkc2010/60560372/60560372.pdf
