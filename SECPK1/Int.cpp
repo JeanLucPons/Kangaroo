@@ -18,6 +18,7 @@
 #include "Int.h"
 #include "IntGroup.h"
 #include <string.h>
+#include <math.h>
 #include <emmintrin.h>
 #include "../Timer.h"
 
