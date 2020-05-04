@@ -752,6 +752,20 @@ void Int::Rand(int nbit) {
 
 // ------------------------------------------------
 
+void Int::Rand(Int *randMax) {
+
+  int b = randMax->GetBitLength();
+  Int r;
+  r.Rand(b);
+  Int q(&r);
+  Int rem;
+  q.Div(randMax,&rem);
+  Set(&rem);
+
+}
+
+// ------------------------------------------------
+
 void Int::Div(Int *a,Int *mod) {
 
   if(a->IsGreater(this)) {

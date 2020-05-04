@@ -21,7 +21,7 @@
 #include <vector>
 #include "../SECPK1/SECP256k1.h"
 
-#define NB_JUMP 64
+#define NB_GPU_JUMP 32
 
 #define ITEM_SIZE   72
 #define ITEM_SIZE32 (ITEM_SIZE/4)

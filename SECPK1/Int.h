@@ -134,6 +134,8 @@ public:
   void ModAddK1order(Int *a,Int *b);
   void ModAddK1order(Int *a);
   void ModSubK1order(Int *a);
+  void ModNegK1order();
+  uint32_t ModPositiveK1();
 
   // Size
   int GetSize();
@@ -149,6 +151,7 @@ public:
   void SetDWord(int n, uint32_t b);
   void SetQWord(int n,uint64_t b);
   void Rand(int nbit);
+  void Rand(Int *randMax);
   void Set32Bytes(unsigned char *bytes);
   void MaskByte(int n);
 

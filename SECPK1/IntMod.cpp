@@ -1122,6 +1122,27 @@ void Int::ModSubK1order(Int *a) {
     Add(_O);
 }
 
+void Int::ModNegK1order() {
+  Neg();
+  Add(_O);
+}
+
+uint32_t Int::ModPositiveK1() {
+  
+  Int N(this);
+  Int D(this);
+  N.ModNeg();
+  D.Sub(&N);
+  if(D.IsNegative()) {
+    return 0;
+  } else {
+    Set(&N);
+    return 1;
+  }
+
+}
+
+
 void Int::ModMulK1order(Int *a) {
 
   Int t;

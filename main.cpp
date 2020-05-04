@@ -24,8 +24,6 @@
 #include <string.h>
 #include <stdexcept>
 
-#define RELEASE "1.4beta"
-
 using namespace std;
 
 // ------------------------------------------------------------------------------------------

@@ -18,6 +18,8 @@
 #ifndef KANGAROOH
 #define KANGAROOH
 
+#define RELEASE "1.4gamma"
+
 #include <string>
 #include <vector>
 #include "SECPK1/SECP256k1.h"
@@ -44,9 +46,11 @@ class Kangaroo;
 #define TAME 0  // Tame kangaroo
 #define WILD 1  // Wild kangaroo
 
+#define NB_JUMP 65536
+
 typedef struct {
 
-  int   type;      // Kangaroo type (TAME or WILD)
+  int   type;      // Kangaroo type (TAME+/- or WILD+/-)
   Point pos;       // Current position
   Int   distance;  // Travelled distance
 
@@ -89,6 +93,8 @@ private:
   void SetDP(int size);
   void Create(KANGAROO *K,int type,bool lock=true);
   void CreateJumpTable();
+  bool AddToTable(Int *pos,Int *dist,uint32_t kType);
+  bool CheckKey(Int d1,Int d2,uint8_t type);
 
   std::string GetTimeStr(double s);
 
@@ -118,7 +124,10 @@ private:
   double startTime;
 
   Int rangeStart;
-  Int rangeHalfWidth;
+  Int rangeWidth;
+  Int rangeWidthDiv2;
+  Int rangeWidthDiv4;
+  Int rangeWidthDiv8;
   Int rangeEnd;
   uint64_t dMask;
   uint32_t dpSize;
@@ -127,11 +136,13 @@ private:
   int rangePower;
   std::vector<Point> keysToSearch;
   Point keyToSearch;
+  Point keyToSearchNeg;
   int keyIdx;
   bool endOfSearch;
   bool useGpu;
   double expectedNbOp;
   double expectedMem;
+  uint64_t maxStep;
 
   Int jumpDistance[NB_JUMP];
   Int jumpPointx[NB_JUMP];

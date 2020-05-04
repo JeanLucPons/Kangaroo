@@ -137,6 +137,112 @@ void Kangaroo::SetDP(int size) {
 
 // ----------------------------------------------------------------------------
 
+bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
+
+  // Resolve equivalence collision
+
+  if(type & 0x1)
+    d1.ModNegK1order();
+  if(type & 0x2)
+    d2.ModNegK1order();
+
+  Int pk(&d1);
+  pk.ModAddK1order(&d2);
+
+  Point P = secp->ComputePublicKey(&pk);
+
+  if(P.equals(keyToSearch)) {
+    // Key solved    
+    pk.ModAddK1order(&rangeWidthDiv2);
+    pk.ModAddK1order(&rangeStart);    
+    Point PR = secp->ComputePublicKey(&pk);
+    ::printf("\nKey#%2d [%dN]Pub:  0x%s \n",keyIdx,type,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
+    if( PR.equals(keysToSearch[keyIdx]) ) {
+      ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+    } else {
+      ::printf("       Failed !\n");
+      return false;
+    }
+    return true;
+  }
+
+  if(P.equals(keyToSearchNeg)) {
+    // Key solved
+    pk.ModNegK1order();
+    pk.ModAddK1order(&rangeWidthDiv2);
+    pk.ModAddK1order(&rangeStart);
+    Point PR = secp->ComputePublicKey(&pk);
+    ::printf("\nKey#%2d [%dS]Pub:  0x%s \n",keyIdx,type,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
+    if(PR.equals(keysToSearch[keyIdx]) ) {
+      ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
+    } else {
+      ::printf("       Failed !\n");
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+
+}
+
+// ----------------------------------------------------------------------------
+
+bool Kangaroo::AddToTable(Int *pos,Int *dist,uint32_t kType) {
+
+  if(hashTable.Add(pos,dist,kType)) {
+
+    int type = hashTable.GetType();
+
+    if(type == kType) {
+
+      // Collision inside the same herd
+      return false;
+
+    } else {
+
+      Int Td;
+      Int Wd;
+
+      if(kType==TAME) {
+        Td.Set(dist);
+        Wd.Set(hashTable.GetD());
+      } else {
+        Td.Set(hashTable.GetD());
+        Wd.Set(dist);
+      }
+
+      endOfSearch = CheckKey(Td,Wd,0) || CheckKey(Td,Wd,1) || CheckKey(Td,Wd,2) || CheckKey(Td,Wd,3);
+
+      if(!endOfSearch) {
+
+        // Should not happen, reset the kangaroo
+        ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
+        if((int64_t)(Td.bits64[3])<0) {
+          Td.ModNegK1order();
+          ::printf("Found: Td-%s\n",Td.GetBase16().c_str());
+        } else {
+          ::printf("Found: Td %s\n",Td.GetBase16().c_str());
+        }
+        if((int64_t)(Wd.bits64[3])<0) {
+          Wd.ModNegK1order();
+          ::printf("Found: Td-%s\n",Wd.GetBase16().c_str());
+        } else {
+          ::printf("Found: Td %s\n",Wd.GetBase16().c_str());
+        }
+        return false;
+
+      }
+
+    }
+
+  }
+
+  return true;
+}
+
+// ----------------------------------------------------------------------------
+
 void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
   // Global init
@@ -145,8 +251,6 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
   // Create Kangaroos
   KANGAROO *herd = new KANGAROO[CPU_GRP_SIZE];
-  for(int j = 0; j<CPU_GRP_SIZE; j++)
-    Create(&herd[j],j%2);
 
   IntGroup *grp = new IntGroup(CPU_GRP_SIZE);
   Int *dx = new Int[CPU_GRP_SIZE];
@@ -166,111 +270,76 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
   while(!endOfSearch) {
 
-    for(int g = 0; g < CPU_GRP_SIZE; g++) {
+    for(int j = 0; j<CPU_GRP_SIZE; j++)
+      Create(&herd[j],j % 2);
 
-      uint64_t jmp = herd[g].pos.x.bits64[0] % NB_JUMP;
-      Int *p1x = &jumpPointx[jmp];
-      Int *p2x = &herd[g].pos.x;
-      dx[g].ModSub(p2x,p1x);
+    uint64_t cnt = 0;
+    while(!endOfSearch && cnt<maxStep) {
 
-    }
-    grp->Set(dx);
-    grp->ModInv();
+      for(int g = 0; g < CPU_GRP_SIZE; g++) {
 
-    for(int g = 0; g < CPU_GRP_SIZE; g++) {
+        uint64_t jmp = herd[g].pos.x.bits64[0] % NB_JUMP;
+        Int *p1x = &jumpPointx[jmp];
+        Int *p2x = &herd[g].pos.x;
+        dx[g].ModSub(p2x,p1x);
 
-      uint64_t jmp = herd[g].pos.x.bits64[0] % NB_JUMP;
-      Int *p1x = &jumpPointx[jmp];
-      Int *p1y = &jumpPointy[jmp];
-      Int *p2x = &herd[g].pos.x;
-      Int *p2y = &herd[g].pos.y;
+      }
+      grp->Set(dx);
+      grp->ModInv();
 
-      dy.ModSub(p2y,p1y);
-      _s.ModMulK1(&dy,&dx[g]);
-      _p.ModSquareK1(&_s);
+      for(int g = 0; g < CPU_GRP_SIZE; g++) {
 
-      rx.ModSub(&_p,p1x);
-      rx.ModSub(p2x);
+        uint64_t jmp = herd[g].pos.x.bits64[0] % NB_JUMP;
+        Int *p1x = &jumpPointx[jmp];
+        Int *p1y = &jumpPointy[jmp];
+        Int *p2x = &herd[g].pos.x;
+        Int *p2y = &herd[g].pos.y;
 
-      ry.ModSub(p2x,&rx);
-      ry.ModMulK1(&_s);
-      ry.ModSub(p2y);
+        dy.ModSub(p2y,p1y);
+        _s.ModMulK1(&dy,&dx[g]);
+        _p.ModSquareK1(&_s);
 
-      herd[g].pos.x.Set(&rx);
-      herd[g].pos.y.Set(&ry);
-      herd[g].distance.ModAddK1order(&jumpDistance[jmp]);
+        rx.ModSub(&_p,p1x);
+        rx.ModSub(p2x);
 
-    }
+        ry.ModSub(p2x,&rx);
+        ry.ModMulK1(&_s);
+        ry.ModSub(p2y);
 
-    for(int g = 0; g < CPU_GRP_SIZE && !endOfSearch; g++) {
+        herd[g].distance.ModAddK1order(&jumpDistance[jmp]);
 
-      if(IsDP(herd[g].pos.x.bits64[3])) {
-        LOCK(ghMutex);
-        if(!endOfSearch) {
-          if(hashTable.Add(&herd[g].pos.x,&herd[g].distance,herd[g].type)) {
+        // Equivalence symmetry class switch
+        if(ry.ModPositiveK1())
+          herd[g].distance.ModNegK1order();
 
-            int type = hashTable.GetType();
+        herd[g].pos.x.Set(&rx);
+        herd[g].pos.y.Set(&ry);
 
-            if(type == herd[g].type) {
-              
+      }
+
+      for(int g = 0; g < CPU_GRP_SIZE && !endOfSearch; g++) {
+
+        if(IsDP(herd[g].pos.x.bits64[3])) {
+          LOCK(ghMutex);
+          if(!endOfSearch) {
+
+            if(!AddToTable(&herd[g].pos.x,&herd[g].distance,herd[g].type)) {
               // Collision inside the same herd
               // We need to reset the kangaroo
-              Create(&herd[g],type,false);
+              Create(&herd[g],herd[g].type,false);
               collisionInSameHerd++;
-
-            } else {
-
-              // K = startRange + dtame - dwild
-              Int pk(&rangeStart);
-
-              if(herd[g].type==TAME) {
-                pk.ModAddK1order(&herd[g].distance);
-                pk.ModSubK1order(hashTable.GetD());
-              } else {
-                pk.ModAddK1order(hashTable.GetD());
-                pk.ModSubK1order(&herd[g].distance);
-              }
-              
-              Point P = secp->ComputePublicKey(&pk);
-
-              if(P.equals(keyToSearch)) {
-
-                // Key solved
-                ::printf("\nKey#%2d Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,P).c_str());
-                ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-                endOfSearch = true;
-
-              } else {
-                
-                // We may have the symetric key
-                pk.Neg();
-                pk.Add(&secp->order);
-                P = secp->ComputePublicKey(&pk);
-                if(P.equals(keyToSearch)) {
-                  // Key solved
-                  ::printf("\nKey#%2d Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,P).c_str());
-                  ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-                  endOfSearch = true;
-                } else {
-                  ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
-                  // Should not happen, reset the kangaroo
-                  Create(&herd[g],type);
-                }
-
-              }
-
             }
 
           }
-
+          UNLOCK(ghMutex);
         }
-        UNLOCK(ghMutex);
+
+        if(!endOfSearch) counters[thId] ++;
+        cnt++;
+
       }
 
-      if(!endOfSearch) counters[thId] ++;
-
     }
-
   }
 
   // Free
@@ -313,7 +382,8 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
   px = new Int[nbKangaroo];
   py = new Int[nbKangaroo];
   d = new Int[nbKangaroo];
-  Point rgP = secp->ComputePublicKey(&rangeStart);
+  Point Z;
+  Z.Clear();
 
   int k = 0;
   for(uint64_t i = 0; i<nbThread; i++) {
@@ -328,12 +398,10 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
     // Choose random starting distance
     LOCK(ghMutex);
     for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
-      d[i*GPU_GRP_SIZE + j].Rand(rangePower);
+      d[i*GPU_GRP_SIZE + j].Rand(rangePower-1);
       if(j % 2 == WILD) {
-        // Spread Wild kangoroos with a halfwidht translation
-        d[i*GPU_GRP_SIZE + j].Sub(&rangeHalfWidth);
-        if(d[i*GPU_GRP_SIZE + j].IsNegative())
-          d[i*GPU_GRP_SIZE + j].Add(&secp->order);
+        // Wild in [-N/4..N/4]
+        d[i*GPU_GRP_SIZE + j].ModSubK1order(&rangeWidthDiv4);
       }
       pk.push_back(d[i*GPU_GRP_SIZE + j]);
     }
@@ -344,7 +412,7 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
     for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
       if(j % 2 == TAME) {
-        Sp.push_back(rgP);
+        Sp.push_back(Z);
       } else {
         Sp.push_back(keyToSearch);
       }
@@ -355,6 +423,9 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
     for(uint64_t j = 0; j<GPU_GRP_SIZE; j++) {
       px[i*GPU_GRP_SIZE + j].Set(&S[j].x);
       py[i*GPU_GRP_SIZE + j].Set(&S[j].y);
+      // Equivalence symmetry class switch
+      if(py[i*GPU_GRP_SIZE + j].ModPositiveK1())
+        d[i*GPU_GRP_SIZE + j].ModNegK1order();
     }
 
   }
@@ -383,66 +454,15 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
         uint32_t kType = (uint32_t)(gpuFound[g].kIdx % 2);
 
-        if(hashTable.Add(&gpuFound[g].x,&gpuFound[g].d,kType)) {
-
-          uint32_t type = hashTable.GetType();
-
-          if(type == kType) {
-
-            // Collision inside the same herd
-            // We need to reset the kangaroo
-            KANGAROO K;
-            Create(&K,kType,false);
-            gpu->SetKangaroo(gpuFound[g].kIdx,&K.pos.x,&K.pos.y,&K.distance);
-            collisionInSameHerd++;
-
-          } else {
-
-            // K = startRange + dtame - dwild
-            Int pk(&rangeStart);
-
-            if(kType == TAME) {
-              pk.ModAddK1order(&gpuFound[g].d);
-              pk.ModSubK1order(hashTable.GetD());
-            } else {
-              pk.ModAddK1order(hashTable.GetD());
-              pk.ModSubK1order(&gpuFound[g].d);
-            }
-
-            Point P = secp->ComputePublicKey(&pk);
-
-            if(P.equals(keyToSearch)) {
-
-              // Key solved
-              ::printf("\nKey#%2d Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,P).c_str());
-              ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-              endOfSearch = true;
-
-            } else {
-
-              // We may have the symetric key
-              pk.Neg();
-              pk.Add(&secp->order);
-              P = secp->ComputePublicKey(&pk);
-              if(P.equals(keyToSearch)) {
-                // Key solved
-                ::printf("\nKey#%2d Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,P).c_str());
-                ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-                endOfSearch = true;
-              } else {
-                ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
-                // Should not happen, reset the kangaroo
-                KANGAROO K;
-                Create(&K,kType,false);
-                gpu->SetKangaroo(gpuFound[g].kIdx,&K.pos.x,&K.pos.y,&K.distance);
-              }
-
-            }
-
-          }
-
-
+        if(!AddToTable(&gpuFound[g].x,&gpuFound[g].d,kType)) {
+          // Collision inside the same herd
+          // We need to reset the kangaroo
+          KANGAROO K;
+          Create(&K,kType,false);
+          gpu->SetKangaroo(gpuFound[g].kIdx,&K.pos.x,&K.pos.y,&K.distance);
+          collisionInSameHerd++;
         }
+
       }
       UNLOCK(ghMutex);
     }
@@ -491,31 +511,29 @@ void *_SolveKeyGPU(void *lpParam) {
 
 void Kangaroo::Create(KANGAROO *k,int type,bool lock) {
 
-  // pos of WILD kangooro is keyToSolve + distance.G
-  // pos of TAME kangooro is (startRange + distance).G
-  
+  k->type = type;
+
   if(lock) LOCK(ghMutex);
-  k->distance.Rand(rangePower);
+  k->distance.Rand(rangePower - 1);
   if(lock) UNLOCK(ghMutex);
 
-  if( type==TAME ) {
+  if( type == TAME ) {
 
-    Int pk(&k->distance);
-    pk.ModAddK1order(&rangeStart);
-    k->pos = secp->ComputePublicKey(&pk);
-    k->type = TAME;
+    // Tame in [0..N/2]
+    k->pos = secp->ComputePublicKey(&k->distance);
 
   } else {
 
-    // Spread Wild kangoroos with a halfwidht translation
-    k->distance.Sub(&rangeHalfWidth);
-    if(k->distance.IsNegative())
-      k->distance.Add(&secp->order);
-    Point o = secp->ComputePublicKey(&k->distance);
-    k->pos = secp->AddDirect(keyToSearch,o);
-    k->type = WILD;
+    // Wild in [-N/4..N/4]
+    k->distance.ModSubK1order(&rangeWidthDiv4);
+    Point O = secp->ComputePublicKey(&k->distance);
+    k->pos = secp->AddDirect(keyToSearch,O);
 
   }
+
+  // Equivalence symmetry class switch
+  if(k->pos.y.ModPositiveK1())
+    k->distance.ModNegK1order();
 
 }
 
@@ -523,7 +541,7 @@ void Kangaroo::Create(KANGAROO *k,int type,bool lock) {
 
 void Kangaroo::CreateJumpTable() {
 
-  int jumpBit = rangePower / 2 + 1;
+  int jumpBit = rangePower / 2;
   if(jumpBit > 128) jumpBit = 128;
   int maxRetry = 100;
   bool ok = false;
@@ -534,20 +552,29 @@ void Kangaroo::CreateJumpTable() {
   //::printf("Jump Avg distance max: 2^%.2f\n",log2(maxAvg));
 
   // Kangaroo jumps
+
+  // Positive only
+  // The sign is switched by the symmetry class switch
   while(!ok && maxRetry>0 ) {
     Int totalDist;
     totalDist.SetInt32(0);
     for(int i = 0; i < NB_JUMP; ++i) {
       jumpDistance[i].Rand(jumpBit);
+      if(jumpDistance[i].IsZero())
+        jumpDistance[i].SetInt32(1);
       totalDist.Add(&jumpDistance[i]);
-      Point J = secp->ComputePublicKey(&jumpDistance[i]);
-      jumpPointx[i].Set(&J.x);
-      jumpPointy[i].Set(&J.y);
     }
-    distAvg = totalDist.ToDouble() / (double)NB_JUMP;
+    distAvg = totalDist.ToDouble() / (double)(NB_JUMP);
     ok = distAvg>minAvg && distAvg<maxAvg;
     maxRetry--;
   }
+
+  for(int i = 0; i < NB_JUMP; ++i) {
+    Point J = secp->ComputePublicKey(&jumpDistance[i]);
+    jumpPointx[i].Set(&J.x);
+    jumpPointy[i].Set(&J.y);
+  }
+
   if(!ok) {
     ::printf("Warning, jump Avg distance out of bounds: 2^%.2f (restart the program)\n",log2(distAvg));
   } else {
@@ -573,7 +600,11 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
     ::printf("GPU code not compiled, use -DWITHGPU when compiling.\n");
     nbGPUThread = 0;
   }
-
+#else
+  if( useGpu ) {
+    ::printf(RELEASE " does not suppors GPU\n" );
+    exit(0);
+  }
 #endif
 
   TH_PARAM *params = (TH_PARAM *)malloc((nbCPUThread + nbGPUThread) * sizeof(TH_PARAM));
@@ -584,19 +615,24 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   ::printf("Number of CPU thread: %d\n", nbCPUThread);
 
   // Set starting parameters
-  rangeHalfWidth.Set(&rangeEnd);
-  rangeHalfWidth.Sub(&rangeStart);
-  rangePower = rangeHalfWidth.GetBitLength();
+  rangeWidth.Set(&rangeEnd);
+  rangeWidth.Sub(&rangeStart);
+  rangePower = rangeWidth.GetBitLength();
   ::printf("Range width: 2^%d\n",rangePower);
-  rangeHalfWidth.ShiftR(1);
+  rangeWidthDiv2.Set(&rangeWidth);
+  rangeWidthDiv2.ShiftR(1);
+  rangeWidthDiv4.Set(&rangeWidthDiv2);
+  rangeWidthDiv4.ShiftR(1);
+  rangeWidthDiv8.Set(&rangeWidthDiv4);
+  rangeWidthDiv8.ShiftR(1);
 
   CreateJumpTable();
 
-//#define STATS
+#define STATS
 #ifdef STATS
-  CPU_GRP_SIZE = 131072;
 
-  for(CPU_GRP_SIZE = 1024; CPU_GRP_SIZE <= 131072; CPU_GRP_SIZE *=4) {
+  CPU_GRP_SIZE = 1024;
+  for(; CPU_GRP_SIZE <= 1024; CPU_GRP_SIZE *=4) {
 
     uint64_t totalCount = 0;
 #endif
@@ -632,7 +668,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
       initDPSize = suggestedDP;
 
     double N = pow(2.0,(double)rangePower);
-    double avg = 5.0 * sqrt(M_PI) / 4.0 * sqrt(N);
+    double avg = (2.0 * (2.0-sqrt(2.0))/sqrt(2.0)) * sqrt(M_PI) * sqrt(N) + (double)totalRW * pow(2.0,dpSize);
     double over = pow( 16.0 * N * pow(2.0,(double)initDPSize)*(double)totalRW , 1.0/3.0 );
     if(over>avg)
       expectedNbOp = over;
@@ -652,9 +688,18 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
     for(keyIdx = 0; keyIdx < keysToSearch.size(); keyIdx++) {
 
-      keyToSearch = keysToSearch[keyIdx];
+      Int SP;
+      SP.Set(&rangeStart);
+      SP.ModAddK1order(&rangeWidthDiv2);
+      Point RS = secp->ComputePublicKey(&SP);
+      RS.y.ModNeg();
+      keyToSearch = secp->AddDirect(keysToSearch[keyIdx] ,RS);
+      keyToSearchNeg = keyToSearch;
+      keyToSearchNeg.y.ModNeg();
+
       endOfSearch = false;
       collisionInSameHerd = 0;
+      maxStep = 1ULL<<30;
 
       // Lanch CPU threads
       for(int i = 0; i < nbCPUThread; i++) {
@@ -684,8 +729,9 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
 #ifdef STATS
 
-      totalCount += getCPUCount() + getGPUCount();
-      ::printf("[%3d] Avg:2^%.3f (2^%.3f)\n",keyIdx,log2((double)totalCount / (double)(keyIdx + 1)),log2(expectedNbOp));
+      uint64_t count = getCPUCount() + getGPUCount();
+      totalCount += count;
+      ::printf("[%3d] 2^%.3f Dead:%d Avg:2^%.3f (2^%.3f)\n",keyIdx, log2((double)count), collisionInSameHerd, log2((double)totalCount / (double)(keyIdx + 1)),log2(expectedNbOp));
     }
     string fName = "DP" + ::to_string(dpSize) + ".txt";
     FILE *f = fopen(fName.c_str(),"a");

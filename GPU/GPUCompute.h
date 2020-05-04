@@ -18,10 +18,10 @@
 // CUDA Kernel main function
 
 // Jump distance
-__device__ __constant__ uint64_t jD[NB_JUMP][4];
+__device__ __constant__ uint64_t jD[NB_GPU_JUMP][4];
 // jump points
-__device__ __constant__ uint64_t jPx[NB_JUMP][4];
-__device__ __constant__ uint64_t jPy[NB_JUMP][4];
+__device__ __constant__ uint64_t jPx[NB_GPU_JUMP][4];
+__device__ __constant__ uint64_t jPy[NB_GPU_JUMP][4];
 
 // -----------------------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
     // P2 = kangaroo
 
     for(int g = 0; g < GPU_GRP_SIZE; g++) {
-      jmp = px[g][0] % NB_JUMP;
+      jmp = px[g][0] % NB_GPU_JUMP;
       ModSub256(dx[g],px[g],jPx[jmp]);
     }
 
@@ -58,7 +58,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
 
     for(int g = 0; g < GPU_GRP_SIZE; g++) {
 
-      jmp = px[g][0] % NB_JUMP;
+      jmp = px[g][0] % NB_GPU_JUMP;
 
       ModSub256(dy,py[g],jPy[jmp]);
       _ModMult(_s,dy,dx[g]);

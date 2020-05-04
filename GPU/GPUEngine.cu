@@ -172,7 +172,7 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
   }
 
   // Jump array
-  jumpSize = NB_JUMP * 8 * 4;
+  jumpSize = NB_GPU_JUMP * 8 * 4;
   err = cudaHostAlloc(&jumpPinned,jumpSize,cudaHostAllocMapped);
   if(err != cudaSuccess) {
     printf("GPUEngine: Allocate jump pinned memory: %s\n",cudaGetErrorString(err));
@@ -477,7 +477,7 @@ void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
   
   this->dpMask = dpMask;
 
-  for(int i=0;i< NB_JUMP;i++)
+  for(int i=0;i< NB_GPU_JUMP;i++)
     memcpy(jumpPinned + 4*i,distance[i].bits64,32);
   cudaMemcpyToSymbol(jD,jumpPinned,jumpSize);
   cudaError_t err = cudaGetLastError();
@@ -486,7 +486,7 @@ void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
     return;
   }
 
-  for(int i = 0; i < NB_JUMP; i++)
+  for(int i = 0; i < NB_GPU_JUMP; i++)
     memcpy(jumpPinned + 4 * i,px[i].bits64,32);
   cudaMemcpyToSymbol(jPx,jumpPinned,jumpSize);
   err = cudaGetLastError();
@@ -495,7 +495,7 @@ void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
     return;
   }
 
-  for(int i = 0; i < NB_JUMP; i++)
+  for(int i = 0; i < NB_GPU_JUMP; i++)
     memcpy(jumpPinned + 4 * i,py[i].bits64,32);
   cudaMemcpyToSymbol(jPy,jumpPinned,jumpSize);
   err = cudaGetLastError();
