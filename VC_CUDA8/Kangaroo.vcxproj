@@ -159,9 +159,9 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\Constants.h" />
     <ClInclude Include="..\GPU\GPUCompute.h" />
     <ClInclude Include="..\GPU\GPUEngine.h" />
-    <ClInclude Include="..\GPU\GPUGroup.h" />
     <ClInclude Include="..\GPU\GPUMath.h" />
     <ClInclude Include="..\SECPK1\Int.h" />
     <ClInclude Include="..\SECPK1\IntGroup.h" />

@@ -33,7 +33,7 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 
   initDPSize = 8;
   SetDP(initDPSize);
-  rangePower = 256;
+  rangePower = 64;
 
   double t0;
   double t1;
@@ -42,6 +42,7 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
   vector<Point> pts2;
   vector<Int> priv;
 
+  // Check on ComputePublicKeys
   for(int i = 0; i<nbKey; i++) {
     Int rnd;
     rnd.Rand(256);
@@ -132,10 +133,23 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
     _1.SetInt32(1);
     for(int r = 0; r<NB_RUN; r++) {
       for(int i = 0; i<nb; i++) {
-        uint8_t jmp = (uint8_t)(K[i].pos.x.bits64[0] % NB_JUMP);
+        uint64_t jmp = (K[i].pos.x.bits64[0] % NB_JUMP);
+
+#ifdef USE_SYMMETRY
+        // Limit cycle
+        if(jmp == K[i].lastJump) jmp = (K[i].lastJump + 1) % NB_JUMP;
+#endif
+
         Point J(&jumpPointx[jmp],&jumpPointy[jmp],&_1);
         K[i].pos = secp->AddDirect(K[i].pos,J);
         K[i].distance.ModAddK1order(&jumpDistance[jmp]);
+
+#ifdef USE_SYMMETRY
+        // Equivalence symmetry class switch
+        if(K[i].pos.y.ModPositiveK1())
+          K[i].distance.ModNegK1order();
+        K[i].lastJump = jmp;
+#endif
 
         if(IsDP(K[i].pos.x.bits64[3])) {
 

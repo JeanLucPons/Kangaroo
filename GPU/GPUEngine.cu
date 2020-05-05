@@ -34,7 +34,7 @@
 
 __global__ void comp_kangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *found,uint64_t dpMask) {
 
-  int xPtr = (blockIdx.x*blockDim.x*GPU_GRP_SIZE) * 12; // x[4] , y[4] , d[4]
+  int xPtr = (blockIdx.x*blockDim.x*GPU_GRP_SIZE) * KSIZE; // x[4] , y[4] , d[4], lastJump
   ComputeKangaroos(kangaroos + xPtr,maxFound,found,dpMask);
 
 }
@@ -142,7 +142,7 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
   jumpPinned = NULL;
 
   // Input kangaroos
-  kangarooSize = nbThread * GPU_GRP_SIZE * 96;
+  kangarooSize = nbThread * GPU_GRP_SIZE * KSIZE * 8;
   err = cudaMalloc((void **)&inputKangaroo,kangarooSize);
   if(err != cudaSuccess) {
     printf("GPUEngine: Allocate input memory: %s\n",cudaGetErrorString(err));
@@ -172,7 +172,7 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
   }
 
   // Jump array
-  jumpSize = NB_GPU_JUMP * 8 * 4;
+  jumpSize = NB_JUMP * 8 * 4;
   err = cudaHostAlloc(&jumpPinned,jumpSize,cudaHostAllocMapped);
   if(err != cudaSuccess) {
     printf("GPUEngine: Allocate jump pinned memory: %s\n",cudaGetErrorString(err));
@@ -314,8 +314,8 @@ int GPUEngine::GetNbThread() {
 void GPUEngine::SetKangaroos(Int *px,Int *py,Int *d,bool freePinned) {
 
   // Sets the kangaroos of each thread
-  int gSize = 12 * GPU_GRP_SIZE;
-  int strideSize = nbThreadPerGroup * 12;
+  int gSize = KSIZE * GPU_GRP_SIZE;
+  int strideSize = nbThreadPerGroup * KSIZE;
   int nbBlock = nbThread / nbThreadPerGroup;
   int blockSize = nbThreadPerGroup * gSize;
   int idx = 0;
@@ -341,6 +341,11 @@ void GPUEngine::SetKangaroos(Int *px,Int *py,Int *d,bool freePinned) {
         inputKangarooPinned[b * blockSize + g * strideSize + t + 9 * nbThreadPerGroup] = d[idx].bits64[1];
         inputKangarooPinned[b * blockSize + g * strideSize + t + 10 * nbThreadPerGroup] = d[idx].bits64[2];
         inputKangarooPinned[b * blockSize + g * strideSize + t + 11 * nbThreadPerGroup] = d[idx].bits64[3];
+
+#ifdef USE_SYMMETRY
+        // Last jump
+        inputKangarooPinned[b * blockSize + g * strideSize + t + 12 * nbThreadPerGroup] = (uint64_t)NB_JUMP;
+#endif
 
         idx++;
       }
@@ -372,8 +377,8 @@ void GPUEngine::GetKangaroos(Int *px,Int *py,Int *d) {
   cudaMemcpy(inputKangarooPinned,inputKangaroo,kangarooSize,cudaMemcpyDeviceToHost);
 
   // Sets the kangaroos of each thread
-  int gSize = 12 * GPU_GRP_SIZE;
-  int strideSize = nbThreadPerGroup * 12;
+  int gSize = KSIZE * GPU_GRP_SIZE;
+  int strideSize = nbThreadPerGroup * KSIZE;
   int nbBlock = nbThread / nbThreadPerGroup;
   int blockSize = nbThreadPerGroup * gSize;
   int idx = 0;
@@ -417,14 +422,15 @@ void GPUEngine::GetKangaroos(Int *px,Int *py,Int *d) {
 
 void GPUEngine::SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d) {
 
-  int gSize = 12 * GPU_GRP_SIZE;
-  int strideSize = nbThreadPerGroup * 12;
+  int gSize = KSIZE * GPU_GRP_SIZE;
+  int strideSize = nbThreadPerGroup * KSIZE;
   int blockSize = nbThreadPerGroup * gSize;
 
   uint64_t t = kIdx % nbThreadPerGroup;
   uint64_t g = (kIdx / nbThreadPerGroup) % GPU_GRP_SIZE;
   uint64_t b = kIdx / (nbThreadPerGroup*GPU_GRP_SIZE);
 
+  // X
   inputKangarooSinglePinned[0] = px->bits64[0];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 0 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
   inputKangarooSinglePinned[0] = px->bits64[1];
@@ -434,6 +440,7 @@ void GPUEngine::SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d) {
   inputKangarooSinglePinned[0] = px->bits64[3];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 3 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
 
+  // Y
   inputKangarooSinglePinned[0] = py->bits64[0];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 4 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
   inputKangarooSinglePinned[0] = py->bits64[1];
@@ -443,6 +450,7 @@ void GPUEngine::SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d) {
   inputKangarooSinglePinned[0] = py->bits64[3];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 7 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
 
+  // D
   inputKangarooSinglePinned[0] = d->bits64[0];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 8 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
   inputKangarooSinglePinned[0] = d->bits64[1];
@@ -451,6 +459,12 @@ void GPUEngine::SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d) {
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 10 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
   inputKangarooSinglePinned[0] = d->bits64[3];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 11 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
+
+#ifdef USE_SYMMETRY
+  // Last jump
+  inputKangarooSinglePinned[0] = (uint64_t)NB_JUMP;
+  cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 12 * nbThreadPerGroup),inputKangarooSinglePinned,8,cudaMemcpyHostToDevice);
+#endif
 
 }
 
@@ -477,7 +491,7 @@ void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
   
   this->dpMask = dpMask;
 
-  for(int i=0;i< NB_GPU_JUMP;i++)
+  for(int i=0;i< NB_JUMP;i++)
     memcpy(jumpPinned + 4*i,distance[i].bits64,32);
   cudaMemcpyToSymbol(jD,jumpPinned,jumpSize);
   cudaError_t err = cudaGetLastError();
@@ -486,7 +500,7 @@ void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
     return;
   }
 
-  for(int i = 0; i < NB_GPU_JUMP; i++)
+  for(int i = 0; i < NB_JUMP; i++)
     memcpy(jumpPinned + 4 * i,px[i].bits64,32);
   cudaMemcpyToSymbol(jPx,jumpPinned,jumpSize);
   err = cudaGetLastError();
@@ -495,7 +509,7 @@ void GPUEngine::SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py) {
     return;
   }
 
-  for(int i = 0; i < NB_GPU_JUMP; i++)
+  for(int i = 0; i < NB_JUMP; i++)
     memcpy(jumpPinned + 4 * i,py[i].bits64,32);
   cudaMemcpyToSymbol(jPy,jumpPinned,jumpSize);
   err = cudaGetLastError();
@@ -558,7 +572,7 @@ bool GPUEngine::Launch(std::vector<ITEM> &hashFound,bool spinWait) {
   if(nbFound > maxFound) {
     // prefix has been lost
     if(!lostWarning) {
-      printf("\nWarning, %d items lost\nHint: Search with less threads (-g)\n",(nbFound - maxFound));
+      printf("\nWarning, %d items lost\nHint: Search with less threads (-g) or increse dp (-d)\n",(nbFound - maxFound));
       lostWarning = true;
     }
     nbFound = maxFound;

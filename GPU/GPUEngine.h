@@ -19,15 +19,17 @@
 #define GPUENGINEH
 
 #include <vector>
+#include "../Constants.h"
 #include "../SECPK1/SECP256k1.h"
 
-#define NB_GPU_JUMP 32
+#ifdef USE_SYMMETRY
+#define KSIZE 16
+#else
+#define KSIZE 12
+#endif
 
 #define ITEM_SIZE   72
 #define ITEM_SIZE32 (ITEM_SIZE/4)
-
-#define GPU_GRP_SIZE 128
-#define NB_RUN 16
 
 typedef struct {
   Int x;

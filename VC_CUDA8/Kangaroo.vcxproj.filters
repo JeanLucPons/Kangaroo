@@ -57,9 +57,7 @@
     <ClInclude Include="..\GPU\GPUCompute.h">
       <Filter>GPU</Filter>
     </ClInclude>
-    <ClInclude Include="..\GPU\GPUGroup.h">
-      <Filter>GPU</Filter>
-    </ClInclude>
+    <ClInclude Include="..\Constants.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\LICENSE.txt" />

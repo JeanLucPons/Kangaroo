@@ -161,7 +161,11 @@ int main(int argc, char* argv[]) {
 
   }
 
+#ifdef USE_SYMMETRY
   printf("Kangaroo v" RELEASE "\n");
+#else
+  printf("Kangaroo v" RELEASE " (with summetry)\n");
+#endif
 
   if(gridSize.size() == 0) {
     for(int i = 0; i < gpuId.size(); i++) {
