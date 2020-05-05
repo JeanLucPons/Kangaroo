@@ -162,9 +162,9 @@ int main(int argc, char* argv[]) {
   }
 
 #ifdef USE_SYMMETRY
-  printf("Kangaroo v" RELEASE "\n");
+  printf("Kangaroo v" RELEASE " (with symmetry)\n");
 #else
-  printf("Kangaroo v" RELEASE " (with summetry)\n");
+  printf("Kangaroo v" RELEASE "\n");
 #endif
 
   if(gridSize.size() == 0) {
