@@ -24,7 +24,7 @@
 // Use symmetry
 //#define USE_SYMMETRY
 
-// Number of ramdom jump
+// Number of random jumps
 // Max 512 for the GPU
 #define NB_JUMP 32
 
