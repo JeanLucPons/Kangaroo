@@ -84,7 +84,9 @@ bool Kangaroo::LoadWork(string &fileName) {
   Point key;
 
   // Read global param
-  ::fread(&initDPSize,sizeof(uint32_t),1,fRead);
+  uint32_t dp;
+  ::fread(&dp,sizeof(uint32_t),1,fRead);
+  if(initDPSize<0) initDPSize = dp;
   ::fread(&rangeStart.bits64,32,1,fRead); rangeStart.bits64[4] = 0;
   ::fread(&rangeEnd.bits64,32,1,fRead); rangeEnd.bits64[4] = 0;
   ::fread(&key.x.bits64,32,1,fRead); key.x.bits64[4] = 0;
