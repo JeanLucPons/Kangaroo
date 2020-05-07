@@ -426,9 +426,13 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
 #ifdef USE_SYMMETRY
   SP.ModAddK1order(&rangeWidthDiv2);
 #endif
-  Point RS = secp->ComputePublicKey(&SP);
-  RS.y.ModNeg();
-  keyToSearch = secp->AddDirect(keysToSearch[keyIdx],RS);
+  if(!SP.IsZero()) {
+    Point RS = secp->ComputePublicKey(&SP);
+    RS.y.ModNeg();
+    keyToSearch = secp->AddDirect(keysToSearch[keyIdx],RS);
+  } else {
+    keyToSearch = keysToSearch[keyIdx];
+  }
   keyToSearchNeg = keyToSearch;
   keyToSearchNeg.y.ModNeg();
   collisionInSameHerd = 0;

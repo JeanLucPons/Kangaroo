@@ -813,9 +813,13 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 #ifdef USE_SYMMETRY
       SP.ModAddK1order(&rangeWidthDiv2);
 #endif
-      Point RS = secp->ComputePublicKey(&SP);
-      RS.y.ModNeg();
-      keyToSearch = secp->AddDirect(keysToSearch[keyIdx] ,RS);
+      if(!SP.IsZero()) {
+        Point RS = secp->ComputePublicKey(&SP);
+        RS.y.ModNeg();
+        keyToSearch = secp->AddDirect(keysToSearch[keyIdx] ,RS);
+      } else {
+        keyToSearch = keysToSearch[keyIdx];
+      }
       keyToSearchNeg = keyToSearch;
       keyToSearchNeg.y.ModNeg();
 
