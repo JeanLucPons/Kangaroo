@@ -25,6 +25,7 @@
     </ClCompile>
     <ClCompile Include="..\Thread.cpp" />
     <ClCompile Include="..\Check.cpp" />
+    <ClCompile Include="..\Backup.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Timer.h" />
@@ -54,6 +55,7 @@
     <ClInclude Include="..\GPU\GPUCompute.h">
       <Filter>GPU</Filter>
     </ClInclude>
+    <ClInclude Include="..\Constants.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="SECPK1">

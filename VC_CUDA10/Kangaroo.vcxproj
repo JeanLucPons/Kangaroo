@@ -15,6 +15,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Constants.h" />
     <ClInclude Include="..\GPU\GPUCompute.h" />
     <ClInclude Include="..\GPU\GPUEngine.h" />
     <ClInclude Include="..\GPU\GPUMath.h" />
@@ -28,6 +29,7 @@
     <ClInclude Include="..\Kangaroo.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Backup.cpp" />
     <ClCompile Include="..\Check.cpp" />
     <ClCompile Include="..\HashTable.cpp" />
     <ClCompile Include="..\SECPK1\Int.cpp" />
