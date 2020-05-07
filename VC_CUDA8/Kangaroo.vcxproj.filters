@@ -28,6 +28,7 @@
       <Filter>GPU</Filter>
     </ClCompile>
     <ClCompile Include="..\Check.cpp" />
+    <ClCompile Include="..\Backup.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Timer.h" />

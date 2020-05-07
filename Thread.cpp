@@ -173,6 +173,7 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
   uint64_t lastGPUCount = 0;
   double avgKeyRate = 0.0;
   double avgGpuKeyRate = 0.0;
+  double lastSave = 0;
 
 #ifndef WIN64
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -192,10 +193,12 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
 
   // Wait that all threads have started
   while(!hasStarted(params))
-    Timer::SleepMillis(50);
+    Timer::SleepMillis(5);
 
   t0 = Timer::get_tick();
   startTime = t0;
+  lastGPUCount = getGPUCount();
+  lastCount = getCPUCount() + gpuCount;
 
   while(isAlive(params)) {
 
@@ -227,15 +230,22 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
 
     if(isAlive(params)) {
 
-      printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%.1fMB]  ",
+      printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%s]  ",
         avgKeyRate / 1000000.0,unit.c_str(),
         avgGpuKeyRate / 1000000.0,unit.c_str(),
-        log2((double)count),
+        log2((double)count + offsetCount),
         collisionInSameHerd,
-        GetTimeStr(t1 - startTime).c_str(),GetTimeStr(expectedTime).c_str(),
-        hashTable.GetSizeMB()
+        GetTimeStr(t1 - startTime + offsetTime).c_str(),GetTimeStr(expectedTime).c_str(),
+        hashTable.GetSizeInfo().c_str()
         );
 
+    }
+
+    if(workFile.length() > 0 && !endOfSearch) {
+      if((t1 - lastSave) > saveWorkPeriod) {
+        SaveWork(count + offsetCount,t1 - startTime + offsetTime,params,nbCPUThread + nbGPUThread);
+        lastSave = t1;
+      }
     }
 
     lastCount = count;
@@ -248,12 +258,12 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
   t1 = Timer::get_tick();
   
   if( !endOfSearch ) {
-    printf("\r[%.2f %s][GPU %.2f %s][Cnt 2^%.2f][%s][%.1fMB]  ",
+    printf("\r[%.2f %s][GPU %.2f %s][Cnt 2^%.2f][%s][%s]  ",
       avgKeyRate / 1000000.0,unit.c_str(),
       avgGpuKeyRate / 1000000.0,unit.c_str(),
       log2((double)count),
       GetTimeStr(t1 - startTime).c_str(),
-      hashTable.GetSizeMB()
+      hashTable.GetSizeInfo().c_str()
       );
   }
 

@@ -25,27 +25,28 @@
 #include <Windows.h>
 #endif
 
-#define HASH_SIZE_BIT 16
+#define HASH_SIZE_BIT 18
 #define HASH_SIZE (1<<HASH_SIZE_BIT)
 #define HASH_MASK (HASH_SIZE-1)
 
 
-union int256_s {
+union int128_s {
 
-  uint8_t  i8[32];
-  uint16_t i16[16];
-  uint32_t i32[8];
-  uint64_t i64[4];
+  uint8_t  i8[16];
+  uint16_t i16[8];
+  uint32_t i32[4];
+  uint64_t i64[2];
 
 };
 
-typedef union int256_s int256_t;
+typedef union int128_s int128_t;
+
+// We store only 128 (+18) bit a the x value which give a probabilty a wrong collision after 2^73 entries
 
 typedef struct {
 
-  uint32_t  type; // Kangoroo type
-  int256_s  x;    // Poisition of kangaroo
-  int256_s  d;    // Travelled distance
+  int128_t  x;    // Poisition of kangaroo (128bit LSB)
+  int128_t  d;    // Travelled distance (b127=sign b126=kangaroo type, b125..b0 distance
 
 } ENTRY;
 
@@ -63,21 +64,23 @@ public:
 
   HashTable();
   bool Add(Int *x,Int *d,uint32_t type);
-  ENTRY *CreateEntry(int256_t *i,int256_t *d,uint32_t type);
-  int compare(int256_t *i1,int256_t *i2);
   uint64_t GetNbItem();
   void Reset();
-  double GetSizeMB();
+  std::string GetSizeInfo();
   void PrintInfo();
-
+  void SaveTable(FILE *f);
+  void LoadTable(FILE *f);
   Int *GetD();
   uint32_t GetType();
 
+  HASH_ENTRY    E[HASH_SIZE];
+
 private:
 
-  std::string GetStr(int256_t *i);
+  ENTRY *CreateEntry(Int *x,Int *d,uint64_t type);
+  int compare(int128_t *i1,int128_t *i2);
+  std::string GetStr(int128_t *i);
 
-  HASH_ENTRY    E[HASH_SIZE];
 
   // Collision
   Int      kDist;

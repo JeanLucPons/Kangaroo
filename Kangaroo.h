@@ -41,15 +41,6 @@ typedef pthread_t THREAD_HANDLE;
 
 class Kangaroo;
 
-typedef struct {
-
-  int   type;        // Kangaroo type (TAME+/- or WILD+/-)
-  uint64_t lastJump; // Last jump
-  Point pos;         // Current position
-  Int   distance;    // Travelled distance
-
-} KANGAROO;
-
 // Input thread parameters
 typedef struct {
 
@@ -58,11 +49,20 @@ typedef struct {
   bool isRunning;
   bool hasStarted;
   bool isWaiting;
+  uint64_t nbKangaroo;
 
 #ifdef WITHGPU
   int  gridSizeX;
   int  gridSizeY;
   int  gpuId;
+#endif
+
+  Int *px; // Kangaroo position
+  Int *py; // Kangaroo position
+  Int *distance; // Travelled distance
+
+#ifdef USE_SYMMETRY
+  uint64_t *lastJump; // Last jump
 #endif
 
 } TH_PARAM;
@@ -72,10 +72,12 @@ class Kangaroo {
 
 public:
 
-  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu);
+  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,uint32_t savePeriod,bool saveKangaroo);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
-  bool ParseConfigFile(std::string fileName);
+  bool ParseConfigFile(std::string &fileName);
+  bool LoadWork(std::string &fileName);
   void Check(std::vector<int> gpuId,std::vector<int> gridSize);
+  void MergeWork(std::string &file1,std::string &file2,std::string &dest);
 
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);
@@ -85,19 +87,27 @@ private:
 
   bool IsDP(uint64_t x);
   void SetDP(int size);
-  void Create(KANGAROO *K,int type,bool lock=true);
+  void CreateHerd(int nbKangaroo,Int *px, Int *py, Int *d, int firstType,bool lock=true);
   void CreateJumpTable();
   bool AddToTable(Int *pos,Int *dist,uint32_t kType);
   bool CheckKey(Int d1,Int d2,uint8_t type);
   void ComputeExpected(double dp,double *op,double *ram);
 
+  void SaveWork(std::string fileName);
+  void SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread);
+  void FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d);
+  void FectchKangaroos(TH_PARAM *threads);
+  FILE *ReadHeader(std::string fileName,uint32_t *version = NULL);
+
   std::string GetTimeStr(double s);
 
 #ifdef WIN64
   HANDLE ghMutex;
+  HANDLE saveMutex;
   THREAD_HANDLE LaunchThread(LPTHREAD_START_ROUTINE func,TH_PARAM *p);
 #else
   pthread_mutex_t  ghMutex;
+  pthread_mutex_t  saveMutex;
   THREAD_HANDLE LaunchThread(void *(*func) (void *), TH_PARAM *p);
 #endif
 
@@ -118,21 +128,23 @@ private:
   int  nbGPUThread;
   double startTime;
 
+  // Range
+  int rangePower;
   Int rangeStart;
   Int rangeEnd;
   Int rangeWidth;
   Int rangeWidthDiv2;
   Int rangeWidthDiv4;
   Int rangeWidthDiv8;
+
   uint64_t dMask;
   uint32_t dpSize;
   int32_t initDPSize;
   int collisionInSameHerd;
-  int rangePower;
   std::vector<Point> keysToSearch;
   Point keyToSearch;
   Point keyToSearchNeg;
-  int keyIdx;
+  uint32_t keyIdx;
   bool endOfSearch;
   bool useGpu;
   double expectedNbOp;
@@ -145,6 +157,17 @@ private:
   Int jumpPointy[NB_JUMP];
 
   int CPU_GRP_SIZE;
+
+  // Backup stuff
+  FILE *fRead;
+  uint64_t offsetCount;
+  double offsetTime;
+  int64_t nbLoadedWalk;
+  std::string workFile;
+  std::string inputFile;
+  int  saveWorkPeriod;
+  bool saveRequest;
+  bool saveKangaroo;
 
 };
 

@@ -39,6 +39,11 @@ void printUsage() {
   printf(" -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)\n");
   printf(" -d: Specify number of leading zeros for the DP method (default is auto)\n");
   printf(" -t nbThread: Secify number of thread\n");
+  printf(" -w workfile: Specify file to save work into (current processed key only)\n");
+  printf(" -i workfile: Specify file to load work from (current processed key only)\n");
+  printf(" -wi workInterval: Periodic interval (in seconds) for saving work\n");
+  printf(" -ws: Save kangaroos in the work file\n");
+  printf(" -wm file1 file2 destfile: Merge work file\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
   printf(" inFile: intput configuration file\n");
@@ -97,6 +102,22 @@ void getInts(string name,vector<int> &tokens,const string &text,char sep) {
 }
 // ------------------------------------------------------------------------------------------
 
+// Default params
+static int dp = -1;
+static int nbCPUThread;
+static string configFile = "";
+static bool checkFlag = false;
+static bool gpuEnable = false;
+static vector<int> gpuId = { 0 };
+static vector<int> gridSize;
+static string workFile = "";
+static string iWorkFile = "";
+static uint32_t savePeriod = 60;
+static bool saveKangaroo = false;
+static string merge1 = "";
+static string merge2 = "";
+static string mergeDest = "";
+
 int main(int argc, char* argv[]) {
 
   // Global Init
@@ -108,13 +129,7 @@ int main(int argc, char* argv[]) {
   secp->Init();
 
   int a = 1;
-  int dp = -1;
-  int nbCPUThread = Timer::getCoreNumber();
-  string configFile = "";
-  bool checkFlag = false;
-  bool gpuEnable = false;
-  vector<int> gpuId = { 0 };
-  vector<int> gridSize;
+  nbCPUThread = Timer::getCoreNumber();
 
   while (a < argc) {
 
@@ -137,6 +152,29 @@ int main(int argc, char* argv[]) {
 #endif
       exit(0);
 
+    } else if(strcmp(argv[a],"-w") == 0) {
+      a++;
+      workFile = string(argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-i") == 0) {
+      a++;
+      iWorkFile = string(argv[a]);
+      a++;
+    }  else if(strcmp(argv[a],"-wm") == 0) {
+      a++;
+      merge1 = string(argv[a]);
+      a++;
+      merge2 = string(argv[a]);
+      a++;
+      mergeDest = string(argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-wi") == 0) {
+      a++;
+      savePeriod = getInt("savePeriod",argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-ws") == 0) {
+      a++;
+      saveKangaroo = true;
     } else if(strcmp(argv[a],"-gpu") == 0) {
       gpuEnable = true;
       a++;
@@ -177,13 +215,24 @@ int main(int argc, char* argv[]) {
     exit(-1);
   }
 
-  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable);
+  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo);
   if(checkFlag) {
     v->Check(gpuId,gridSize);  
     exit(0);
   } else {
-    if( !v->ParseConfigFile(configFile) )
+    if(merge1.length()>0) {
+      v->MergeWork(merge1,merge2,mergeDest);
+      exit(0);
+    } if(iWorkFile.length()>0) {
+      if( !v->LoadWork(iWorkFile) )
+        exit(-1);
+    } else if(configFile.length()>0) {
+      if( !v->ParseConfigFile(configFile) )
+        exit(-1);
+    } else {
+      ::printf("No input file to process\n");
       exit(-1);
+    }
     v->Run(nbCPUThread,gpuId,gridSize);
   }
 

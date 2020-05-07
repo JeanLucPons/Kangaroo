@@ -54,12 +54,32 @@ uint64_t HashTable::GetNbItem() {
 
 }
 
-ENTRY *HashTable::CreateEntry(int256_t *i,int256_t *d,uint32_t type) {
+ENTRY *HashTable::CreateEntry(Int *x,Int *d,uint64_t type) {
+
   ENTRY *e = (ENTRY *)malloc(sizeof(ENTRY));
-  e->type = type;
-  e->x = *i;
-  e->d = *d;
+  uint64_t sign = 0;
+  type = type << 62;
+
+  e->x.i64[0] = x->bits64[0];
+  e->x.i64[1] = x->bits64[1];
+
+  // Probability of failure (1/2^128)
+  if(d->bits64[3] > 0x7FFFFFFFFFFFFFFFULL) {
+    Int N(d);
+    N.ModNegK1order();
+    e->d.i64[0] = N.bits64[0];
+    e->d.i64[1] = N.bits64[1] & 0x3FFFFFFFFFFFFFFFULL;
+    sign = 1ULL << 63;
+  } else {
+    e->d.i64[0] = d->bits64[0];
+    e->d.i64[1] = d->bits64[1] & 0x3FFFFFFFFFFFFFFFULL;
+  }
+
+  e->d.i64[1] |= sign;
+  e->d.i64[1] |= type;
+
   return e;
+
 }
 
 #define ADD_ENTRY(entry) {                 \
@@ -71,7 +91,7 @@ ENTRY *HashTable::CreateEntry(int256_t *i,int256_t *d,uint32_t type) {
 
 bool HashTable::Add(Int *x,Int *d,uint32_t type) {
 
-  uint64_t h = (x->bits64[3] & HASH_MASK);
+  uint64_t h = (x->bits64[2] & HASH_MASK);
 
   if(E[h].maxItem == 0) {
     E[h].maxItem = 16;
@@ -79,14 +99,14 @@ bool HashTable::Add(Int *x,Int *d,uint32_t type) {
   }
 
   if(E[h].nbItem == 0) {
-    E[h].items[0] = CreateEntry((int256_t *)(x->bits64),(int256_t *)(d->bits64),type);
+    E[h].items[0] = CreateEntry(x,d,type);
     E[h].nbItem = 1;
     return false;
   }
 
   if(E[h].nbItem >= E[h].maxItem - 1) {
     // We need to reallocate
-    E[h].maxItem += 16;
+    E[h].maxItem += 4;
     ENTRY **nitems = (ENTRY **)malloc(sizeof(ENTRY *) * E[h].maxItem);
     memcpy(nitems,E[h].items,sizeof(ENTRY *) * E[h].nbItem);
     free(E[h].items);
@@ -98,44 +118,48 @@ bool HashTable::Add(Int *x,Int *d,uint32_t type) {
   st = 0; ed = E[h].nbItem - 1;
   while(st <= ed) {
     mi = (st + ed) / 2;
-    int comp = compare((int256_t *)(x->bits64),&GET(h,mi)->x);
+    int comp = compare((int128_t *)(x->bits64),&GET(h,mi)->x);
     if(comp<0) {
       ed = mi - 1;
     } else if (comp==0) {
+
       // Collision
+      int128_t d = GET(h,mi)->d;
+      kType = (d.i64[1] & 0x4000000000000000ULL) != 0;
+      int sign = (d.i64[1] & 0x8000000000000000ULL) != 0;
+      d.i64[1] &= 0x3FFFFFFFFFFFFFFFULL;
+
       kDist.SetInt32(0);
-      memcpy(kDist.bits64,&(GET(h,mi)->d),sizeof(int256_t));
-      kType = GET(h,mi)->type;
+      kDist.bits64[0] = d.i64[0];
+      kDist.bits64[1] = d.i64[1];
+      if(sign) kDist.ModNegK1order();
+
       return true;
+
     } else {
       st = mi + 1;
     }
   }
 
-  ENTRY *entry = CreateEntry((int256_t *)(x->bits64),(int256_t *)(d->bits64),type);
+  ENTRY *entry = CreateEntry(x,d,type);
   ADD_ENTRY(entry);
   return false;
 
 }
 
-int HashTable::compare(int256_t *i1,int256_t *i2) {
+int HashTable::compare(int128_t *i1,int128_t *i2) {
 
   uint64_t *a = i1->i64;
   uint64_t *b = i2->i64;
-  int i;
 
-  for(i = 0; i<4; i++) {
-    if(a[i] != b[i])
-      break;
-  }
-
-  if(i<4) {
-    uint64_t ai = _byteswap_uint64(a[i]);
-    uint64_t bi = _byteswap_uint64(b[i]);
-    if(ai>bi) return 1;
-    else      return -1;
+  if(a[1] == b[1]) {
+    if(a[0] == b[0]) {
+      return 0;
+    } else {
+      return (a[0] > b[0]) ? 1 : -1;
+    }
   } else {
-    return 0;
+    return (a[1] > b[1]) ? 1 : -1;
   }
 
 }
@@ -148,28 +172,85 @@ uint32_t HashTable::GetType() {
   return kType;
 }
 
-double HashTable::GetSizeMB() {
+std::string HashTable::GetSizeInfo() {
 
-  uint64_t byte = sizeof(E);
+  uint64_t totalByte = sizeof(E);
+  uint64_t usedByte = HASH_SIZE*2*sizeof(uint32_t);
 
   for (int h = 0; h < HASH_SIZE; h++) {
-    byte += sizeof(ENTRY *) * E[h].maxItem;
-    byte += sizeof(ENTRY) * E[h].nbItem;
+    totalByte += sizeof(ENTRY *) * E[h].maxItem;
+    totalByte += sizeof(ENTRY) * E[h].nbItem;
+    usedByte += sizeof(ENTRY) * E[h].nbItem;
   }
 
-  return (double)byte / (1024.0*1024.0);
+  double totalMB = (double)totalByte / (1024.0*1024.0);
+  double usedMB = (double)usedByte / (1024.0*1024.0);
+
+  char ret[256];
+  sprintf(ret,"%.1f/%.1fMB",usedMB,totalMB);
+
+  return std::string(ret);
 
 }
 
-std::string HashTable::GetStr(int256_t *i) {
+std::string HashTable::GetStr(int128_t *i) {
 
   std::string ret;
   char tmp[256];
-  for(int n=7;n>=0;n--) {
+  for(int n=3;n>=0;n--) {
     ::sprintf(tmp,"%08X",i->i32[n]); 
     ret += std::string(tmp);
   }
   return ret;
+
+}
+
+void HashTable::SaveTable(FILE *f) {
+
+  uint64_t point = GetNbItem() / 16;
+  uint64_t pointPrint = 0;
+
+  for(uint32_t h = 0; h < HASH_SIZE; h++) {
+    fwrite(&E[h].nbItem,sizeof(uint32_t),1,f);
+    fwrite(&E[h].maxItem,sizeof(uint32_t),1,f);
+    for(uint32_t i = 0; i < E[h].nbItem; i++) {
+      fwrite(&(E[h].items[i]->x),16,1,f);
+      fwrite(&(E[h].items[i]->d),16,1,f);
+      pointPrint++;
+      if(pointPrint>point) {
+        ::printf(".");
+        pointPrint = 0;
+      }
+    }
+  }
+
+}
+
+void HashTable::LoadTable(FILE *f) {
+
+  uint32_t totalItem = 0;
+
+  Reset();
+  for(uint32_t h = 0; h < HASH_SIZE; h++) {
+    
+    fread(&E[h].nbItem,sizeof(uint32_t),1,f);
+    fread(&E[h].maxItem,sizeof(uint32_t),1,f);
+
+    if(E[h].maxItem > 0)
+      // Allocate indexes
+      E[h].items = (ENTRY **)malloc(sizeof(ENTRY *) * E[h].maxItem);
+
+    for(uint32_t i = 0; i < E[h].nbItem; i++) {
+      ENTRY *e = (ENTRY *)malloc(sizeof(ENTRY));
+      fread(&(e->x),16,1,f);
+      fread(&(e->d),16,1,f);
+      E[h].items[i] = e;
+    }
+    totalItem += E[h].nbItem;
+
+  }
+
+  //printf("HashTable::LoadTable(): %d items loaded\n",totalItem);
 
 }
 
@@ -196,7 +277,7 @@ void HashTable::PrintInfo() {
   std /= (double)HASH_SIZE;
   std = sqrt(std);
 
-  ::printf("Size: %f MB\n",GetSizeMB());
+  ::printf("Size: %s\n",GetSizeInfo().c_str());
   ::printf("Item: 2^%.2f \n",log2((double)GetNbItem()));
   ::printf("Max : %d [@ %06X]\n",max,maxH);
   ::printf("Min : %d [@ %06X]\n",min,minH);
@@ -205,6 +286,7 @@ void HashTable::PrintInfo() {
 
   for(int i=0;i<(int)E[maxH].nbItem;i++) {
     ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->x).c_str());
+    ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->d).c_str());
   }
 
 }

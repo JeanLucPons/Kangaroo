@@ -173,6 +173,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\Kangaroo.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Backup.cpp" />
     <ClCompile Include="..\Check.cpp" />
     <ClCompile Include="..\GPU\GPUGenerate.cpp" />
     <ClCompile Include="..\SECPK1\Int.cpp" />

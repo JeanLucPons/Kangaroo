@@ -44,7 +44,7 @@ public:
   GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t maxFound);
   ~GPUEngine();
   void SetParams(uint64_t dpMask,Int *distance,Int *px,Int *py);
-  void SetKangaroos(Int *px,Int *py,Int *d,bool freePinned = true);
+  void SetKangaroos(Int *px,Int *py,Int *d);
   void GetKangaroos(Int *px,Int *py,Int *d);
   void SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d);
   bool Launch(std::vector<ITEM> &hashFound,bool spinWait = false);
@@ -67,10 +67,8 @@ private:
 
   int nbThread;
   int nbThreadPerGroup;
-  int kangarooSize;
   uint64_t *inputKangaroo;
   uint64_t *inputKangarooPinned;
-  uint64_t *inputKangarooSinglePinned;
   uint32_t *outputItem;
   uint32_t *outputItemPinned;
   uint64_t *jumpPinned;
@@ -78,6 +76,8 @@ private:
   bool lostWarning;
   uint32_t maxFound;
   uint32_t outputSize;
+  uint32_t kangarooSize;
+  uint32_t kangarooSizePinned;
   uint32_t jumpSize;
   uint64_t dpMask;
 
