@@ -468,7 +468,7 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
     // Write the new work file
     dpSize = (dp1<dp2)?dp1:dp2;
     workFile = dest;
-    //SaveWork(count1+count2,time1+time2,NULL,0);
+    SaveWork(count1+count2,time1+time2,NULL,0);
 
   }
 
