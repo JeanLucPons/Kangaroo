@@ -228,7 +228,8 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
     avgGpuKeyRate /= (double)(nbSample);
     double expectedTime = expectedNbOp / avgKeyRate;
 
-    if(isAlive(params)) {
+    // Display stats
+    if(isAlive(params) && !endOfSearch) {
 
       printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%s]  ",
         avgKeyRate / 1000000.0,unit.c_str(),
@@ -241,10 +242,22 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
 
     }
 
+    // Save request
     if(workFile.length() > 0 && !endOfSearch) {
       if((t1 - lastSave) > saveWorkPeriod) {
         SaveWork(count + offsetCount,t1 - startTime + offsetTime,params,nbCPUThread + nbGPUThread);
         lastSave = t1;
+      }
+    }
+
+    // Abort
+    if(maxStep>0.0) {
+      double max = expectedNbOp * maxStep; 
+      if( (double)count > max ) {
+        ::printf("\nKey#%2d [XX]Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
+        ::printf("       Aborted !\n");
+        endOfSearch = true;
+        Timer::SleepMillis(1000);
       }
     }
 

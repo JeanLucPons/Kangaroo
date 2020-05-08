@@ -45,6 +45,7 @@ void printUsage() {
   printf(" -ws: Save kangaroos in the work file\n");
   printf(" -wm file1 file2 destfile: Merge work file\n");
   printf(" -winfo file1: Work file info file\n");
+  printf(" -m maxStep: number of operations before give up the seacrh (maxStep*expected operation)\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
   printf(" inFile: intput configuration file\n");
@@ -61,6 +62,25 @@ int getInt(string name,char *v) {
   try {
 
     r = std::stoi(string(v));
+
+  } catch(std::invalid_argument&) {
+
+    printf("Invalid %s argument, number expected\n",name.c_str());
+    exit(-1);
+
+  }
+
+  return r;
+
+}
+
+double getDouble(string name,char *v) {
+
+  double r;
+
+  try {
+
+    r = std::stod(string(v));
 
   } catch(std::invalid_argument&) {
 
@@ -119,6 +139,7 @@ static string merge1 = "";
 static string merge2 = "";
 static string mergeDest = "";
 static string infoFile = "";
+static double maxStep = 0.0;
 
 int main(int argc, char* argv[]) {
 
@@ -178,7 +199,12 @@ int main(int argc, char* argv[]) {
       a++;
       savePeriod = getInt("savePeriod",argv[a]);
       a++;
-    } else if(strcmp(argv[a],"-ws") == 0) {
+    } else if(strcmp(argv[a],"-m") == 0) {
+      a++;
+      maxStep = getDouble("maxStep",argv[a]);
+      a++;
+    }
+    else if(strcmp(argv[a],"-ws") == 0) {
       a++;
       saveKangaroo = true;
     } else if(strcmp(argv[a],"-gpu") == 0) {
@@ -221,7 +247,7 @@ int main(int argc, char* argv[]) {
     exit(-1);
   }
 
-  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo);
+  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,maxStep);
   if(checkFlag) {
     v->Check(gpuId,gridSize);  
     exit(0);

@@ -72,7 +72,7 @@ class Kangaroo {
 
 public:
 
-  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,uint32_t savePeriod,bool saveKangaroo);
+  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,double maxStep);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
   bool ParseConfigFile(std::string &fileName);
   bool LoadWork(std::string &fileName);
@@ -150,7 +150,7 @@ private:
   bool useGpu;
   double expectedNbOp;
   double expectedMem;
-  uint64_t maxStep;
+  double maxStep;
   uint64_t totalRW;
 
   Int jumpDistance[NB_JUMP];

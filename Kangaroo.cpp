@@ -33,7 +33,7 @@ using namespace std;
 
 // ----------------------------------------------------------------------------
 
-Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo) {
+Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,double maxStep) {
 
   this->secp = secp;
   this->initDPSize = initDPSize;
@@ -46,6 +46,7 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->nbLoadedWalk = 0;
   this->saveKangaroo = saveKangaroo;
   this->fRead = NULL;
+  this->maxStep = maxStep;
 
   CPU_GRP_SIZE = 1024;
 
@@ -823,7 +824,6 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
       endOfSearch = false;
       collisionInSameHerd = 0;
-      maxStep = 1ULL<<63;
 
       // Reset conters
       memset(counters,0,sizeof(counters));
