@@ -254,7 +254,7 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
 
   }
 
-  count = getCPUCount() + getCPUCount();
+  count = getCPUCount() + getGPUCount();
   t1 = Timer::get_tick();
   
   if( !endOfSearch ) {

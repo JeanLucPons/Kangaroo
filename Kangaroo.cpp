@@ -264,7 +264,6 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
   // Global init
   int thId = ph->threadId;
-  counters[thId] = 0;
 
   // Create Kangaroos
   ph->nbKangaroo = CPU_GRP_SIZE;
@@ -413,7 +412,6 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
   // Global init
   int thId = ph->threadId;
-  counters[thId] = 0;
 
 #ifdef WITHGPU
 
@@ -827,6 +825,9 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
       collisionInSameHerd = 0;
       maxStep = 1ULL<<63;
 
+      // Reset conters
+      memset(counters,0,sizeof(counters));
+
       // Lanch CPU threads
       for(int i = 0; i < nbCPUThread; i++) {
         params[i].threadId = i;
@@ -846,6 +847,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
       }
 
 #endif
+
 
       // Wait for end
       Process(params,"MK/s");
