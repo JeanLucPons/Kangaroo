@@ -13,9 +13,17 @@ Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
  -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)
  -d: Specify number of leading zeros for the DP method (default is auto)
  -t nbThread: Secify number of thread
+ -w workfile: Specify file to save work into (current processed key only)
+ -i workfile: Specify file to load work from (current processed key only)
+ -wi workInterval: Periodic interval (in seconds) for saving work
+ -ws: Save kangaroos in the work file
+ -wm file1 file2 destfile: Merge work file
+ -winfo file1: Work file info file
+ -m maxStep: number of operations before give up the seacrh (maxStep*expected operation)
  -l: List cuda enabled devices
  -check: Check GPU kernel vs CPU
  inFile: intput configuration file
+
 ```
 
 Structure of the input file:
@@ -45,6 +53,13 @@ The distinguished point (DP) method is an efficent method for storing random wal
 This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dp</sup> until a collision is detected. If dp is too small a large number of point will enter in the central table, will decrease performance and quicly fill the RAM.
 **Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
 Yau can change manualy the dp size using the -d option, take in considration that it will require about nbKangaroo.2<sup>dp</sup> more operations to complete.
+
+# How to deal with work files
+
+You can save periodiacaly work files using -w -i -wi -ws options. When you save a work file, if it does not contains the kangaroos (-ws) you will lost a bit of work due to the DP overhead, so if you want to continue a file on a same configuration it is recommended to use -ws.\
+When you continue a work file on a different hardware, or using a different number of bit for the distinguished point, or a different number of kangaroos, you will also get an overhead.\
+However work files are compatible an can be merged, if 2 work files has a different number of distinguished bits, the lowest will be recorded in the destination file.\
+If you have several hosts with different configrations, it is preferable to use -ws on each hosts and then merge all files from time to time in order to check if the key can be solved. When a merge solve a key, no output file is written.
 
 # How it works
 
