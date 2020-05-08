@@ -1,6 +1,6 @@
 # Pollard's kangaroo for SECPK1
 
-A simple Pollard's kangaroo ECDLP solver for SECPK1.
+A simple Pollard's kangaroo interval ECDLP solver for SECP256K1.
 
 Usage:
 ```
@@ -50,22 +50,70 @@ ex
 # Note on Time/Memory tradeoff of the DP method
 
 The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dp zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.\
-This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dp</sup> until a collision is detected. If dp is too small a large number of point will enter in the central table, will decrease performance and quicly fill the RAM.
+This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dp</sup> until a collision is detected. If dp is too small a large number of point will enter in the central table, will decrease performance and quickly fill the RAM.
 **Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
 Yau can change manualy the dp size using the -d option, take in considration that it will require about nbKangaroo.2<sup>dp</sup> more operations to complete.
 
 # How to deal with work files
 
-You can save periodiacaly work files using -w -i -wi -ws options. When you save a work file, if it does not contains the kangaroos (-ws) you will lost a bit of work due to the DP overhead, so if you want to continue a file on a same configuration it is recommended to use -ws.\
-When you continue a work file on a different hardware, or using a different number of bit for the distinguished point, or a different number of kangaroos, you will also get an overhead.\
-However work files are compatible an can be merged, if 2 work files has a different number of distinguished bits, the lowest will be recorded in the destination file.\
-If you have several hosts with different configrations, it is preferable to use -ws on each hosts and then merge all files from time to time in order to check if the key can be solved. When a merge solve a key, no output file is written.
+You can save periodiacaly work files using -w -wi -ws options. When you save a work file, if it does not contains the kangaroos (-ws) you will lost a bit of work due to the DP overhead, so if you want to continue a file on a same configuration it is recommended to use -ws. To restart a work, use the -i option, the input ascii file is not needed.\
+When you continue a work file on a different hardware, or using a different number of bits for the distinguished points, or a different number of kangaroos, you will also get an overhead.\
+However, work files are compatible (same key and range) and can be merged, if 2 work files have a different number of distinguished bits, the lowest will be recorded in the destination file.\
+If you have several hosts with different configrations, it is preferable to use -ws on each host and then merge all files from time to time in order to check if the key can be solved. When a merge solve a key, no output file is written. A merged file does not contains kangaroos.
+
+Start a work from scrach and save work file every 30 seconds:
+```
+Kangaroo.exe -ws -w save.work -wi 30 in.txt
+```
+
+Continue the work from save.work and save work file every 30 seconds:
+```
+Kangaroo.exe -ws -w save.work -wi 30 -i save.work
+```
+
+Getting info from a work file:
+```
+Kangaroo.exe -winfo save.work
+Kangaroo v1.5
+Loading: save.work
+Version   : 0
+DP bits   : 16
+Start     : 3447F65ABC9F46F736A95F87B044829C8A0129D56782D635CD00000000000000
+Stop      : 3447F65ABC9F46F736A95F87B044829C8A0129D56782D635CDFFFFFFFFFFFFFF
+Key       : 031D91282433E664132046D25189A5FE0F64645A73494A37AB17BD6FB283AE5BA2
+Count     : 808510464 2^29.591
+Time      : 01:35
+DP Size   : 2.4/5.8MB
+DP Count  : 12199 2^13.574
+HT Max    : 3 [@ 008A9F]
+HT Min    : 0 [@ 000000]
+HT Avg    : 0.05
+HT SDev   : 0.22
+Kangaroos : 4096 2^12.000
+```
+
+Merge 2 work files (here the key has been solved during the merge):
+```
+Kangaroo.exe -wm save1.work save2.work save3.work
+Kangaroo v1.5
+Loading: save1.work
+MergeWork: [HashTalbe1 2.3/5.3MB] [00s]
+Loading: save2.work
+MergeWork: [HashTalbe2 2.3/5.3MB] [00s]
+Merging...
+Range width: 2^56
+
+Key# 0 [1S]Pub:  0x031D91282433E664132046D25189A5FE0F64645A73494A37AB17BD6FB283AE5BA2
+       Priv: 0x3447F65ABC9F46F736A95F87B044829C8A0129D56782D635CD612C0F05F3DA03
+Dead kangaroo: 0
+Total f1+f2: count 2^30.04 [02:17]
+```
+
 
 # How it works
 
 The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the 
-key can be solved. Due to the birthday paradox, a collision happens (in average) after 2.sqrt(k2-k1) group operations, the 2 
-herds have the same size. To detect collision, the distinguished points method is used with a hashtable.
+key can be solved. Due to the birthday paradox, a collision happens (in average) after 2.08*sqrt(k2-k1) [1] group operations, the 2 herds have the same size. To detect collision, the distinguished points method is used with a hashtable.
 
 Here is a brief description of the algorithm:
 
