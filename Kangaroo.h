@@ -78,6 +78,7 @@ public:
   bool LoadWork(std::string &fileName);
   void Check(std::vector<int> gpuId,std::vector<int> gridSize);
   void MergeWork(std::string &file1,std::string &file2,std::string &dest);
+  void WorkInfo(std::string &fileName);
 
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);

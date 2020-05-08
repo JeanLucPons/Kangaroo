@@ -293,6 +293,58 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
 }
 
+void Kangaroo::WorkInfo(std::string &fileName) {
+
+  ::printf("Loading: %s\n",fileName.c_str());
+
+  uint32_t version;
+  FILE *f1 = ReadHeader(fileName,&version);
+  if(f1 == NULL)
+    return;
+
+  uint32_t dp1;
+  Point k1;
+  uint64_t count1;
+  double time1;
+  Int RS1;
+  Int RE1;
+
+  // Read global param
+  ::fread(&dp1,sizeof(uint32_t),1,f1);
+  ::fread(&RS1.bits64,32,1,f1); RS1.bits64[4] = 0;
+  ::fread(&RE1.bits64,32,1,f1); RE1.bits64[4] = 0;
+  ::fread(&k1.x.bits64,32,1,f1); k1.x.bits64[4] = 0;
+  ::fread(&k1.y.bits64,32,1,f1); k1.y.bits64[4] = 0;
+  ::fread(&count1,sizeof(uint64_t),1,f1);
+  ::fread(&time1,sizeof(double),1,f1);
+
+  k1.z.SetInt32(1);
+  if(!secp->EC(k1)) {
+    ::printf("MergeWork: key1 does not lie on elliptic curve\n");
+    fclose(f1);
+    return;
+  }
+
+  // Read hashTable
+  hashTable.LoadTable(f1);
+
+  ::printf("Version: %d\n",version);
+  ::printf("DP bits: %d\n",dp1);
+  ::printf("Start  :%s\n",RS1.GetBase16().c_str());
+  ::printf("Stop   :%s\n",RE1.GetBase16().c_str());
+  ::printf("Key    :%s\n",secp->GetPublicKeyHex(true,k1).c_str());
+#ifdef WIN64
+  ::printf("Count  : %I64d 2^%.3f\n",count1,log2(count1));
+#else
+  ::printf("Count  : " PRIx64 " 2^%.3f\n",count1,log2(count1));
+#endif
+  ::printf("Time   :%s\n",GetTimeStr(time1).c_str());
+  hashTable.PrintInfo();
+
+  fclose(f1);
+
+}
+
 
 void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest) {
 

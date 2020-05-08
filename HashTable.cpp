@@ -277,16 +277,22 @@ void HashTable::PrintInfo() {
   std /= (double)HASH_SIZE;
   std = sqrt(std);
 
-  ::printf("Size: %s\n",GetSizeInfo().c_str());
-  ::printf("Item: 2^%.2f \n",log2((double)GetNbItem()));
-  ::printf("Max : %d [@ %06X]\n",max,maxH);
-  ::printf("Min : %d [@ %06X]\n",min,minH);
-  ::printf("Avg : %.2f \n",avg);
-  ::printf("SDev: %.2f \n",std);
+  uint64_t count = GetNbItem();
 
-  for(int i=0;i<(int)E[maxH].nbItem;i++) {
-    ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->x).c_str());
-    ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->d).c_str());
-  }
+  ::printf("DP Size: %s\n",GetSizeInfo().c_str());
+#ifdef WIN64
+  ::printf("DP Cnt : %I64d 2^%.3f\n",count,log2(count));
+#else
+  ::printf("Count  : " PRIx64 " 2^%.3f\n",count,log2(count));
+#endif
+  ::printf("DP Max : %d [@ %06X]\n",max,maxH);
+  ::printf("DP Min : %d [@ %06X]\n",min,minH);
+  ::printf("DP Avg : %.2f \n",avg);
+  ::printf("DP SDev: %.2f \n",std);
+
+  //for(int i=0;i<(int)E[maxH].nbItem;i++) {
+  //  ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->x).c_str());
+  //  ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->d).c_str());
+  //}
 
 }

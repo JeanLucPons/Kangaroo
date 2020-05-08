@@ -44,6 +44,7 @@ void printUsage() {
   printf(" -wi workInterval: Periodic interval (in seconds) for saving work\n");
   printf(" -ws: Save kangaroos in the work file\n");
   printf(" -wm file1 file2 destfile: Merge work file\n");
+  printf(" -winfo file1: Work file info file\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
   printf(" inFile: intput configuration file\n");
@@ -117,6 +118,7 @@ static bool saveKangaroo = false;
 static string merge1 = "";
 static string merge2 = "";
 static string mergeDest = "";
+static string infoFile = "";
 
 int main(int argc, char* argv[]) {
 
@@ -167,6 +169,10 @@ int main(int argc, char* argv[]) {
       merge2 = string(argv[a]);
       a++;
       mergeDest = string(argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-winfo") == 0) {
+      a++;
+      infoFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-wi") == 0) {
       a++;
@@ -220,7 +226,10 @@ int main(int argc, char* argv[]) {
     v->Check(gpuId,gridSize);  
     exit(0);
   } else {
-    if(merge1.length()>0) {
+    if(infoFile.length()>0) {
+      v->WorkInfo(infoFile);
+      exit(0);
+    } else if(merge1.length()>0) {
       v->MergeWork(merge1,merge2,mergeDest);
       exit(0);
     } if(iWorkFile.length()>0) {
