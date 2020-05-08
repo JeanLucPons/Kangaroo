@@ -279,16 +279,16 @@ void HashTable::PrintInfo() {
 
   uint64_t count = GetNbItem();
 
-  ::printf("DP Size: %s\n",GetSizeInfo().c_str());
+  ::printf("DP Size   : %s\n",GetSizeInfo().c_str());
 #ifdef WIN64
-  ::printf("DP Cnt : %I64d 2^%.3f\n",count,log2(count));
+  ::printf("DP Count  : %I64d 2^%.3f\n",count,log2(count));
 #else
-  ::printf("Count  : %" PRId64 " 2^%.3f\n",count,log2(count));
+  ::printf("DP Count  : %" PRId64 " 2^%.3f\n",count,log2(count));
 #endif
-  ::printf("DP Max : %d [@ %06X]\n",max,maxH);
-  ::printf("DP Min : %d [@ %06X]\n",min,minH);
-  ::printf("DP Avg : %.2f \n",avg);
-  ::printf("DP SDev: %.2f \n",std);
+  ::printf("HT Max    : %d [@ %06X]\n",max,maxH);
+  ::printf("HT Min    : %d [@ %06X]\n",min,minH);
+  ::printf("HT Avg    : %.2f \n",avg);
+  ::printf("HT SDev   : %.2f \n",std);
 
   //for(int i=0;i<(int)E[maxH].nbItem;i++) {
   //  ::printf("[%2d] %s\n",i,GetStr(&E[maxH].items[i]->x).c_str());

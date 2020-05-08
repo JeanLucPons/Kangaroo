@@ -328,18 +328,25 @@ void Kangaroo::WorkInfo(std::string &fileName) {
   // Read hashTable
   hashTable.LoadTable(f1);
 
-  ::printf("Version: %d\n",version);
-  ::printf("DP bits: %d\n",dp1);
-  ::printf("Start  :%s\n",RS1.GetBase16().c_str());
-  ::printf("Stop   :%s\n",RE1.GetBase16().c_str());
-  ::printf("Key    :%s\n",secp->GetPublicKeyHex(true,k1).c_str());
+  ::printf("Version   : %d\n",version);
+  ::printf("DP bits   : %d\n",dp1);
+  ::printf("Start     : %s\n",RS1.GetBase16().c_str());
+  ::printf("Stop      : %s\n",RE1.GetBase16().c_str());
+  ::printf("Key       : %s\n",secp->GetPublicKeyHex(true,k1).c_str());
 #ifdef WIN64
-  ::printf("Count  : %I64d 2^%.3f\n",count1,log2(count1));
+  ::printf("Count     : %I64d 2^%.3f\n",count1,log2(count1));
 #else
-  ::printf("Count  : %" PRId64 " 2^%.3f\n",count1,log2(count1));
+  ::printf("Count     : %" PRId64 " 2^%.3f\n",count1,log2(count1));
 #endif
-  ::printf("Time   :%s\n",GetTimeStr(time1).c_str());
+  ::printf("Time      : %s\n",GetTimeStr(time1).c_str());
   hashTable.PrintInfo();
+
+  fread(&nbLoadedWalk,sizeof(uint64_t),1,f1);
+#ifdef WIN64
+  ::printf("Kangaroos : %I64d 2^%.3f\n",nbLoadedWalk,log2(nbLoadedWalk));
+#else
+  ::printf("Kangaroos : %" PRId64 " 2^%.3f\n",nbLoadedWalk,log2(nbLoadedWalk));
+#endif
 
   fclose(f1);
 
