@@ -61,7 +61,7 @@ When you continue a work file on a different hardware, or using a different numb
 However, work files are compatible (same key and range) and can be merged, if 2 work files have a different number of distinguished bits, the lowest will be recorded in the destination file.\
 If you have several hosts with different configrations, it is preferable to use -ws on each host and then merge all files from time to time in order to check if the key can be solved. When a merge solve a key, no output file is written. A merged file does not contains kangaroos.
 
-Start a work from scrach and save work file every 30 seconds:
+Start a work from scratch and save work file every 30 seconds:
 ```
 Kangaroo.exe -ws -w save.work -wi 30 in.txt
 ```
