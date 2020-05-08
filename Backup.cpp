@@ -336,7 +336,7 @@ void Kangaroo::WorkInfo(std::string &fileName) {
 #ifdef WIN64
   ::printf("Count  : %I64d 2^%.3f\n",count1,log2(count1));
 #else
-  ::printf("Count  : " PRIx64 " 2^%.3f\n",count1,log2(count1));
+  ::printf("Count  : %" PRId64 " 2^%.3f\n",count1,log2(count1));
 #endif
   ::printf("Time   :%s\n",GetTimeStr(time1).c_str());
   hashTable.PrintInfo();

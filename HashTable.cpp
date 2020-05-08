@@ -283,7 +283,7 @@ void HashTable::PrintInfo() {
 #ifdef WIN64
   ::printf("DP Cnt : %I64d 2^%.3f\n",count,log2(count));
 #else
-  ::printf("Count  : " PRIx64 " 2^%.3f\n",count,log2(count));
+  ::printf("Count  : %" PRId64 " 2^%.3f\n",count,log2(count));
 #endif
   ::printf("DP Max : %d [@ %06X]\n",max,maxH);
   ::printf("DP Min : %d [@ %06X]\n",min,minH);
