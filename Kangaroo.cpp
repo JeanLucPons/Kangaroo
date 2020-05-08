@@ -794,7 +794,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   // Fetch kangaroos (if any)
   FectchKangaroos(params);
 
-#define STATS
+//#define STATS
 #ifdef STATS
 
     CPU_GRP_SIZE = 1024;
