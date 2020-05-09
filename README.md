@@ -1,6 +1,7 @@
 # Pollard's kangaroo for SECPK1
 
-A simple Pollard's kangaroo interval ECDLP solver for SECP256K1.
+A simple Pollard's kangaroo interval ECDLP solver for SECP256K1.\
+Discusion thread: https://bitcointalk.org/index.php?topic=5244940.0
 
 Usage:
 ```
