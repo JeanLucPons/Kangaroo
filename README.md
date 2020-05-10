@@ -383,5 +383,7 @@ Done: Total time 29:44
 
 # Articles
 
- - [1] Using Equivalence Classes to Accelerate Solvingthe Discrete Logarithm Problem in a Short Interval
+ - [1] Using Equivalence Classes to Accelerate Solvingthe Discrete Logarithm Problem in a Short Interval\
        https://www.iacr.org/archive/pkc2010/60560372/60560372.pdf
+ - [2] Kangaroo Methods for Solving theInterval Discrete Logarithm Problem\
+       https://arxiv.org/pdf/1501.07019.pdf
