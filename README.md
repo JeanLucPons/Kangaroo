@@ -274,7 +274,7 @@ Next puzzles to solve:
 0248D313B0398D4923CDCA73B8CFA6532B91B96703902FC8B32FD438A3B7CD7F55
 ```
 
-Up to #160
+[Up to #160](https://raw.githubusercontent.com/JeanLucPons/Kangaroo/master/puzzle32.txt)
 
 # Articles
 
