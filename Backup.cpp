@@ -201,7 +201,7 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
   // Wait that all threads blocks before saving works
   saveRequest = true;
-  int timeout = 1000;
+  int timeout = 3000;
   while(!isWaiting(threads) && timeout>0) {
     Timer::SleepMillis(50);
     timeout -= 50;
@@ -210,7 +210,7 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
   if(timeout<=0) {
     // Thread blocked or ended !
     if(!endOfSearch)
-      ::printf("\nSaveWork timwout !\n");
+      ::printf("\nSaveWork timeout !\n");
     UNLOCK(saveMutex);
     return;
   }
