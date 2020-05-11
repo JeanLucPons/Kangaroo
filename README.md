@@ -219,10 +219,10 @@ Done: Total time 29s
 
 # Example of usage
 
-Puzzle [32BTC](https://www.blockchain.com/btc/tx/08389f34c98c606322740c0be6a7125d9860bb8d5cb182c02f98461e5fa6cd15), every 5 addresses, the pubkey is exposed and can be attack with Kangaroo ECDLP solver.
+Puzzle [32BTC](https://www.blockchain.com/btc/tx/08389f34c98c606322740c0be6a7125d9860bb8d5cb182c02f98461e5fa6cd15), every 5 addresses, the public key is exposed and can be attacked with Kangaroo ECDLP solver.
 
 
-Puzzle #80: 79bits key, [1BCf6rHUW6m3iH2ptsvnjgLruAiPQQepLe](https://www.blockchain.com/btc/address/1BCf6rHUW6m3iH2ptsvnjgLruAiPQQepLe)
+Puzzle #80: 79bits private key [2<sup>79</sup>,2<sup>80</sup>-1], [1BCf6rHUW6m3iH2ptsvnjgLruAiPQQepLe](https://www.blockchain.com/btc/address/1BCf6rHUW6m3iH2ptsvnjgLruAiPQQepLe)
 
 ```
 80000000000000000000
@@ -258,7 +258,7 @@ Done: Total time 01:55:48
 
 Next puzzles to solve:
 
-#110, 109bits key, [12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg](https://www.blockchain.com/btc/address/12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg) **1.10BTC**
+#110, 109bits private key [2<sup>109</sup>,2<sup>110</sup>-1], [12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg](https://www.blockchain.com/btc/address/12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg) **1.10BTC**
 
 ```
 2000000000000000000000000000
@@ -266,7 +266,7 @@ Next puzzles to solve:
 0309976BA5570966BF889196B7FDF5A0F9A1E9AB340556EC29F8BB60599616167D
 ```
 
-#115, 114bits key [1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv](https://www.blockchain.com/btc/address/1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv) **1.15BTC**
+#115, 114bits private key [2<sup>114</sup>,2<sup>115</sup>-1], [1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv](https://www.blockchain.com/btc/address/1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv) **1.15BTC**
 
 ```
 40000000000000000000000000000
