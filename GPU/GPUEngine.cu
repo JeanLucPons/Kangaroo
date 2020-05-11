@@ -148,7 +148,7 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
     printf("GPUEngine: Allocate input memory: %s\n",cudaGetErrorString(err));
     return;
   }
-  kangarooSizePinned = nbThreadPerGroup *  KSIZE * 8;
+  kangarooSizePinned = nbThreadPerGroup * GPU_GRP_SIZE *  KSIZE * 8;
   err = cudaHostAlloc(&inputKangarooPinned,kangarooSizePinned,cudaHostAllocWriteCombined | cudaHostAllocMapped);
   if(err != cudaSuccess) {
     printf("GPUEngine: Allocate input pinned memory: %s\n",cudaGetErrorString(err));
@@ -320,22 +320,22 @@ void GPUEngine::SetKangaroos(Int *px,Int *py,Int *d) {
       for(int t = 0; t < nbThreadPerGroup; t++) {
 
         // X
-        inputKangarooPinned[t + 0 * nbThreadPerGroup] = px[idx].bits64[0];
-        inputKangarooPinned[t + 1 * nbThreadPerGroup] = px[idx].bits64[1];
-        inputKangarooPinned[t + 2 * nbThreadPerGroup] = px[idx].bits64[2];
-        inputKangarooPinned[t + 3 * nbThreadPerGroup] = px[idx].bits64[3];
+        inputKangarooPinned[g * strideSize + t + 0 * nbThreadPerGroup] = px[idx].bits64[0];
+        inputKangarooPinned[g * strideSize + t + 1 * nbThreadPerGroup] = px[idx].bits64[1];
+        inputKangarooPinned[g * strideSize + t + 2 * nbThreadPerGroup] = px[idx].bits64[2];
+        inputKangarooPinned[g * strideSize + t + 3 * nbThreadPerGroup] = px[idx].bits64[3];
 
         // Y
-        inputKangarooPinned[t + 4 * nbThreadPerGroup] = py[idx].bits64[0];
-        inputKangarooPinned[t + 5 * nbThreadPerGroup] = py[idx].bits64[1];
-        inputKangarooPinned[t + 6 * nbThreadPerGroup] = py[idx].bits64[2];
-        inputKangarooPinned[t + 7 * nbThreadPerGroup] = py[idx].bits64[3];
+        inputKangarooPinned[g * strideSize + t + 4 * nbThreadPerGroup] = py[idx].bits64[0];
+        inputKangarooPinned[g * strideSize + t + 5 * nbThreadPerGroup] = py[idx].bits64[1];
+        inputKangarooPinned[g * strideSize + t + 6 * nbThreadPerGroup] = py[idx].bits64[2];
+        inputKangarooPinned[g * strideSize + t + 7 * nbThreadPerGroup] = py[idx].bits64[3];
 
         // Distance
-        inputKangarooPinned[t + 8 * nbThreadPerGroup] = d[idx].bits64[0];
-        inputKangarooPinned[t + 9 * nbThreadPerGroup] = d[idx].bits64[1];
-        inputKangarooPinned[t + 10 * nbThreadPerGroup] = d[idx].bits64[2];
-        inputKangarooPinned[t + 11 * nbThreadPerGroup] = d[idx].bits64[3];
+        inputKangarooPinned[g * strideSize + t + 8 * nbThreadPerGroup] = d[idx].bits64[0];
+        inputKangarooPinned[g * strideSize + t + 9 * nbThreadPerGroup] = d[idx].bits64[1];
+        inputKangarooPinned[g * strideSize + t + 10 * nbThreadPerGroup] = d[idx].bits64[2];
+        inputKangarooPinned[g * strideSize + t + 11 * nbThreadPerGroup] = d[idx].bits64[3];
 
 #ifdef USE_SYMMETRY
         // Last jump
@@ -345,10 +345,11 @@ void GPUEngine::SetKangaroos(Int *px,Int *py,Int *d) {
         idx++;
       }
 
-      uint32_t offset = b * blockSize + g * strideSize;
-      cudaMemcpy(inputKangaroo + offset,inputKangarooPinned,kangarooSizePinned,cudaMemcpyHostToDevice);
-
     }
+
+    uint32_t offset = b * blockSize;
+    cudaMemcpy(inputKangaroo + offset,inputKangarooPinned,kangarooSizePinned,cudaMemcpyHostToDevice);
+
   }
 
   cudaError_t err = cudaGetLastError();
@@ -373,32 +374,33 @@ void GPUEngine::GetKangaroos(Int *px,Int *py,Int *d) {
   int idx = 0;
 
   for(int b = 0; b < nbBlock; b++) {
-    for(int g = 0; g < GPU_GRP_SIZE; g++) {
 
-      uint32_t offset = b * blockSize + g * strideSize;
-      cudaMemcpy(inputKangarooPinned,inputKangaroo+offset,kangarooSizePinned,cudaMemcpyDeviceToHost);
+    uint32_t offset = b * blockSize;
+    cudaMemcpy(inputKangarooPinned,inputKangaroo + offset,kangarooSizePinned,cudaMemcpyDeviceToHost);
+
+    for(int g = 0; g < GPU_GRP_SIZE; g++) {
 
       for(int t = 0; t < nbThreadPerGroup; t++) {
 
         // X
-        px[idx].bits64[0] = inputKangarooPinned[t + 0 * nbThreadPerGroup];
-        px[idx].bits64[1] = inputKangarooPinned[t + 1 * nbThreadPerGroup];
-        px[idx].bits64[2] = inputKangarooPinned[t + 2 * nbThreadPerGroup];
-        px[idx].bits64[3] = inputKangarooPinned[t + 3 * nbThreadPerGroup];
+        px[idx].bits64[0] = inputKangarooPinned[g * strideSize + t + 0 * nbThreadPerGroup];
+        px[idx].bits64[1] = inputKangarooPinned[g * strideSize + t + 1 * nbThreadPerGroup];
+        px[idx].bits64[2] = inputKangarooPinned[g * strideSize + t + 2 * nbThreadPerGroup];
+        px[idx].bits64[3] = inputKangarooPinned[g * strideSize + t + 3 * nbThreadPerGroup];
         px[idx].bits64[4] = 0;
 
         // Y
-        py[idx].bits64[0] = inputKangarooPinned[t + 4 * nbThreadPerGroup];
-        py[idx].bits64[1] = inputKangarooPinned[t + 5 * nbThreadPerGroup];
-        py[idx].bits64[2] = inputKangarooPinned[t + 6 * nbThreadPerGroup];
-        py[idx].bits64[3] = inputKangarooPinned[t + 7 * nbThreadPerGroup];
+        py[idx].bits64[0] = inputKangarooPinned[g * strideSize + t + 4 * nbThreadPerGroup];
+        py[idx].bits64[1] = inputKangarooPinned[g * strideSize + t + 5 * nbThreadPerGroup];
+        py[idx].bits64[2] = inputKangarooPinned[g * strideSize + t + 6 * nbThreadPerGroup];
+        py[idx].bits64[3] = inputKangarooPinned[g * strideSize + t + 7 * nbThreadPerGroup];
         py[idx].bits64[4] = 0;
 
         // Distance
-        d[idx].bits64[0] = inputKangarooPinned[t + 8 * nbThreadPerGroup];
-        d[idx].bits64[1] = inputKangarooPinned[t + 9 * nbThreadPerGroup];
-        d[idx].bits64[2] = inputKangarooPinned[t + 10 * nbThreadPerGroup];
-        d[idx].bits64[3] = inputKangarooPinned[t + 11 * nbThreadPerGroup];
+        d[idx].bits64[0] = inputKangarooPinned[g * strideSize + t + 8 * nbThreadPerGroup];
+        d[idx].bits64[1] = inputKangarooPinned[g * strideSize + t + 9 * nbThreadPerGroup];
+        d[idx].bits64[2] = inputKangarooPinned[g * strideSize + t + 10 * nbThreadPerGroup];
+        d[idx].bits64[3] = inputKangarooPinned[g * strideSize + t + 11 * nbThreadPerGroup];
         d[idx].bits64[4] = 0;
 
         idx++;

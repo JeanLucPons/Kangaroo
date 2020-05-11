@@ -210,7 +210,7 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
   if(timeout<=0) {
     // Thread blocked or ended !
     if(!endOfSearch)
-      ::printf("\nSaveWork timweout !\n");
+      ::printf("\nSaveWork timwout !\n");
     UNLOCK(saveMutex);
     return;
   }

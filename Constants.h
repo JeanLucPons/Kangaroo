@@ -19,7 +19,7 @@
 #define CONSTANTSH
 
 // Release number
-#define RELEASE "1.4"
+#define RELEASE "1.5alpha"
 
 // Use symmetry
 //#define USE_SYMMETRY
