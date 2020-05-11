@@ -265,6 +265,7 @@ Next puzzles to solve:
 3FFFFFFFFFFFFFFFFFFFFFFFFFFF
 0309976BA5570966BF889196B7FDF5A0F9A1E9AB340556EC29F8BB60599616167D
 ```
+Expected time with 10 x GeForce RTX 2080 Ti  : ~50days
 
 #115, 114bits private key [2<sup>114</sup>,2<sup>115</sup>-1], [1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv](https://www.blockchain.com/btc/address/1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv) **1.15BTC**
 
@@ -273,6 +274,7 @@ Next puzzles to solve:
 7FFFFFFFFFFFFFFFFFFFFFFFFFFFF
 0248D313B0398D4923CDCA73B8CFA6532B91B96703902FC8B32FD438A3B7CD7F55
 ```
+Expected time with 50 x GeForce RTX 2080 Ti  : ~55days
 
 [Up to #160](https://raw.githubusercontent.com/JeanLucPons/Kangaroo/master/puzzle32.txt)
 
