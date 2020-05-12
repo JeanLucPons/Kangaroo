@@ -38,7 +38,7 @@ void printUsage() {
   printf(" -gpu gpuId1,gpuId2,...: List of GPU(s) to use, default is 0\n");
   printf(" -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)\n");
   printf(" -d: Specify number of leading zeros for the DP method (default is auto)\n");
-  printf(" -t nbThread: Secify number of thread\n");
+  printf(" -t nbThread: Specify number of thread\n");
   printf(" -w workfile: Specify file to save work into (current processed key only)\n");
   printf(" -i workfile: Specify file to load work from (current processed key only)\n");
   printf(" -wi workInterval: Periodic interval (in seconds) for saving work\n");
@@ -46,10 +46,10 @@ void printUsage() {
   printf(" -wm file1 file2 destfile: Merge work file\n");
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
-  printf(" -m maxStep: number of operations before give up the seacrh (maxStep*expected operation)\n");
+  printf(" -m maxStep: number of operations before give up the search (maxStep*expected operation)\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
-  printf(" inFile: intput configuration file\n");
+  printf(" inFile: input configuration file\n");
   exit(0);
 
 }
