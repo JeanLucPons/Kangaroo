@@ -33,7 +33,7 @@ using namespace std;
 
 // ----------------------------------------------------------------------------
 
-Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,double maxStep) {
+Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout) {
 
   this->secp = secp;
   this->initDPSize = initDPSize;
@@ -47,6 +47,7 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->saveKangaroo = saveKangaroo;
   this->fRead = NULL;
   this->maxStep = maxStep;
+  this->wtimeout = wtimeout;
 
   CPU_GRP_SIZE = 1024;
 
@@ -730,6 +731,11 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
 #endif
 
+  if((nbCPUThread + nbGPUThread) == 0) {
+    ::printf("No CPU or GPU thread, exiting.\n");
+    ::exit(0);
+  }
+
   TH_PARAM *params = (TH_PARAM *)malloc((nbCPUThread + nbGPUThread) * sizeof(TH_PARAM));
   THREAD_HANDLE *thHandles = (THREAD_HANDLE *)malloc((nbCPUThread + nbGPUThread) * sizeof(THREAD_HANDLE));
 
@@ -860,11 +866,12 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
       uint64_t count = getCPUCount() + getGPUCount();
       totalCount += count;
       totalDead += collisionInSameHerd;
-      ::printf("\n[%3d] 2^%.3f Dead:%d Avg:2^%.3f DeadAvg:%.1f (2^%.3f)\n",
+      double SN = pow(2.0,rangePower / 2.0);
+      double avg = (double)totalCount / (double)(keyIdx + 1);
+      ::printf("\n[%3d] 2^%.3f Dead:%d Avg:2^%.3f DeadAvg:%.1f (%.3f %.3f sqrt(N))\n",
                               keyIdx, log2((double)count), collisionInSameHerd, 
-                              log2((double)totalCount / (double)(keyIdx + 1)),
-                              (double)totalDead / (double)(keyIdx + 1),
-                              log2(expectedNbOp));
+                              log2(avg), (double)totalDead / (double)(keyIdx + 1),
+                              avg/SN,expectedNbOp/SN);
     }
     string fName = "DP" + ::to_string(dpSize) + ".txt";
     FILE *f = fopen(fName.c_str(),"a");

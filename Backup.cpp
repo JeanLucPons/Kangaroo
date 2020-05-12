@@ -201,7 +201,7 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
   // Wait that all threads blocks before saving works
   saveRequest = true;
-  int timeout = 3000;
+  int timeout = wtimeout;
   while(!isWaiting(threads) && timeout>0) {
     Timer::SleepMillis(50);
     timeout -= 50;

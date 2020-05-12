@@ -72,7 +72,8 @@ class Kangaroo {
 
 public:
 
-  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,double maxStep);
+  Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,
+           uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
   bool ParseConfigFile(std::string &fileName);
   bool LoadWork(std::string &fileName);
@@ -169,6 +170,7 @@ private:
   int  saveWorkPeriod;
   bool saveRequest;
   bool saveKangaroo;
+  int wtimeout;
 
 };
 
