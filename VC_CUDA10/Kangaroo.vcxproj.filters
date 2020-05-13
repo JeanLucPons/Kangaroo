@@ -26,6 +26,7 @@
     <ClCompile Include="..\Thread.cpp" />
     <ClCompile Include="..\Check.cpp" />
     <ClCompile Include="..\Backup.cpp" />
+    <ClCompile Include="..\Network.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Timer.h" />
