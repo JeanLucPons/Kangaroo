@@ -110,6 +110,20 @@ Dead kangaroo: 0
 Total f1+f2: count 2^30.04 [02:17]
 ```
 
+# Distributed clients and central server
+
+It is possible to run Kangaroo in client/server mode. The server has the same options as the standard program except that you have to specify manualy the number of distinguisehd point bits number using -d. All clients which connect will get back the configuration from the server. At the moment, the server is limitted to one single key.
+
+Starting the server with backup every 5 min, 12 distinguished bits, in64.txt as config file:
+
+```
+pons@linpons:~/Kangaroo$./kangaroo -w save.work -wi 300 -s -d 12 in64.txt
+```
+
+Starting client, using gpu and connect to the server linpons:
+```
+Kangaroo.exe -t 0 -gpu -c linpons
+```
 
 # How it works
 
