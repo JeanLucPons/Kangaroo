@@ -98,9 +98,9 @@ Merge 2 work files (here the key has been solved during the merge):
 Kangaroo.exe -wm save1.work save2.work save3.work
 Kangaroo v1.5
 Loading: save1.work
-MergeWork: [HashTalbe1 2.3/5.3MB] [00s]
+MergeWork: [HashTable1 2.3/5.3MB] [00s]
 Loading: save2.work
-MergeWork: [HashTalbe2 2.3/5.3MB] [00s]
+MergeWork: [HashTable2 2.3/5.3MB] [00s]
 Merging...
 Range width: 2^56
 
