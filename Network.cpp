@@ -423,6 +423,7 @@ void Kangaroo::RunServer() {
     saveKangaroo = false;
   }
 
+  clients.reserve(512);
   // Main thread of server (handle backup and collision check)
   LaunchThread(_processServer,(TH_PARAM *)this);
 
