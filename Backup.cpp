@@ -119,7 +119,7 @@ bool Kangaroo::LoadWork(string &fileName) {
   double t1 = Timer::get_tick();
 
 
-  ::printf("LoadWork: [HashTalbe %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
+  ::printf("LoadWork: [HashTable %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
 
   return true;
 }
@@ -442,7 +442,7 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
 
   // Read hashTable
   hashTable.LoadTable(f1);
-  ::printf("MergeWork: [HashTalbe1 %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
+  ::printf("MergeWork: [HashTable1 %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
 
   fclose(f1);
 
@@ -473,7 +473,7 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
   ::fread(&time2,sizeof(double),1,f2);
 
   if(v1!=v2) {
-    ::printf("MergeWork: cannot merge wirkfile of different version\n");
+    ::printf("MergeWork: cannot merge workfile of different version\n");
     fclose(f2);
     return;
   }
@@ -510,7 +510,7 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
   // Read hashTable
   HashTable *h2 = new HashTable();
   h2->LoadTable(f2);
-  ::printf("MergeWork: [HashTalbe2 %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
+  ::printf("MergeWork: [HashTable2 %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
 
   fclose(f2);
 

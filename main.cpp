@@ -35,7 +35,7 @@ void printUsage() {
   printf("         inFile\n");
   printf(" -v: Print version\n");
   printf(" -gpu: Enable gpu calculation\n");
-  printf(" -gpu gpuId1,gpuId2,...: List of GPU(s) to use, default is 0\n");
+  printf(" -gpuId gpuId1,gpuId2,...: List of GPU(s) to use, default is 0\n");
   printf(" -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)\n");
   printf(" -d: Specify number of leading zeros for the DP method (default is auto)\n");
   printf(" -t nbThread: Secify number of thread\n");
@@ -46,9 +46,9 @@ void printUsage() {
   printf(" -wm file1 file2 destfile: Merge work file\n");
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
-  printf(" -m maxStep: number of operations before give up the seacrh (maxStep*expected operation)\n");
+  printf(" -m maxStep: number of operations before give up the search (maxStep*expected operation)\n");
   printf(" -s: Start in server mode\n");
-  printf(" -c server_ip: Start in client mode and connect to server IP address\n");
+  printf(" -c server_ip: Start in client mode and connect to server server_ip\n");
   printf(" -sp port: Server port, default is 17403\n");
   printf(" -nt timeout: Network timeout in millisec (default is 3000ms)\n");
   printf(" -l: List cuda enabled devices\n");
