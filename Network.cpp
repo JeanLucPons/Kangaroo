@@ -32,6 +32,10 @@ using namespace std;
 
 static SOCKET serverSock = 0;
 
+// ------------------------------------------------------------------------------------------------------
+// Common part
+// ------------------------------------------------------------------------------------------------------
+
 #define MAX_CLIENT 50
 #define WAIT_FOR_READ  1
 #define WAIT_FOR_WRITE 2
@@ -47,6 +51,7 @@ static SOCKET serverSock = 0;
 #define SERVER_OK            0
 #define SERVER_END           1
 #define SERVER_BACKUP        2
+
 
 #ifdef WIN64
 
@@ -174,28 +179,26 @@ int Kangaroo::Read(SOCKET sock,char *buf,int bufsize,int timeout) { // Timeout i
   int rd = 0;
   int total_read = 0;
 
-#ifndef WIN64
-  if(tcpQuickAck) {
-    // Enables TCP Quick Acknowledgements 
-    // Since this flag is not permanent, this should be done before each recv call.
-    static int *optval = new int[1]; *optval = 1;
-    setsockopt(sock,IPPROTO_TCP,TCP_QUICKACK,optval,sizeof(int));
+  while( bufsize>0 ) {
+
+    // Wait
+    if(!WaitFor(sock,timeout,WAIT_FOR_READ)) {
+      return -1;
+    }
+
+    // Read
+    do
+      rd = recv(sock,buf,bufsize,0);
+    while(rd == -1 && errno == EINTR);
+
+    if( rd <= 0 )
+      break;
+
+    buf += rd;
+    total_read += rd;
+    bufsize -= rd;
+
   }
-#endif
-
-  // Wait
-  if(!WaitFor(sock,timeout,WAIT_FOR_READ)) {
-    return -1;
-  }
-
-  // Read
-  do
-    rd = recv(sock,buf,bufsize,0);
-  while(rd == -1 && errno == EINTR);
-
-  buf += rd;
-  total_read += rd;
-  bufsize -= rd;
 
   if(rd < 0) {
     lastError = GetNetworkError();
@@ -206,6 +209,25 @@ int Kangaroo::Read(SOCKET sock,char *buf,int bufsize,int timeout) { // Timeout i
 
 }
 
+void Kangaroo::InitSocket() {
+
+#ifdef WIN64
+  // connect to Winscok DLL
+  WSADATA WSAData;
+  int err = WSAStartup(MAKEWORD(2,2),&WSAData);
+  if(err != 0) {
+    ::printf("WSAStartup failed error : %d\n",err);
+    exit(-1);
+  }
+#endif
+
+}
+
+// ------------------------------------------------------------------------------------------------------
+// Server part
+// ------------------------------------------------------------------------------------------------------
+
+// Server status
 int32_t Kangaroo::GetServerStatus() {
 
   if(endOfSearch) {
@@ -233,7 +255,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
     // Wait for command (5min timeout)
     nbRead = Read(p->clientSock,(char *)(&cmdBuff),1,(int)(CLIENT_TIMEOUT*1000.0));
-    if(nbRead<0) {
+    if(nbRead<=0) {
       ::printf("\nClosing connection with %s\n",p->clientInfo.c_str());
       close_socket(p->clientSock);
       return false;
@@ -268,7 +290,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
       if(nbDP == 0) {
 
-        ::printf("\nUnexpected number of DP from %s\n",p->clientInfo.c_str());
+        ::printf("\nUnexpected number of DP [%d] from %s\n",nbDP,p->clientInfo.c_str());
         ::printf("\nClosing connection with %s\n",p->clientInfo.c_str());
         close_socket(p->clientSock);
         return false;
@@ -284,7 +306,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
         if(nbRead != sizeof(DP)*nbDP) {
 
-          ::printf("\nUnexpected DP size from %s\n",p->clientInfo.c_str());
+          ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",p->clientInfo.c_str(),nbDP,nbRead,(int)(sizeof(DP)*nbDP));
           ::printf("\nClosing connection with %s\n",p->clientInfo.c_str());
           close_socket(p->clientSock);
           return false;
@@ -312,6 +334,147 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
   return true;
 
 }
+
+// Threaded proc
+#ifdef WIN64
+DWORD WINAPI _acceptThread(LPVOID lpParam) {
+#else
+void *_acceptThread(void *lpParam) {
+#endif
+  TH_PARAM *p = (TH_PARAM *)lpParam;
+  p->obj->HandleRequest(p);
+  p->isRunning = false;
+  return 0;
+}
+
+#ifdef WIN64
+DWORD WINAPI _processServer(LPVOID lpParam) {
+#else
+void *_processServer(void *lpParam) {
+#endif
+  Kangaroo *obj = (Kangaroo *)lpParam;
+  obj->ProcessServer();
+  return 0;
+}
+
+// Main server loop
+void Kangaroo::AcceptConnections(SOCKET server_soc) {
+
+  SOCKET clientSock;
+
+  ::printf("Kangaroo server is ready and listening to TCP port %d ...\n",port);
+
+  while(true) {
+
+    struct sockaddr_in client_add;
+    socklen_t len = sizeof(sockaddr_in);
+
+    if((clientSock = accept(server_soc,(struct sockaddr*)&client_add,&len)) < 0) {
+
+      ::printf("Error: Invalid Socket returned by accept(): %s\n",GetNetworkError().c_str());
+
+    } else {
+      
+      TH_PARAM p;
+      char info[256];
+      ::sprintf(info,"%s:%d",inet_ntoa(client_add.sin_addr),ntohs(client_add.sin_port));
+      p.clientInfo = string(info);
+      p.obj = this;
+      p.isRunning = true;
+      p.clientSock = clientSock;
+      clients.push_back(p);
+      LaunchThread(_acceptThread,&clients[clients.size()-1]);
+
+    }
+
+  }
+
+}
+
+// Starts the server
+void Kangaroo::RunServer() {
+
+  if(signal(SIGINT,sig_handler) == SIG_ERR)
+    ::printf("\nWarning:can't install singal handler\n");
+
+  // Set starting parameters
+  collisionInSameHerd = 0;
+  InitRange();
+  InitSearchKey();
+
+  ComputeExpected((double)initDPSize,&expectedNbOp,&expectedMem);
+  ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
+  ::printf("Expected RAM: %.1fMB\n",expectedMem);
+
+  if(initDPSize<0) {
+    ::printf("Error: Server must be launched with a specified number of distinguished bits (-d)\n");
+    exit(-1);
+  }
+  SetDP(initDPSize);
+  keyIdx = 0;
+
+  if(sizeof(DP)!=40) {
+    ::printf("Error: Invalid DP size struct\n");
+    exit(-1);
+  }
+
+  if(saveKangaroo) {
+    ::printf("Waring: Server does not support -ws, ignoring\n");
+    saveKangaroo = false;
+  }
+
+  // Main thread of server (handle backup and collision check)
+  LaunchThread(_processServer,(TH_PARAM *)this);
+
+  // Server stuff
+
+  InitSocket();
+
+  /* Create socket */
+  serverSock = socket(AF_INET,SOCK_STREAM,0);
+
+  if(serverSock<0) {
+    ::printf("Error: Invalid socket : %s\n",GetNetworkError().c_str());
+    exit(-1);
+  }
+
+  struct sockaddr_in soc_addr;
+
+  /* Reuse Address */
+  int32_t yes = 1;
+  if(setsockopt(serverSock,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(yes)) < 0) {
+    ::printf("Warning: Couldn't Reuse Address: %s\n",GetNetworkError().c_str());
+  }
+
+  memset(&soc_addr,0,sizeof(soc_addr));
+  soc_addr.sin_family = AF_INET;
+  soc_addr.sin_port = htons(port);
+  soc_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  if(bind(serverSock,(struct sockaddr*)&soc_addr,sizeof(soc_addr))) {
+    ::printf("Error: Can not bind socket. Another server running?\n%s\n",GetNetworkError().c_str());
+    exit(-1);
+  }
+
+  if(listen(serverSock,MAX_CLIENT)<0) {
+    ::printf("Error: Can not listen to socket\n%s\n",GetNetworkError().c_str());
+    exit(-1);
+  }
+
+  AcceptConnections(serverSock);
+
+#ifdef WIN64
+  WSACleanup();
+#endif
+
+  ::printf("Abnormal termination...\n");
+  return;
+
+}
+
+// ------------------------------------------------------------------------------------------------------
+// Client part
+// ------------------------------------------------------------------------------------------------------
 
 // Connection to server
 bool Kangaroo::ConnectToServer(SOCKET *retSock) {
@@ -451,31 +614,42 @@ void Kangaroo::WaitForServer() {
     while(isConnected && !ok) {
 
       char cmd = SERVER_STATUS;
-      Write(serverConn,&cmd,1,ntimeout);
-      nbRead = Read(serverConn,(char *)(&status),sizeof(int32_t),ntimeout);
-      if( nbRead<0 ) {
-        ::printf("\nReadError(Status): %s\n",lastError.c_str()); 
-        serverStatus = "Fault";
+
+      if( Write(serverConn,&cmd,1,ntimeout)<0 ) {
+
+        ::printf("\nSendToServer(Status): %s\n",lastError.c_str()); 
+        serverStatus = "Not OK";
         close_socket(serverConn);
         isConnected = false;
+
       } else {
 
-        switch(status) {
-        case SERVER_OK:
-          serverStatus = "OK";
-          ok = true;
-          break;
+        nbRead = Read(serverConn,(char *)(&status),sizeof(int32_t),ntimeout);
+        if( nbRead<0 ) {
+          ::printf("\nRecvFromServer(Status): %s\n",lastError.c_str()); 
+          serverStatus = "Fault";
+          close_socket(serverConn);
+          isConnected = false;
+        } else {
 
-        case SERVER_END:
-          serverStatus = "END";
-          endOfSearch = true;
-          ok = true;
-          break;
+          switch(status) {
+          case SERVER_OK:
+            serverStatus = "OK";
+            ok = true;
+            break;
 
-        case SERVER_BACKUP:
-          serverStatus = "Backup";
-          Timer::SleepMillis(1000);
-          break;
+          case SERVER_END:
+            serverStatus = "END";
+            endOfSearch = true;
+            ok = true;
+            break;
+
+          case SERVER_BACKUP:
+            serverStatus = "Backup";
+            Timer::SleepMillis(1000);
+            break;
+          }
+
         }
 
       }
@@ -575,151 +749,3 @@ bool Kangaroo::GetConfigFromServer() {
 
 }
 
-#ifdef WIN64
-DWORD WINAPI _acceptThread(LPVOID lpParam) {
-#else
-void *_acceptThread(void *lpParam) {
-#endif
-  TH_PARAM *p = (TH_PARAM *)lpParam;
-  p->obj->HandleRequest(p);
-  p->isRunning = false;
-  return 0;
-}
-
-#ifdef WIN64
-DWORD WINAPI _processServer(LPVOID lpParam) {
-#else
-void *_processServer(void *lpParam) {
-#endif
-  Kangaroo *obj = (Kangaroo *)lpParam;
-  obj->ProcessServer();
-  return 0;
-}
-
-// Main server loop
-void Kangaroo::AcceptConnections(SOCKET server_soc) {
-
-  SOCKET clientSock;
-
-  ::printf("Kangaroo server is ready and listening to TCP port %d ...\n",port);
-
-  while(true) {
-
-    struct sockaddr_in client_add;
-    socklen_t len = sizeof(sockaddr_in);
-
-    if((clientSock = accept(server_soc,(struct sockaddr*)&client_add,&len)) < 0) {
-
-      ::printf("Error: Invalid Socket returned by accept(): %s\n",GetNetworkError().c_str());
-
-    } else {
-      
-      TH_PARAM p;
-      char info[256];
-      ::sprintf(info,"%s:%d",inet_ntoa(client_add.sin_addr),ntohs(client_add.sin_port));
-      p.clientInfo = string(info);
-      p.obj = this;
-      p.isRunning = true;
-      p.clientSock = clientSock;
-      clients.push_back(p);
-      LaunchThread(_acceptThread,&clients[clients.size()-1]);
-
-    }
-
-  }
-
-}
-
-void Kangaroo::InitSocket() {
-
-#ifdef WIN64
-  // connect to Winscok DLL
-  WSADATA WSAData;
-  int err = WSAStartup(MAKEWORD(2,2),&WSAData);
-  if(err != 0) {
-    ::printf("WSAStartup failed error : %d\n",err);
-    exit(-1);
-  }
-#endif
-
-}
-
-void Kangaroo::RunServer() {
-
-  // Set starting parameters
-  collisionInSameHerd = 0;
-  InitRange();
-  InitSearchKey();
-
-  ComputeExpected((double)initDPSize,&expectedNbOp,&expectedMem);
-  ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
-  ::printf("Expected RAM: %.1fMB\n",expectedMem);
-
-  if(initDPSize<0) {
-    ::printf("Error: Server must be launched with a specified number of distinguished bits (-d)\n");
-    exit(-1);
-  }
-  SetDP(initDPSize);
-  keyIdx = 0;
-
-  if(sizeof(DP)!=40) {
-    ::printf("Error: Invalid DP size struct\n");
-    exit(-1);
-  }
-
-  if(saveKangaroo) {
-    ::printf("Waring: Server does not support -ws, ignoring\n");
-    saveKangaroo = false;
-  }
-
-  // Stats for server
-  LaunchThread(_processServer,(TH_PARAM *)this);
-
-  // Server stuff
-
-  if(signal(SIGINT,sig_handler) == SIG_ERR)
-    ::printf("\nWarning:can't install singal handler\n");
-
-  InitSocket();
-
-  /* Create socket */
-  serverSock = socket(AF_INET,SOCK_STREAM,0);
-
-  if(serverSock<0) {
-    ::printf("Error: Invalid socket : %s\n",GetNetworkError().c_str());
-    exit(-1);
-  }
-
-  struct sockaddr_in soc_addr;
-
-  /* Reuse Address */
-  const char yes = 1;
-  if(setsockopt(serverSock,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(yes)) < 0) {
-    ::printf("Warning: Couldn't Reuse Address: %s\n",GetNetworkError().c_str());
-  }
-
-  memset(&soc_addr,0,sizeof(soc_addr));
-  soc_addr.sin_family = AF_INET;
-  soc_addr.sin_port = htons(port);
-  soc_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  if(bind(serverSock,(struct sockaddr*)&soc_addr,sizeof(soc_addr))) {
-    ::printf("Error: Can not bind socket. Another server running?\n%s\n",GetNetworkError().c_str());
-    exit(-1);
-  }
-
-  if(listen(serverSock,MAX_CLIENT)<0) {
-    ::printf("Error: Can not listen to socket\n%s\n",GetNetworkError().c_str());
-    exit(-1);
-  }
-
-  AcceptConnections(serverSock);
-
-#ifdef WIN64
-  WSACleanup();
-#endif
-
-  ::printf("Abnormal termination...\n");
-  return;
-
-}

@@ -27,6 +27,18 @@
 
 #ifdef WIN64
 #include <Windows.h>
+#else
+typedef int SOCKET;
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include <netdb.h>
+#include <netinet/tcp.h>
+#include <signal.h>
 #endif
 
 #ifdef WIN64
@@ -35,7 +47,7 @@ typedef HANDLE THREAD_HANDLE;
 #define UNLOCK(mutex) ReleaseMutex(mutex);
 #else
 typedef pthread_t THREAD_HANDLE;
-#define LOCK(mutex) pthread_mutex_lock(&(mutex));
+#define LOCK(mutex)  pthread_mutex_lock(&(mutex));
 #define UNLOCK(mutex) pthread_mutex_unlock(&(mutex));
 #endif
 
@@ -226,6 +238,7 @@ private:
   SOCKET serverConn;
   std::vector<TH_PARAM> clients;
   std::vector<DP_CACHE> recvDP;
+  std::vector<DP_CACHE> localCache;
   std::string serverStatus;
 
 };

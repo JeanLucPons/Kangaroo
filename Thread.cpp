@@ -170,22 +170,27 @@ void Kangaroo::ProcessServer() {
   startTime = t0;
   double lastSave = 0;
 
+#ifndef WIN64
+  pthread_mutex_init(&ghMutex, NULL); // Why ?
+  setvbuf(stdout, NULL, _IONBF, 0);
+#endif
+
   while(!endOfSearch) {
 
     t0 = Timer::get_tick();
 
     // Get back all dps
-    vector<DP_CACHE> cache;
     LOCK(ghMutex);
+    localCache.clear();    
     for(int i=0;i<(int)recvDP.size();i++)
-      cache.push_back(recvDP[i]);
+      localCache.push_back(recvDP[i]);
     recvDP.clear();
     UNLOCK(ghMutex);
 
     // Add to hashTable
-    for(int i = 0; i<(int)cache.size() && !endOfSearch; i++) {
-      DP_CACHE dp = cache[i];
-      for(int j = 0; j<(int)cache[i].nbDP && !endOfSearch; j++) {
+    for(int i = 0; i<(int)localCache.size() && !endOfSearch; i++) {
+      DP_CACHE dp = localCache[i];
+      for(int j = 0; j<(int)dp.nbDP && !endOfSearch; j++) {
         if(!AddToTable(dp.dp[j].h,&dp.dp[j].x,&dp.dp[j].d)) {
           // Collision inside the same herd
           collisionInSameHerd++;
@@ -205,7 +210,6 @@ void Kangaroo::ProcessServer() {
 
     double toSleep = SEND_PERIOD - (t1-t0);
     if(toSleep<0) toSleep = 0.0;
-
     Timer::SleepMillis((uint32_t)(toSleep*1000.0));
 
     t1 = Timer::get_tick();
@@ -301,7 +305,7 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
     // Display stats
     if(isAlive(params) && !endOfSearch) {
       if(clientMode) {
-        printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][%s][Server %s]         ",
+        printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][%s][Server %6s]  ",
           avgKeyRate / 1000000.0,unit.c_str(),
           avgGpuKeyRate / 1000000.0,unit.c_str(),
           log2((double)count + offsetCount),

@@ -64,8 +64,9 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   ghMutex = CreateMutex(NULL,FALSE,NULL);
   saveMutex = CreateMutex(NULL,FALSE,NULL);
 #else
-  ghMutex = PTHREAD_MUTEX_INITIALIZER;
-  saveMutex = PTHREAD_MUTEX_INITIALIZER;
+  pthread_mutex_init(&ghMutex, NULL);
+  pthread_mutex_init(&saveMutex, NULL);
+  signal(SIGPIPE, SIG_IGN);
 #endif
 
 }
