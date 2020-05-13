@@ -256,7 +256,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     // Wait for command (5min timeout)
     nbRead = Read(p->clientSock,(char *)(&cmdBuff),1,(int)(CLIENT_TIMEOUT*1000.0));
     if(nbRead<=0) {
-      ::printf("\nClosing connection with %s\n",p->clientInfo.c_str());
+      ::printf("\nClosing connection with %s\n",p->clientInfo);
       close_socket(p->clientSock);
       return false;
     }
@@ -264,7 +264,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     switch(cmdBuff) {
 
     case SERVER_GETCONFIG: {
-      ::printf("\nNew connection from %s\n",p->clientInfo.c_str());
+      ::printf("\nNew connection from %s\n",p->clientInfo);
 
       // Send config to the client
       PUT("Version",p->clientSock,&version,sizeof(uint32_t),ntimeout);
@@ -290,8 +290,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
       if(nbDP == 0) {
 
-        ::printf("\nUnexpected number of DP [%d] from %s\n",nbDP,p->clientInfo.c_str());
-        ::printf("\nClosing connection with %s\n",p->clientInfo.c_str());
+        ::printf("\nUnexpected number of DP [%d] from %s\n",nbDP,p->clientInfo);
+        ::printf("\nClosing connection with %s\n",p->clientInfo);
         close_socket(p->clientSock);
         return false;
 
@@ -306,8 +306,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
         if(nbRead != sizeof(DP)*nbDP) {
 
-          ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",p->clientInfo.c_str(),nbDP,nbRead,(int)(sizeof(DP)*nbDP));
-          ::printf("\nClosing connection with %s\n",p->clientInfo.c_str());
+          ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",p->clientInfo,nbDP,nbRead,(int)(sizeof(DP)*nbDP));
+          ::printf("\nClosing connection with %s\n",p->clientInfo);
           close_socket(p->clientSock);
           return false;
 
@@ -375,15 +375,15 @@ void Kangaroo::AcceptConnections(SOCKET server_soc) {
 
     } else {
       
-      TH_PARAM p;
+      TH_PARAM *p = (TH_PARAM *)malloc(sizeof(TH_PARAM));
       char info[256];
       ::sprintf(info,"%s:%d",inet_ntoa(client_add.sin_addr),ntohs(client_add.sin_port));
-      p.clientInfo = string(info);
-      p.obj = this;
-      p.isRunning = true;
-      p.clientSock = clientSock;
+      p->clientInfo = ::strdup(info);
+      p->obj = this;
+      p->isRunning = true;
+      p->clientSock = clientSock;
       clients.push_back(p);
-      LaunchThread(_acceptThread,&clients[clients.size()-1]);
+      LaunchThread(_acceptThread,p);
 
     }
 
@@ -399,6 +399,7 @@ void Kangaroo::RunServer() {
 
   // Set starting parameters
   collisionInSameHerd = 0;
+  keyIdx = 0;
   InitRange();
   InitSearchKey();
 
@@ -423,7 +424,6 @@ void Kangaroo::RunServer() {
     saveKangaroo = false;
   }
 
-  clients.reserve(512);
   // Main thread of server (handle backup and collision check)
   LaunchThread(_processServer,(TH_PARAM *)this);
 

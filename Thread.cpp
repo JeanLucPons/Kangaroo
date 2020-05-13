@@ -202,7 +202,7 @@ void Kangaroo::ProcessServer() {
     // Number of active client
     int connectedClient = 0;
     for(int i=0;i<(int)clients.size();i++) {
-      if(clients[i].isRunning)
+      if(clients[i]->isRunning)
         connectedClient++;
     }
 

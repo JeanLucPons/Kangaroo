@@ -828,8 +828,7 @@ void Kangaroo::InitSearchKey() {
     Point RS = secp->ComputePublicKey(&SP);
     RS.y.ModNeg();
     keyToSearch = secp->AddDirect(keysToSearch[keyIdx],RS);
-  }
-  else {
+  } else {
     keyToSearch = keysToSearch[keyIdx];
   }
   keyToSearchNeg = keyToSearch;
