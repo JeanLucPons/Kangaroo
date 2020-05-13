@@ -164,6 +164,12 @@ int main(int argc, char* argv[]) {
   int a = 1;
   nbCPUThread = Timer::getCoreNumber();
 
+#ifdef USE_SYMMETRY
+  printf("Kangaroo v" RELEASE " (with symmetry)\n");
+#else
+  printf("Kangaroo v" RELEASE "\n");
+#endif
+
   while (a < argc) {
 
     if(strcmp(argv[a], "-t") == 0) {
@@ -246,10 +252,13 @@ int main(int argc, char* argv[]) {
       a++;
       getInts("gridSize",gridSize,string(argv[a]),',');
       a++;
+    } else if(strcmp(argv[a],"-v") == 0) {
+      ::exit(0);
     } else if(strcmp(argv[a],"-check") == 0) {
       checkFlag = true;
       a++;
-    } else if(a == argc - 1) {
+    }
+    else if(a == argc - 1) {
       configFile = string(argv[a]);
       a++;
     } else {
@@ -258,12 +267,6 @@ int main(int argc, char* argv[]) {
     }
 
   }
-
-#ifdef USE_SYMMETRY
-  printf("Kangaroo v" RELEASE " (with symmetry)\n");
-#else
-  printf("Kangaroo v" RELEASE "\n");
-#endif
 
   if(gridSize.size() == 0) {
     for(int i = 0; i < gpuId.size(); i++) {
