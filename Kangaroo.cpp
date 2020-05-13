@@ -451,15 +451,16 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
       }
 
+      // Save request
+      if(saveRequest && !endOfSearch) {
+        ph->isWaiting = true;
+        LOCK(saveMutex);
+        ph->isWaiting = false;
+        UNLOCK(saveMutex);
+      }
+
     }
 
-    // Save request
-    if(saveRequest && !endOfSearch) {
-      ph->isWaiting = true;
-      LOCK(saveMutex);
-      ph->isWaiting = false;
-      UNLOCK(saveMutex);
-    }
 
   }
 
@@ -481,11 +482,14 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
 void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
 
+  double lastSent = 0;
+
   // Global init
   int thId = ph->threadId;
 
 #ifdef WITHGPU
 
+  vector<ITEM> dps;
   vector<ITEM> gpuFound;
   GPUEngine *gpu;
 
@@ -538,38 +542,55 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
     gpu->Launch(gpuFound);
     counters[thId] += ph->nbKangaroo * NB_RUN;
 
-    if(gpuFound.size() > 0) {
-      
-      LOCK(ghMutex);
+    if( clientMode ) {
 
-      for(int g=0;!endOfSearch && g<gpuFound.size();g++) {
+      for(int i=0;i<(int)gpuFound.size();i++)
+        dps.push_back(gpuFound[i]);
 
-        uint32_t kType = (uint32_t)(gpuFound[g].kIdx % 2);
-
-        if(!AddToTable(&gpuFound[g].x,&gpuFound[g].d,kType)) {
-          // Collision inside the same herd
-          // We need to reset the kangaroo
-          Int px;
-          Int py;
-          Int d;
-          CreateHerd(1,&px,&py,&d,kType,false);
-          gpu->SetKangaroo(gpuFound[g].kIdx,&px,&py,&d);
-          collisionInSameHerd++;
-        }
-
+      double now = Timer::get_tick();
+      if(now - lastSent > SEND_PERIOD) {
+        LOCK(ghMutex);
+        SendToServer(dps);
+        UNLOCK(ghMutex);
+        lastSent = now;
       }
-      UNLOCK(ghMutex);
-    }
 
-    // Save request
-    if(saveRequest && !endOfSearch) {
-      // Get kangaroos
-      if(saveKangaroo)
-        gpu->GetKangaroos(ph->px,ph->py,ph->distance);
-      ph->isWaiting = true;
-      LOCK(saveMutex);
-      ph->isWaiting = false;
-      UNLOCK(saveMutex);
+    } else {
+
+      if(gpuFound.size() > 0) {
+
+        LOCK(ghMutex);
+
+        for(int g = 0; !endOfSearch && g < gpuFound.size(); g++) {
+
+          uint32_t kType = (uint32_t)(gpuFound[g].kIdx % 2);
+
+          if(!AddToTable(&gpuFound[g].x,&gpuFound[g].d,kType)) {
+            // Collision inside the same herd
+            // We need to reset the kangaroo
+            Int px;
+            Int py;
+            Int d;
+            CreateHerd(1,&px,&py,&d,kType,false);
+            gpu->SetKangaroo(gpuFound[g].kIdx,&px,&py,&d);
+            collisionInSameHerd++;
+          }
+
+        }
+        UNLOCK(ghMutex);
+      }
+
+      // Save request
+      if(saveRequest && !endOfSearch) {
+        // Get kangaroos
+        if(saveKangaroo)
+          gpu->GetKangaroos(ph->px,ph->py,ph->distance);
+        ph->isWaiting = true;
+        LOCK(saveMutex);
+        ph->isWaiting = false;
+        UNLOCK(saveMutex);
+      }
+
     }
 
   }

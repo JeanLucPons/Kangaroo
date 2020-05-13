@@ -615,7 +615,7 @@ void Kangaroo::WaitForServer() {
 
       char cmd = SERVER_STATUS;
 
-      if( Write(serverConn,&cmd,1,ntimeout)<0 ) {
+      if( Write(serverConn,&cmd,1,ntimeout)<=0 ) {
 
         ::printf("\nSendToServer(Status): %s\n",lastError.c_str()); 
         serverStatus = "Not OK";
