@@ -119,6 +119,7 @@ Starting the server with backup every 5 min, 12 distinguished bits, in64.txt as 
 ```
 pons@linpons:~/Kangaroo$./kangaroo -w save.work -wi 300 -s -d 12 in64.txt
 ```
+**Warning**: The server is very simple and has no authentication mechanism, so if you want to export it on the net, use at your own risk.
 
 Starting client, using gpu and connect to the server linpons:
 ```
