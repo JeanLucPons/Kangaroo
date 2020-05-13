@@ -442,7 +442,7 @@ void Kangaroo::RunServer() {
 
   /* Reuse Address */
   int32_t yes = 1;
-  if(setsockopt(serverSock,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(yes)) < 0) {
+  if(setsockopt(serverSock,SOL_SOCKET,SO_REUSEADDR,(char *)&yes,sizeof(yes)) < 0) {
     ::printf("Warning: Couldn't Reuse Address: %s\n",GetNetworkError().c_str());
   }
 
