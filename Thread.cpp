@@ -161,6 +161,76 @@ string Kangaroo::GetTimeStr(double dTime) {
 
 }
 
+// Wait for end of server and dispay stats
+void Kangaroo::ProcessServer() {
+
+  double t0;
+  double t1;
+  t0 = Timer::get_tick();
+  startTime = t0;
+  double lastSave = 0;
+
+  while(!endOfSearch) {
+
+    t0 = Timer::get_tick();
+
+    // Get back all dps
+    vector<DP_CACHE> cache;
+    LOCK(ghMutex);
+    for(int i=0;i<(int)recvDP.size();i++)
+      cache.push_back(recvDP[i]);
+    recvDP.clear();
+    UNLOCK(ghMutex);
+
+    // Add to hashTable
+    for(int i = 0; i<(int)cache.size() && !endOfSearch; i++) {
+      DP_CACHE dp = cache[i];
+      for(int j = 0; j<(int)cache[i].nbDP && !endOfSearch; j++) {
+        if(!AddToTable(dp.dp[j].h,&dp.dp[j].x,&dp.dp[j].d)) {
+          // Collision inside the same herd
+          collisionInSameHerd++;
+        }
+      }
+      free(dp.dp);
+    }
+
+    // Number of active client
+    int connectedClient = 0;
+    for(int i=0;i<(int)clients.size();i++) {
+      if(clients[i].isRunning)
+        connectedClient++;
+    }
+
+    t1 = Timer::get_tick();
+
+    double toSleep = SEND_PERIOD - (t1-t0);
+    if(toSleep<0) toSleep = 0.0;
+
+    Timer::SleepMillis((uint32_t)(toSleep*1000.0));
+
+    t1 = Timer::get_tick();
+
+    if(!endOfSearch)
+      printf("\r[Client %d][DP Count 2^%.2f/2^%.2f][Dead %d][%s][%s]  ",
+        connectedClient,
+        log2((double)hashTable.GetNbItem()),
+        log2(expectedNbOp / pow(2.0,dpSize)),
+        collisionInSameHerd,
+        GetTimeStr(t1 - startTime).c_str(),
+        hashTable.GetSizeInfo().c_str()
+        );
+
+    if(workFile.length() > 0 && !endOfSearch) {
+      if((t1 - lastSave) > saveWorkPeriod) {
+        SaveServerWork();
+        lastSave = t1;
+      }
+    }
+
+  }
+
+}
+
 // Wait for end of threads and display stats
 void Kangaroo::Process(TH_PARAM *params,std::string unit) {
 
@@ -230,20 +300,29 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
 
     // Display stats
     if(isAlive(params) && !endOfSearch) {
-
-      printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%s]  ",
-        avgKeyRate / 1000000.0,unit.c_str(),
-        avgGpuKeyRate / 1000000.0,unit.c_str(),
-        log2((double)count + offsetCount),
-        collisionInSameHerd,
-        GetTimeStr(t1 - startTime + offsetTime).c_str(),GetTimeStr(expectedTime).c_str(),
-        hashTable.GetSizeInfo().c_str()
+      if(clientMode) {
+        printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][%s][Server %s]         ",
+          avgKeyRate / 1000000.0,unit.c_str(),
+          avgGpuKeyRate / 1000000.0,unit.c_str(),
+          log2((double)count + offsetCount),
+          GetTimeStr(t1 - startTime + offsetTime).c_str(),
+          serverStatus.c_str()
+          );
+      } else {
+        printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%s]  ",
+          avgKeyRate / 1000000.0,unit.c_str(),
+          avgGpuKeyRate / 1000000.0,unit.c_str(),
+          log2((double)count + offsetCount),
+          collisionInSameHerd,
+          GetTimeStr(t1 - startTime + offsetTime).c_str(),GetTimeStr(expectedTime).c_str(),
+          hashTable.GetSizeInfo().c_str()
         );
+      }
 
     }
 
     // Save request
-    if(workFile.length() > 0 && !endOfSearch) {
+    if(!clientMode && workFile.length() > 0 && !endOfSearch) {
       if((t1 - lastSave) > saveWorkPeriod) {
         SaveWork(count + offsetCount,t1 - startTime + offsetTime,params,nbCPUThread + nbGPUThread);
         lastSave = t1;
@@ -251,7 +330,7 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
     }
 
     // Abort
-    if(maxStep>0.0) {
+    if(!clientMode && maxStep>0.0) {
       double max = expectedNbOp * maxStep; 
       if( (double)count > max ) {
         ::printf("\nKey#%2d [XX]Pub:  0x%s \n",keyIdx,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
@@ -271,12 +350,11 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
   t1 = Timer::get_tick();
   
   if( !endOfSearch ) {
-    printf("\r[%.2f %s][GPU %.2f %s][Cnt 2^%.2f][%s][%s]  ",
+    printf("\r[%.2f %s][GPU %.2f %s][Cnt 2^%.2f][%s]  ",
       avgKeyRate / 1000000.0,unit.c_str(),
       avgGpuKeyRate / 1000000.0,unit.c_str(),
       log2((double)count),
-      GetTimeStr(t1 - startTime).c_str(),
-      hashTable.GetSizeInfo().c_str()
+      GetTimeStr(t1 - startTime).c_str()
       );
   }
 

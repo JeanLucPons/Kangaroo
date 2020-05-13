@@ -72,6 +72,10 @@ FILE *Kangaroo::ReadHeader(std::string fileName,uint32_t *version) {
 
 bool Kangaroo::LoadWork(string &fileName) {
 
+  // In client mode, config come from the server
+  if(clientMode)
+    return true;
+
   double t0 = Timer::get_tick();
 
   ::printf("Loading: %s\n",fileName.c_str());
@@ -192,6 +196,67 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
 
 
 // ----------------------------------------------------------------------------
+void  Kangaroo::SaveWork(FILE *f,uint64_t totalCount,double totalTime) {
+
+  ::printf("\nSaveWork: %s",workFile.c_str());
+
+  // Header
+  uint32_t head = HEAD;
+  uint32_t version = 0;
+  if(::fwrite(&head,sizeof(uint32_t),1,f) != 1) {
+    ::printf("SaveWork: Cannot write to %s\n",workFile.c_str());
+    ::printf("%s\n",::strerror(errno));
+    return;
+  }
+  ::fwrite(&version,sizeof(uint32_t),1,f);
+
+  // Save global param
+  ::fwrite(&dpSize,sizeof(uint32_t),1,f);
+  ::fwrite(&rangeStart.bits64,32,1,f);
+  ::fwrite(&rangeEnd.bits64,32,1,f);
+  ::fwrite(&keysToSearch[keyIdx].x.bits64,32,1,f);
+  ::fwrite(&keysToSearch[keyIdx].y.bits64,32,1,f);
+  ::fwrite(&totalCount,sizeof(uint64_t),1,f);
+  ::fwrite(&totalTime,sizeof(double),1,f);
+
+  // Save hash table
+  hashTable.SaveTable(f);
+
+}
+
+void Kangaroo::SaveServerWork() {
+
+  saveRequest = true;
+
+  double t0 = Timer::get_tick();
+
+  FILE *f = fopen(workFile.c_str(),"wb");
+  if(f == NULL) {
+    ::printf("\nSaveWork: Cannot open %s for writing\n",workFile.c_str());
+    ::printf("%s\n",::strerror(errno));
+    saveRequest = false;
+    return;
+  }
+
+  SaveWork(f,0,0);
+
+  uint64_t totalWalk = 0;
+  ::fwrite(&totalWalk,sizeof(uint64_t),1,f);
+
+  uint64_t size = ftell(f);
+  fclose(f);
+
+
+  double t1 = Timer::get_tick();
+
+  char *ctimeBuff;
+  time_t now = time(NULL);
+  ctimeBuff = ctime(&now);
+  ::printf("done [%.1f MB] [%s] %s",(double)size / (1024.0*1024.0),GetTimeStr(t1 - t0).c_str(),ctimeBuff);
+
+  saveRequest = false;
+
+}
 
 void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread) {
 
@@ -215,36 +280,16 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
     return;
   }
 
-  ::printf("\nSaveWork: %s",workFile.c_str());
-
+  // Save
   FILE *f = fopen(workFile.c_str(),"wb");
   if(f == NULL) {
-    ::printf("SaveWork: Cannot open %s for writing\n",workFile.c_str());
+    ::printf("\nSaveWork: Cannot open %s for writing\n",workFile.c_str());
     ::printf("%s\n",::strerror(errno));
+    UNLOCK(saveMutex);
     return;
   }
 
-  // Header
-  uint32_t head = HEAD;
-  uint32_t version = 0;
-  if(::fwrite(&head,sizeof(uint32_t),1,f) != 1 ) {
-    ::printf("SaveWork: Cannot write to %s\n",workFile.c_str());
-    ::printf("%s\n",::strerror(errno));
-    return;
-  }
-  ::fwrite(&version,sizeof(uint32_t),1,f);
-
-  // Save global param
-  ::fwrite(&dpSize,sizeof(uint32_t),1,f);
-  ::fwrite(&rangeStart.bits64,32,1,f);
-  ::fwrite(&rangeEnd.bits64,32,1,f);
-  ::fwrite(&keysToSearch[keyIdx].x.bits64,32,1,f);
-  ::fwrite(&keysToSearch[keyIdx].y.bits64,32,1,f);
-  ::fwrite(&totalCount,sizeof(uint64_t),1,f);
-  ::fwrite(&totalTime,sizeof(double),1,f);
-
-  // Save hash table
-  hashTable.SaveTable(f);
+  SaveWork(f,totalCount,totalTime);
 
   uint64_t totalWalk = 0;
 
@@ -357,6 +402,8 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
 
   double t0;
   double t1;
+  uint32_t v1;
+  uint32_t v2;
 
   // ---------------------------------------------------
 
@@ -364,7 +411,7 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
 
   t0 = Timer::get_tick();
 
-  FILE *f1 = ReadHeader(file1);
+  FILE *f1 = ReadHeader(file1,&v1);
   if(f1 == NULL)
     return;
 
@@ -405,7 +452,7 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
 
   t0 = Timer::get_tick();
 
-  FILE *f2 = ReadHeader(file2);
+  FILE *f2 = ReadHeader(file2,&v2);
   if(f2 == NULL)
     return;
 
@@ -424,6 +471,12 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
   ::fread(&k2.y.bits64,32,1,f2); k2.y.bits64[4] = 0;
   ::fread(&count2,sizeof(uint64_t),1,f2);
   ::fread(&time2,sizeof(double),1,f2);
+
+  if(v1!=v2) {
+    ::printf("MergeWork: cannot merge wirkfile of different version\n");
+    fclose(f2);
+    return;
+  }
 
   k2.z.SetInt32(1);
   if(!secp->EC(k2)) {
@@ -469,58 +522,17 @@ void Kangaroo::MergeWork(std::string &file1,std::string &file2,std::string &dest
   keysToSearch.clear();
   keysToSearch.push_back(k1);
   keyIdx = 0;
+  collisionInSameHerd = 0;
   rangeStart.Set(&RS1);
   rangeEnd.Set(&RE1);
-  rangeWidth.Set(&rangeEnd);
-  rangeWidth.Sub(&rangeStart);
-  rangePower = rangeWidth.GetBitLength();
-  ::printf("Range width: 2^%d\n",rangePower);
-  rangeWidthDiv2.Set(&rangeWidth);
-  rangeWidthDiv2.ShiftR(1);
-  rangeWidthDiv4.Set(&rangeWidthDiv2);
-  rangeWidthDiv4.ShiftR(1);
-  rangeWidthDiv8.Set(&rangeWidthDiv4);
-  rangeWidthDiv8.ShiftR(1);
-
-  Int SP;
-  SP.Set(&rangeStart);
-#ifdef USE_SYMMETRY
-  SP.ModAddK1order(&rangeWidthDiv2);
-#endif
-  if(!SP.IsZero()) {
-    Point RS = secp->ComputePublicKey(&SP);
-    RS.y.ModNeg();
-    keyToSearch = secp->AddDirect(keysToSearch[keyIdx],RS);
-  } else {
-    keyToSearch = keysToSearch[keyIdx];
-  }
-  keyToSearchNeg = keyToSearch;
-  keyToSearchNeg.y.ModNeg();
-  collisionInSameHerd = 0;
+  InitRange();
+  InitSearchKey();
 
   for(uint64_t h = 0; h < HASH_SIZE && !endOfSearch; h++) {
     for(uint32_t i = 0; i<h2->E[h].nbItem && !endOfSearch; i++) {
-
-      // Reconstruct point
-      Int x;
-      x.SetInt32(0);
-      x.bits64[0] = h2->E[h].items[i]->x.i64[0];
-      x.bits64[1] = h2->E[h].items[i]->x.i64[1];
-      x.bits64[2] = h;
-
-      Int d;
-      d.SetInt32(0);
-      int128_t dd = h2->E[h].items[i]->d;
-      d.bits64[0] = dd.i64[0];
-      d.bits64[1] = dd.i64[1] & 0x3FFFFFFFFFFFFFFFULL;
-      int sign = (dd.i64[1] & 0x8000000000000000ULL) != 0;
-      if(sign) d.ModNegK1order();
-      uint32_t kType = (dd.i64[1] & 0x4000000000000000ULL) != 0;
-
       // Add
-      if( !AddToTable(&x,&d,kType) )
+      if( !AddToTable(h,&(h2->E[h].items[i]->x),&(h2->E[h].items[i]->d)) )
         collisionInSameHerd++;
-
     }
   }
 

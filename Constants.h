@@ -38,5 +38,10 @@
 #define TAME 0  // Tame kangaroo
 #define WILD 1  // Wild kangaroo
 
+// SendDP Period in sec
+#define SEND_PERIOD 2.0
+
+// Timeout before closing client connection in sec
+#define CLIENT_TIMEOUT 300.0
 
 #endif //CONSTANTSH

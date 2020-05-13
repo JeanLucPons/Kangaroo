@@ -64,6 +64,7 @@ public:
 
   HashTable();
   bool Add(Int *x,Int *d,uint32_t type);
+  bool Add(uint64_t h,int128_t *x,int128_t *d);
   uint64_t GetNbItem();
   void Reset();
   std::string GetSizeInfo();
@@ -75,9 +76,11 @@ public:
 
   HASH_ENTRY    E[HASH_SIZE];
 
+  static void Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int128_t *D);
+
 private:
 
-  ENTRY *CreateEntry(Int *x,Int *d,uint64_t type);
+  ENTRY *CreateEntry(int128_t *x,int128_t *d);
   int compare(int128_t *i1,int128_t *i2);
   std::string GetStr(int128_t *i);
 

@@ -54,30 +54,13 @@ uint64_t HashTable::GetNbItem() {
 
 }
 
-ENTRY *HashTable::CreateEntry(Int *x,Int *d,uint64_t type) {
+ENTRY *HashTable::CreateEntry(int128_t *x,int128_t *d) {
 
   ENTRY *e = (ENTRY *)malloc(sizeof(ENTRY));
-  uint64_t sign = 0;
-  type = type << 62;
-
-  e->x.i64[0] = x->bits64[0];
-  e->x.i64[1] = x->bits64[1];
-
-  // Probability of failure (1/2^128)
-  if(d->bits64[3] > 0x7FFFFFFFFFFFFFFFULL) {
-    Int N(d);
-    N.ModNegK1order();
-    e->d.i64[0] = N.bits64[0];
-    e->d.i64[1] = N.bits64[1] & 0x3FFFFFFFFFFFFFFFULL;
-    sign = 1ULL << 63;
-  } else {
-    e->d.i64[0] = d->bits64[0];
-    e->d.i64[1] = d->bits64[1] & 0x3FFFFFFFFFFFFFFFULL;
-  }
-
-  e->d.i64[1] |= sign;
-  e->d.i64[1] |= type;
-
+  e->x.i64[0] = x->i64[0];
+  e->x.i64[1] = x->i64[1];
+  e->d.i64[0] = d->i64[0];
+  e->d.i64[1] = d->i64[1];
   return e;
 
 }
@@ -89,9 +72,44 @@ ENTRY *HashTable::CreateEntry(Int *x,Int *d,uint64_t type) {
   E[h].items[st] = entry;                  \
   E[h].nbItem++;}
 
+void HashTable::Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int128_t *D) {
+
+  uint64_t sign = 0;
+  uint64_t type64 = (uint64_t)type << 62;
+
+  X->i64[0] = x->bits64[0];
+  X->i64[1] = x->bits64[1];
+
+  // Probability of failure (1/2^128)
+  if(d->bits64[3] > 0x7FFFFFFFFFFFFFFFULL) {
+    Int N(d);
+    N.ModNegK1order();
+    D->i64[0] = N.bits64[0];
+    D->i64[1] = N.bits64[1] & 0x3FFFFFFFFFFFFFFFULL;
+    sign = 1ULL << 63;
+  } else {
+    D->i64[0] = d->bits64[0];
+    D->i64[1] = d->bits64[1] & 0x3FFFFFFFFFFFFFFFULL;
+  }
+
+  D->i64[1] |= sign;
+  D->i64[1] |= type64;
+
+  *h = (x->bits64[2] & HASH_MASK);
+
+}
+
 bool HashTable::Add(Int *x,Int *d,uint32_t type) {
 
-  uint64_t h = (x->bits64[2] & HASH_MASK);
+  int128_t X;
+  int128_t D;
+  uint64_t h;
+  Convert(x,d,type,&h,&X,&D);
+  return Add(h,&X,&D);
+
+}
+
+bool HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
 
   if(E[h].maxItem == 0) {
     E[h].maxItem = 16;
@@ -99,7 +117,7 @@ bool HashTable::Add(Int *x,Int *d,uint32_t type) {
   }
 
   if(E[h].nbItem == 0) {
-    E[h].items[0] = CreateEntry(x,d,type);
+    E[h].items[0] = CreateEntry(x,d);
     E[h].nbItem = 1;
     return false;
   }
@@ -118,7 +136,7 @@ bool HashTable::Add(Int *x,Int *d,uint32_t type) {
   st = 0; ed = E[h].nbItem - 1;
   while(st <= ed) {
     mi = (st + ed) / 2;
-    int comp = compare((int128_t *)(x->bits64),&GET(h,mi)->x);
+    int comp = compare(x,&GET(h,mi)->x);
     if(comp<0) {
       ed = mi - 1;
     } else if (comp==0) {
@@ -141,7 +159,7 @@ bool HashTable::Add(Int *x,Int *d,uint32_t type) {
     }
   }
 
-  ENTRY *entry = CreateEntry(x,d,type);
+  ENTRY *entry = CreateEntry(x,d);
   ADD_ENTRY(entry);
   return false;
 

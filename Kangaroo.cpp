@@ -33,7 +33,8 @@ using namespace std;
 
 // ----------------------------------------------------------------------------
 
-Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout) {
+Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,
+                   double maxStep,int wtimeout,int port,int ntimeout,string serverIp) {
 
   this->secp = secp;
   this->initDPSize = initDPSize;
@@ -48,6 +49,13 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->fRead = NULL;
   this->maxStep = maxStep;
   this->wtimeout = wtimeout;
+  this->port = port;
+  this->ntimeout = ntimeout;
+  this->serverIp = serverIp;
+  this->hostInfo = NULL;
+  this->clientMode = serverIp.length()>0;
+  this->endOfSearch = false;
+  this->saveRequest = false;
 
   CPU_GRP_SIZE = 1024;
 
@@ -65,6 +73,10 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
 // ----------------------------------------------------------------------------
 
 bool Kangaroo::ParseConfigFile(std::string &fileName) {
+
+  // In client mode, config come from the server
+  if(clientMode)
+    return true;
 
   // Check file
   FILE *fp = fopen(fileName.c_str(),"rb");
@@ -205,64 +217,94 @@ bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
 
 }
 
-// ----------------------------------------------------------------------------
+bool Kangaroo::CollisionCheck(Int *dist,uint32_t kType) {
 
-bool Kangaroo::AddToTable(Int *pos,Int *dist,uint32_t kType) {
+  uint32_t type = hashTable.GetType();
 
-  if(hashTable.Add(pos,dist,kType)) {
+  if(type == kType) {
 
-    int type = hashTable.GetType();
+    // Collision inside the same herd
+    return false;
 
-    if(type == kType) {
+  } else {
 
-      // Collision inside the same herd
-      return false;
+    Int Td;
+    Int Wd;
 
-    } else {
+    if(kType == TAME) {
+      Td.Set(dist);
+      Wd.Set(hashTable.GetD());
+    }  else {
+      Td.Set(hashTable.GetD());
+      Wd.Set(dist);
+    }
 
-      Int Td;
-      Int Wd;
+    endOfSearch = CheckKey(Td,Wd,0) || CheckKey(Td,Wd,1) || CheckKey(Td,Wd,2) || CheckKey(Td,Wd,3);
 
-      if(kType==TAME) {
-        Td.Set(dist);
-        Wd.Set(hashTable.GetD());
+    if(!endOfSearch) {
+
+      // Should not happen, reset the kangaroo
+      ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
+      if((int64_t)(Td.bits64[3])<0) {
+        Td.ModNegK1order();
+        ::printf("Found: Td-%s\n",Td.GetBase16().c_str());
       } else {
-        Td.Set(hashTable.GetD());
-        Wd.Set(dist);
+        ::printf("Found: Td %s\n",Td.GetBase16().c_str());
       }
-
-      endOfSearch = CheckKey(Td,Wd,0) || CheckKey(Td,Wd,1) || CheckKey(Td,Wd,2) || CheckKey(Td,Wd,3);
-
-      if(!endOfSearch) {
-
-        // Should not happen, reset the kangaroo
-        ::printf("\n Unexpected wrong collision, reset kangaroo !\n");
-        if((int64_t)(Td.bits64[3])<0) {
-          Td.ModNegK1order();
-          ::printf("Found: Td-%s\n",Td.GetBase16().c_str());
-        } else {
-          ::printf("Found: Td %s\n",Td.GetBase16().c_str());
-        }
-        if((int64_t)(Wd.bits64[3])<0) {
-          Wd.ModNegK1order();
-          ::printf("Found: Wd-%s\n",Wd.GetBase16().c_str());
-        } else {
-          ::printf("Found: Wd %s\n",Wd.GetBase16().c_str());
-        }
-        return false;
-
+      if((int64_t)(Wd.bits64[3])<0) {
+        Wd.ModNegK1order();
+        ::printf("Found: Wd-%s\n",Wd.GetBase16().c_str());
+      } else {
+        ::printf("Found: Wd %s\n",Wd.GetBase16().c_str());
       }
+      return false;
 
     }
 
   }
 
   return true;
+
+}
+
+// ----------------------------------------------------------------------------
+
+bool Kangaroo::AddToTable(Int *pos,Int *dist,uint32_t kType) {
+
+  if(hashTable.Add(pos,dist,kType))
+    return CollisionCheck(dist,kType);
+
+  return true;
+
+}
+
+bool Kangaroo::AddToTable(uint64_t h,int128_t *x,int128_t *d) {
+
+  if(hashTable.Add(h,x,d)) {
+
+    Int dist;
+    dist.SetInt32(0);
+    uint32_t kType = (d->i64[1] & 0x4000000000000000ULL) != 0;
+    int sign = (d->i64[1] & 0x8000000000000000ULL) != 0;
+    dist.bits64[0] = d->i64[0];
+    dist.bits64[1] = d->i64[1];
+    dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
+    if(sign) dist.ModNegK1order();
+
+    return CollisionCheck(&dist,kType);
+
+  }
+
+  return true;
+
 }
 
 // ----------------------------------------------------------------------------
 
 void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
+
+  vector<ITEM> dps;
+  double lastSent = 0;
 
   // Global init
   int thId = ph->threadId;
@@ -361,26 +403,52 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
     }
 
-    // Add to table and collision check
+    if( clientMode ) {
 
-    for(int g = 0; g < CPU_GRP_SIZE && !endOfSearch; g++) {
-
-      if(IsDP(ph->px[g].bits64[3])) {
-        LOCK(ghMutex);
-        if(!endOfSearch) {
-
-          if(!AddToTable(&ph->px[g],&ph->distance[g],g % 2)) {
-            // Collision inside the same herd
-            // We need to reset the kangaroo
-            CreateHerd(1,&ph->px[g],&ph->py[g],&ph->distance[g],g % 2,false);
-            collisionInSameHerd++;
-          }
-
+      // Send DP to server
+      for(int g = 0; g < CPU_GRP_SIZE; g++) {
+        if(IsDP(ph->px[g].bits64[3])) {
+          ITEM it;
+          it.x.Set(&ph->px[g]);
+          it.d.Set(&ph->distance[g]);
+          it.kIdx = g;
+          dps.push_back(it);
         }
-        UNLOCK(ghMutex);
       }
 
-      if(!endOfSearch) counters[thId] ++;
+      double now = Timer::get_tick();
+      if( now-lastSent > SEND_PERIOD ) {
+        LOCK(ghMutex);
+        SendToServer(dps);
+        UNLOCK(ghMutex);
+        lastSent = now;
+      }
+
+      if(!endOfSearch) counters[thId] += CPU_GRP_SIZE;
+
+    } else {
+
+      // Add to table and collision check
+      for(int g = 0; g < CPU_GRP_SIZE && !endOfSearch; g++) {
+
+        if(IsDP(ph->px[g].bits64[3])) {
+          LOCK(ghMutex);
+          if(!endOfSearch) {
+
+            if(!AddToTable(&ph->px[g],&ph->distance[g],g % 2)) {
+              // Collision inside the same herd
+              // We need to reset the kangaroo
+              CreateHerd(1,&ph->px[g],&ph->py[g],&ph->distance[g],g % 2,false);
+              collisionInSameHerd++;
+            }
+
+          }
+          UNLOCK(ghMutex);
+        }
+
+        if(!endOfSearch) counters[thId] ++;
+
+      }
 
     }
 
@@ -712,15 +780,50 @@ void Kangaroo::ComputeExpected(double dp,double *op,double *ram) {
 
 // ----------------------------------------------------------------------------
 
+void Kangaroo::InitRange() {
+
+  rangeWidth.Set(&rangeEnd);
+  rangeWidth.Sub(&rangeStart);
+  rangePower = rangeWidth.GetBitLength();
+  ::printf("Range width: 2^%d\n",rangePower);
+  rangeWidthDiv2.Set(&rangeWidth);
+  rangeWidthDiv2.ShiftR(1);
+  rangeWidthDiv4.Set(&rangeWidthDiv2);
+  rangeWidthDiv4.ShiftR(1);
+  rangeWidthDiv8.Set(&rangeWidthDiv4);
+  rangeWidthDiv8.ShiftR(1);
+
+}
+
+void Kangaroo::InitSearchKey() {
+
+  Int SP;
+  SP.Set(&rangeStart);
+#ifdef USE_SYMMETRY
+  SP.ModAddK1order(&rangeWidthDiv2);
+#endif
+  if(!SP.IsZero()) {
+    Point RS = secp->ComputePublicKey(&SP);
+    RS.y.ModNeg();
+    keyToSearch = secp->AddDirect(keysToSearch[keyIdx],RS);
+  }
+  else {
+    keyToSearch = keysToSearch[keyIdx];
+  }
+  keyToSearchNeg = keyToSearch;
+  keyToSearchNeg.y.ModNeg();
+
+}
+
+// ----------------------------------------------------------------------------
+
 void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize) {
 
   double t0 = Timer::get_tick();
 
   nbCPUThread = nbThread;
   nbGPUThread = (useGpu ? (int)gpuId.size() : 0);
-  endOfSearch = false;
   totalRW = 0;
-  saveRequest = false;
 
 #ifndef WITHGPU
 
@@ -744,17 +847,13 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   ::printf("Number of CPU thread: %d\n", nbCPUThread);
 
   // Set starting parameters
-  rangeWidth.Set(&rangeEnd);
-  rangeWidth.Sub(&rangeStart);
-  rangePower = rangeWidth.GetBitLength();
-  ::printf("Range width: 2^%d\n",rangePower);
-  rangeWidthDiv2.Set(&rangeWidth);
-  rangeWidthDiv2.ShiftR(1);
-  rangeWidthDiv4.Set(&rangeWidthDiv2);
-  rangeWidthDiv4.ShiftR(1);
-  rangeWidthDiv8.Set(&rangeWidthDiv4);
-  rangeWidthDiv8.ShiftR(1);
+  if( clientMode ) {
+    // Retrieve config from server
+    if( !GetConfigFromServer() )
+      ::exit(0);
+  }
 
+  InitRange();
   CreateJumpTable();
 
 #ifdef WITHGPU
@@ -788,12 +887,14 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   if(initDPSize < 0)
     initDPSize = suggestedDP;
 
-  ComputeExpected((double)initDPSize,&expectedNbOp,&expectedMem);
-
   ::printf("Number of kangaroos: 2^%.2f\n",log2((double)totalRW));
-  if(nbLoadedWalk == 0) ::printf("Suggested DP: %d\n",suggestedDP);
-  ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
-  ::printf("Expected RAM: %.1fMB\n",expectedMem);
+
+  if( !clientMode ) {
+    ComputeExpected((double)initDPSize,&expectedNbOp,&expectedMem);
+    if(nbLoadedWalk == 0) ::printf("Suggested DP: %d\n",suggestedDP);
+    ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
+    ::printf("Expected RAM: %.1fMB\n",expectedMem);
+  }
 
   SetDP(initDPSize);
 
@@ -813,20 +914,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
     for(keyIdx = 0; keyIdx < keysToSearch.size(); keyIdx++) {
 
-      Int SP;
-      SP.Set(&rangeStart);
-#ifdef USE_SYMMETRY
-      SP.ModAddK1order(&rangeWidthDiv2);
-#endif
-      if(!SP.IsZero()) {
-        Point RS = secp->ComputePublicKey(&SP);
-        RS.y.ModNeg();
-        keyToSearch = secp->AddDirect(keysToSearch[keyIdx] ,RS);
-      } else {
-        keyToSearch = keysToSearch[keyIdx];
-      }
-      keyToSearchNeg = keyToSearch;
-      keyToSearchNeg.y.ModNeg();
+      InitSearchKey();
 
       endOfSearch = false;
       collisionInSameHerd = 0;

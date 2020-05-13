@@ -47,6 +47,10 @@ void printUsage() {
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
   printf(" -m maxStep: number of operations before give up the seacrh (maxStep*expected operation)\n");
+  printf(" -s: Start in server mode\n");
+  printf(" -c server_ip: Start in client mode and connect to server IP address\n");
+  printf(" -sp port: Server port, default is 17403\n");
+  printf(" -nt timeout: Network timeout in millisec (default is 3000ms)\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
   printf(" inFile: intput configuration file\n");
@@ -142,6 +146,10 @@ static string mergeDest = "";
 static string infoFile = "";
 static double maxStep = 0.0;
 static int wtimeout = 3000;
+static int ntimeout = 3000;
+static int port = 17403;
+static bool serverMode = false;
+static string serverIP = "";
 
 int main(int argc, char* argv[]) {
 
@@ -205,6 +213,10 @@ int main(int argc, char* argv[]) {
       a++;
       wtimeout = getInt("timeout",argv[a]);
       a++;
+    } else if(strcmp(argv[a],"-nt") == 0) {
+      a++;
+      ntimeout = getInt("timeout",argv[a]);
+      a++;
     } else if(strcmp(argv[a],"-m") == 0) {
       a++;
       maxStep = getDouble("maxStep",argv[a]);
@@ -212,6 +224,17 @@ int main(int argc, char* argv[]) {
     } else if(strcmp(argv[a],"-ws") == 0) {
       a++;
       saveKangaroo = true;
+    } else if(strcmp(argv[a],"-s") == 0) {
+      a++;
+      serverMode = true;
+    } else if(strcmp(argv[a],"-c") == 0) {
+      a++;
+      serverIP = string(argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-sp") == 0) {
+      a++;
+      port = getInt("serverPort",argv[a]);
+      a++;
     } else if(strcmp(argv[a],"-gpu") == 0) {
       gpuEnable = true;
       a++;
@@ -252,7 +275,7 @@ int main(int argc, char* argv[]) {
     exit(-1);
   }
 
-  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,maxStep,wtimeout);
+  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,maxStep,wtimeout,port,ntimeout,serverIP);
   if(checkFlag) {
     v->Check(gpuId,gridSize);  
     exit(0);
@@ -270,10 +293,15 @@ int main(int argc, char* argv[]) {
       if( !v->ParseConfigFile(configFile) )
         exit(-1);
     } else {
-      ::printf("No input file to process\n");
-      exit(-1);
+      if(serverIP.length()==0) {
+        ::printf("No input file to process\n");
+        exit(-1);
+      }
     }
-    v->Run(nbCPUThread,gpuId,gridSize);
+    if(serverMode)
+      v->RunServer();
+    else
+      v->Run(nbCPUThread,gpuId,gridSize);
   }
 
   return 0;

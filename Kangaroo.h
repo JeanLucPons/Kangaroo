@@ -64,17 +64,38 @@ typedef struct {
 #ifdef USE_SYMMETRY
   uint64_t *lastJump; // Last jump
 #endif
+  
+  SOCKET clientSock;
+  std::string clientInfo;
 
 } TH_PARAM;
 
+
+// DP transfered over the network
+typedef struct {
+
+  uint32_t kIdx;
+  uint32_t h;
+  int128_t x;
+  int128_t d;
+
+} DP;
+
+// DP cache
+typedef struct {
+  uint32_t nbDP;
+  DP *dp;
+} DP_CACHE;
 
 class Kangaroo {
 
 public:
 
   Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,
-           uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout);
+           uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout,int sport,int ntimeout,
+           std::string serverIp);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
+  void RunServer();
   bool ParseConfigFile(std::string &fileName);
   bool LoadWork(std::string &fileName);
   void Check(std::vector<int> gpuId,std::vector<int> gridSize);
@@ -84,6 +105,8 @@ public:
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);
   void SolveKeyGPU(TH_PARAM *p);
+  bool HandleRequest(TH_PARAM *p);
+  void ProcessServer();
 
 private:
 
@@ -91,17 +114,35 @@ private:
   void SetDP(int size);
   void CreateHerd(int nbKangaroo,Int *px, Int *py, Int *d, int firstType,bool lock=true);
   void CreateJumpTable();
+  bool AddToTable(uint64_t h,int128_t *x,int128_t *d);
   bool AddToTable(Int *pos,Int *dist,uint32_t kType);
+  bool SendToServer(std::vector<ITEM> &dp);
   bool CheckKey(Int d1,Int d2,uint8_t type);
+  bool CollisionCheck(Int *dist,uint32_t kType);
   void ComputeExpected(double dp,double *op,double *ram);
+  void InitRange();
+  void InitSearchKey();
+  std::string GetTimeStr(double s);
 
-  void SaveWork(std::string fileName);
+  // Backup stuff
+  void SaveWork(FILE *f,uint64_t totalCount,double totalTime);
   void SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread);
+  void SaveServerWork();
   void FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d);
   void FectchKangaroos(TH_PARAM *threads);
   FILE *ReadHeader(std::string fileName,uint32_t *version = NULL);
 
-  std::string GetTimeStr(double s);
+
+  // Network stuff
+  void AcceptConnections(SOCKET server_soc);
+  int WaitFor(SOCKET sock,int timeout,int mode);
+  int Write(SOCKET sock,char *buf,int bufsize,int timeout);
+  int Read(SOCKET sock,char *buf,int bufsize,int timeout);
+  bool GetConfigFromServer();
+  bool ConnectToServer(SOCKET *retSock);
+  void InitSocket();
+  void WaitForServer();
+  int32_t GetServerStatus();
 
 #ifdef WIN64
   HANDLE ghMutex;
@@ -171,6 +212,21 @@ private:
   bool saveRequest;
   bool saveKangaroo;
   int wtimeout;
+  int ntimeout;
+
+  // Network stuff
+  int port;
+  std::string lastError;
+  std::string serverIp;
+  char *hostInfo;
+  int   hostInfoLength;
+  int   hostAddrType;
+  bool  clientMode;
+  bool  isConnected;
+  SOCKET serverConn;
+  std::vector<TH_PARAM> clients;
+  std::vector<DP_CACHE> recvDP;
+  std::string serverStatus;
 
 };
 
