@@ -66,6 +66,7 @@ Start a work from scratch and save work file every 30 seconds:
 ```
 Kangaroo.exe -ws -w save.work -wi 30 in.txt
 ```
+**Warning**: The server is very simple and has no authentication mechanism, so if you want to export it on the net, use at your own risk.
 
 Continue the work from save.work and save work file every 30 seconds:
 ```
