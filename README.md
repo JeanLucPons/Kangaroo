@@ -5,12 +5,13 @@ Discusion thread: https://bitcointalk.org/index.php?topic=5244940.0
 
 Usage:
 ```
+Kangaroo v1.5
 Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
          [-gpuId gpuId1[,gpuId2,...]] [-g g1x,g1y[,g2x,g2y,...]]
          inFile
  -v: Print version
  -gpu: Enable gpu calculation
- -gpu gpuId1,gpuId2,...: List of GPU(s) to use, default is 0
+ -gpuId gpuId1,gpuId2,...: List of GPU(s) to use, default is 0
  -g g1x,g1y,g2x,g2y,...: Specify GPU(s) kernel gridsize, default is 2*(MP),2*(Core/MP)
  -d: Specify number of leading zeros for the DP method (default is auto)
  -t nbThread: Secify number of thread
@@ -19,12 +20,16 @@ Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
  -wi workInterval: Periodic interval (in seconds) for saving work
  -ws: Save kangaroos in the work file
  -wm file1 file2 destfile: Merge work file
+ -wt timeout: Save work timeout in millisec (default is 3000ms)
  -winfo file1: Work file info file
- -m maxStep: number of operations before give up the seacrh (maxStep*expected operation)
+ -m maxStep: number of operations before give up the search (maxStep*expected operation)
+ -s: Start in server mode
+ -c server_ip: Start in client mode and connect to server server_ip
+ -sp port: Server port, default is 17403
+ -nt timeout: Network timeout in millisec (default is 3000ms)
  -l: List cuda enabled devices
  -check: Check GPU kernel vs CPU
  inFile: intput configuration file
-
 ```
 
 Structure of the input file:
@@ -112,7 +117,7 @@ Total f1+f2: count 2^30.04 [02:17]
 
 # Distributed clients and central server
 
-It is possible to run Kangaroo in client/server mode. The server has the same options as the standard program except that you have to specify manualy the number of distinguisehd point bits number using -d. All clients which connect will get back the configuration from the server. At the moment, the server is limitted to one single key.
+It is possible to run Kangaroo in client/server mode. The server has the same options as the standard program except that you have to specify manualy the number of distinguisehd point bits number using -d. All clients which connect will get back the configuration from the server. At the moment, the server is limitted to one single key. If you restart the server with a different configuration (range or key), you need to stop all clients otherwise they will reconnect and send wrong points.
 
 Starting the server with backup every 5 min, 12 distinguished bits, in64.txt as config file:
 
