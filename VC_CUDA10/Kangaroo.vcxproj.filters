@@ -57,6 +57,7 @@
       <Filter>GPU</Filter>
     </ClInclude>
     <ClInclude Include="..\Constants.h" />
+    <ClInclude Include="..\WindowsErrors.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="SECPK1">

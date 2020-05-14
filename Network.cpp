@@ -23,10 +23,12 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <algorithm>
+#include <signal.h>
 #ifndef WIN64
 #include <pthread.h>
+#else
+#include "WindowsErrors.h"
 #endif
-#include <signal.h>
 
 using namespace std;
 
@@ -61,18 +63,21 @@ typedef int socklen_t;
 
 string GetNetworkError() {
 
-  char msgbuf[512];    // for a message up to 512 bytes.
-  msgbuf[0] = '\0';    // Microsoft doesn't guarantee this on man page.
+  int err = WSAGetLastError();
+  bool found = false;
+  int i=0;
+  while(!found && i<NBWSAERRORS) {
+    found = (WSAERRORS[i].errCode == err);
+    if(!found) i++;
+  }
 
-  FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,   // flags
-    NULL,                // lpsource
-    WSAGetLastError(),   // message id
-    MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),    // languageid
-    msgbuf,              // output buffer
-    sizeof(msgbuf),     // size of msgbuf, bytes
-    NULL);               // va_list of arguments
-
-  return string(msgbuf);
+  if(!found) {
+    char ret[256];
+    sprintf(ret,"WSA Error code %d",err);
+    return string(ret);
+  } else {
+    return string(WSAERRORS[i].mesg);
+  }
 
 }
 
@@ -95,7 +100,7 @@ string GetNetworkError() {
 
 void sig_handler(int signo) {
   if(signo == SIGINT) {
-    ::printf("Terminated\n");
+    ::printf("\nTerminated\n");
     if(serverSock>0) close_socket(serverSock);
 #ifdef WIN64
     WSACleanup();
@@ -123,7 +128,11 @@ int Kangaroo::WaitFor(SOCKET sock,int timeout,int mode) {
 
   do
     result = select((int)sock + 1,rd,wr,NULL,&tmout);
+#ifdef WIN64
+  while(result < 0 && WSAGetLastError() == WSAEINTR);
+#else
   while(result < 0 && errno == EINTR);
+#endif
 
   if(result == 0) {
     lastError = "The operation timed out";
@@ -150,7 +159,11 @@ int Kangaroo::Write(SOCKET sock,char *buf,int bufsize,int timeout) {
     // Write
     do
       written = send(sock,buf,bufsize,0);
+#ifdef WIN64
+    while(written == -1 && WSAGetLastError() == WSAEINTR);
+#else
     while(written == -1 && errno == EINTR);
+#endif
 
     if(written <= 0)
       break;
@@ -189,8 +202,11 @@ int Kangaroo::Read(SOCKET sock,char *buf,int bufsize,int timeout) { // Timeout i
     // Read
     do
       rd = recv(sock,buf,bufsize,0);
+#ifdef WIN64
+    while(rd == -1 && WSAGetLastError() == WSAEINTR);
+#else
     while(rd == -1 && errno == EINTR);
-
+#endif
     if( rd <= 0 )
       break;
 
@@ -342,8 +358,12 @@ DWORD WINAPI _acceptThread(LPVOID lpParam) {
 void *_acceptThread(void *lpParam) {
 #endif
   TH_PARAM *p = (TH_PARAM *)lpParam;
+  p->obj->AddConnectedClient();
   p->obj->HandleRequest(p);
+  p->obj->RemoveConnectedClient();
   p->isRunning = false;
+  free(p->clientInfo);
+  free(p);
   return 0;
 }
 
@@ -378,11 +398,14 @@ void Kangaroo::AcceptConnections(SOCKET server_soc) {
       TH_PARAM *p = (TH_PARAM *)malloc(sizeof(TH_PARAM));
       char info[256];
       ::sprintf(info,"%s:%d",inet_ntoa(client_add.sin_addr),ntohs(client_add.sin_port));
+#ifdef WIN64
+      p->clientInfo = ::_strdup(info);
+#else
       p->clientInfo = ::strdup(info);
+#endif
       p->obj = this;
       p->isRunning = true;
       p->clientSock = clientSock;
-      clients.push_back(p);
       LaunchThread(_acceptThread,p);
 
     }
@@ -477,7 +500,7 @@ void Kangaroo::RunServer() {
 // Client part
 // ------------------------------------------------------------------------------------------------------
 
-// Connection to server
+// Connection to the server
 bool Kangaroo::ConnectToServer(SOCKET *retSock) {
 
   lastError = "";
@@ -535,7 +558,11 @@ bool Kangaroo::ConnectToServer(SOCKET *retSock) {
 
   int connectStatus = connect(sock,(struct sockaddr *)&server,sizeof(server));
 
+#ifdef WIN64
+  if((connectStatus < 0) && (WSAGetLastError() != WSAEINPROGRESS)) {
+#else
   if((connectStatus < 0) && (errno != EINPROGRESS)) {
+#endif
     lastError = "Cannot connect to host: " + GetNetworkError();
     close_socket(sock);
     return false;
@@ -594,10 +621,11 @@ bool Kangaroo::ConnectToServer(SOCKET *retSock) {
 
 }
 
-// Wait while server is not running
+// Wait while server is not ready
 void Kangaroo::WaitForServer() {
 
   int nbRead;
+  int nbWrite;
   int32_t status;
   bool ok = false;
 
@@ -615,10 +643,11 @@ void Kangaroo::WaitForServer() {
     while(isConnected && !ok) {
 
       char cmd = SERVER_STATUS;
+      nbWrite = Write(serverConn,&cmd,1,ntimeout);
+      if( nbWrite<=0 ) {
 
-      if( Write(serverConn,&cmd,1,ntimeout)<=0 ) {
-
-        ::printf("\nSendToServer(Status): %s\n",lastError.c_str()); 
+        if(nbWrite<0)
+          ::printf("\nSendToServer(Status): %s\n",lastError.c_str()); 
         serverStatus = "Not OK";
         close_socket(serverConn);
         isConnected = false;
@@ -626,8 +655,9 @@ void Kangaroo::WaitForServer() {
       } else {
 
         nbRead = Read(serverConn,(char *)(&status),sizeof(int32_t),ntimeout);
-        if( nbRead<0 ) {
-          ::printf("\nRecvFromServer(Status): %s\n",lastError.c_str()); 
+        if( nbRead<=0 ) {
+          if(nbRead<0)
+            ::printf("\nRecvFromServer(Status): %s\n",lastError.c_str()); 
           serverStatus = "Fault";
           close_socket(serverConn);
           isConnected = false;
@@ -661,7 +691,7 @@ void Kangaroo::WaitForServer() {
 
 }
 
-// Send DP to 
+// Send DP to Server
 bool Kangaroo::SendToServer(std::vector<ITEM> &dps) {
 
   int nbRead;
@@ -708,6 +738,14 @@ bool Kangaroo::SendToServer(std::vector<ITEM> &dps) {
 
   return true;
 
+}
+
+void Kangaroo::AddConnectedClient() {
+  connectedClient++;
+}
+
+void Kangaroo::RemoveConnectedClient() {
+  connectedClient--;
 }
 
 // Get configuration from server

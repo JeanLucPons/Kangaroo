@@ -179,9 +179,9 @@ void Kangaroo::ProcessServer() {
 
     t0 = Timer::get_tick();
 
-    // Get back all dps
     LOCK(ghMutex);
-    localCache.clear();    
+    // Get back all dps
+    localCache.clear();
     for(int i=0;i<(int)recvDP.size();i++)
       localCache.push_back(recvDP[i]);
     recvDP.clear();
@@ -197,13 +197,6 @@ void Kangaroo::ProcessServer() {
         }
       }
       free(dp.dp);
-    }
-
-    // Number of active client
-    int connectedClient = 0;
-    for(int i=0;i<(int)clients.size();i++) {
-      if(clients[i]->isRunning)
-        connectedClient++;
     }
 
     t1 = Timer::get_tick();

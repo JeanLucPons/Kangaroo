@@ -56,6 +56,7 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->clientMode = serverIp.length()>0;
   this->endOfSearch = false;
   this->saveRequest = false;
+  this->connectedClient = 0;
 
   CPU_GRP_SIZE = 1024;
 

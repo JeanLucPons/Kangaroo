@@ -120,6 +120,9 @@ public:
   bool HandleRequest(TH_PARAM *p);
   void ProcessServer();
 
+  void AddConnectedClient();
+  void RemoveConnectedClient();
+
 private:
 
   bool IsDP(uint64_t x);
@@ -236,10 +239,10 @@ private:
   bool  clientMode;
   bool  isConnected;
   SOCKET serverConn;
-  std::vector<TH_PARAM *> clients;
   std::vector<DP_CACHE> recvDP;
   std::vector<DP_CACHE> localCache;
   std::string serverStatus;
+  int connectedClient;
 
 };
 

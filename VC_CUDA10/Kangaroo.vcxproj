@@ -27,6 +27,7 @@
     <ClInclude Include="..\SECPK1\SECP256k1.h" />
     <ClInclude Include="..\Timer.h" />
     <ClInclude Include="..\Kangaroo.h" />
+    <ClInclude Include="..\WindowsErrors.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Backup.cpp" />
