@@ -112,7 +112,7 @@ Total f1+f2: count 2^30.04 [02:17]
 
 # Distributed clients and central server
 
-It is possible to run Kangaroo in client/server mode. The server has the same options as the standard program except that you have to specify manualy the number of distinguisehd point bits number using -d. All clients which connect will get back the configuration from the server. At the moment, the server is limitted to one single key.
+It is possible to run Kangaroo in client/server mode. The server has the same options as the standard program except that you have to specify manualy the number of distinguisehd point bits number using -d. All clients which connect will get back the configuration from the server. At the moment, the server is limitted to one single key. If you restart the server with a different configuration (range or key), you need to stop all clients otherwise they will reconnect and send wrong points.
 
 Starting the server with backup every 5 min, 12 distinguished bits, in64.txt as config file:
 
