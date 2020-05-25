@@ -299,7 +299,7 @@ void HashTable::PrintInfo() {
 
   ::printf("DP Size   : %s\n",GetSizeInfo().c_str());
 #ifdef WIN64
-  ::printf("DP Count  : %I64d 2^%.3f\n",count,log2(count));
+  ::printf("DP Count  : %I64d 2^%.3f\n",count,log2((double)count));
 #else
   ::printf("DP Count  : %" PRId64 " 2^%.3f\n",count,log2(count));
 #endif
