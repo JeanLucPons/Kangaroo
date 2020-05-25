@@ -243,7 +243,11 @@ void Kangaroo::SaveServerWork() {
   uint64_t totalWalk = 0;
   ::fwrite(&totalWalk,sizeof(uint64_t),1,f);
 
-  uint64_t size = ftell(f);
+#ifdef WIN64
+  uint64_t size = (uint64_t)_ftelli64(f);
+#else
+  uint64_t size = (uint64_t)ftello(f);
+#endif
   fclose(f);
 
 
