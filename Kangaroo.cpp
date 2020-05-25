@@ -57,6 +57,9 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->endOfSearch = false;
   this->saveRequest = false;
   this->connectedClient = 0;
+  this->totalRW = 0;
+  this->collisionInSameHerd = 0;
+  this->keyIdx = 0;
 
   CPU_GRP_SIZE = 1024;
 
@@ -467,7 +470,7 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
   // Free
   delete grp;
-  delete dx;
+  delete[] dx;
   safe_delete_array(ph->px);
   safe_delete_array(ph->py);
   safe_delete_array(ph->distance);
@@ -793,8 +796,8 @@ void Kangaroo::ComputeExpected(double dp,double *op,double *ram) {
   else
     *op = avg;
 
-  *ram = (double)sizeof(HASH_ENTRY) * HASH_SIZE + // Table
-         (double)sizeof(ENTRY *) * HASH_SIZE * 4 + // Allocation overhead
+  *ram = (double)sizeof(HASH_ENTRY) * (double)HASH_SIZE + // Table
+         (double)sizeof(ENTRY *) * (double)(HASH_SIZE * 4) + // Allocation overhead
          (double)(sizeof(ENTRY) + sizeof(ENTRY *)) * (*op / theta); // Entries
 
   *ram /= (1024.0*1024.0);
@@ -856,15 +859,16 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
 #endif
 
-  if((nbCPUThread + nbGPUThread) == 0) {
+  uint64_t totalThread = (uint64_t)nbCPUThread + (uint64_t)nbGPUThread;
+  if(totalThread == 0) {
     ::printf("No CPU or GPU thread, exiting.\n");
     ::exit(0);
   }
 
-  TH_PARAM *params = (TH_PARAM *)malloc((nbCPUThread + nbGPUThread) * sizeof(TH_PARAM));
-  THREAD_HANDLE *thHandles = (THREAD_HANDLE *)malloc((nbCPUThread + nbGPUThread) * sizeof(THREAD_HANDLE));
+  TH_PARAM *params = (TH_PARAM *)malloc(totalThread * sizeof(TH_PARAM));
+  THREAD_HANDLE *thHandles = (THREAD_HANDLE *)malloc(totalThread * sizeof(THREAD_HANDLE));
 
-  memset(params, 0,(nbCPUThread + nbGPUThread) * sizeof(TH_PARAM));
+  memset(params, 0,totalThread * sizeof(TH_PARAM));
   memset(counters, 0, sizeof(counters));
   ::printf("Number of CPU thread: %d\n", nbCPUThread);
 
@@ -882,22 +886,22 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
   // Compute grid size
   for(int i = 0; i < nbGPUThread; i++) {
-    int x = gridSize[2 * i];
-    int y = gridSize[2 * i + 1];
+    int x = gridSize[2ULL * i];
+    int y = gridSize[2ULL * i + 1ULL];
     if(!GPUEngine::GetGridSize(gpuId[i],&x,&y)) {
       return;
     } else {
       params[nbCPUThread + i].gridSizeX = x;
       params[nbCPUThread + i].gridSizeY = y;
     }
-    params[nbCPUThread + i].nbKangaroo = GPU_GRP_SIZE * x * y;
+    params[nbCPUThread + i].nbKangaroo = (uint64_t)GPU_GRP_SIZE * x * y;
     totalRW += params[nbCPUThread + i].nbKangaroo;
   }
 
 #endif
 
   // Compute optimal distinguished bits number (see README)
-  totalRW += nbCPUThread * CPU_GRP_SIZE;
+  totalRW += nbCPUThread * (uint64_t)CPU_GRP_SIZE;
   int suggestedDP = (int)((double)rangePower / 2.0 - log2((double)totalRW));
   if(suggestedDP < 0) suggestedDP = 0;
 
