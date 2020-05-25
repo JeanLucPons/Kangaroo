@@ -231,7 +231,7 @@ void Kangaroo::InitSocket() {
   // connect to Winscok DLL
   WSADATA WSAData;
   int err = WSAStartup(MAKEWORD(2,2),&WSAData);
-  if(err != 0) {
+  if(err != 0) { 
     ::printf("WSAStartup failed error : %d\n",err);
     exit(-1);
   }
@@ -324,10 +324,23 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
           ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",p->clientInfo,nbDP,nbRead,(int)(sizeof(DP)*nbDP));
           ::printf("\nClosing connection with %s\n",p->clientInfo);
+          free(dp);
           close_socket(p->clientSock);
           return false;
 
         } else {
+
+          // Check validity
+          for(uint32_t i=0;i<nbDP;i++) {
+            uint64_t h = (uint64_t)dp[i].h;
+            if(h >= HASH_SIZE) {
+              ::printf("\nInvalid data from: %s\n",p->clientInfo);
+              ::printf("\nClosing connection with %s\n",p->clientInfo);
+              free(dp);
+              close_socket(p->clientSock);
+              return false;
+            }
+          }
 
           LOCK(ghMutex);
           DP_CACHE dc;
@@ -341,6 +354,11 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       }
 
     } break;
+
+    default:
+      ::printf("\nUnexpected command [%d] from %s, closing connection\n",cmdBuff,p->clientInfo);
+      close_socket(p->clientSock);
+      return false;
 
     }
 
@@ -421,8 +439,6 @@ void Kangaroo::RunServer() {
     ::printf("\nWarning:can't install singal handler\n");
 
   // Set starting parameters
-  collisionInSameHerd = 0;
-  keyIdx = 0;
   InitRange();
   InitSearchKey();
 
@@ -435,7 +451,6 @@ void Kangaroo::RunServer() {
     exit(-1);
   }
   SetDP(initDPSize);
-  keyIdx = 0;
 
   if(sizeof(DP)!=40) {
     ::printf("Error: Invalid DP size struct\n");
@@ -491,7 +506,6 @@ void Kangaroo::RunServer() {
   WSACleanup();
 #endif
 
-  ::printf("Abnormal termination...\n");
   return;
 
 }
