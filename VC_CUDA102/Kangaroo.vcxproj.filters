@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\Timer.cpp" />
+    <ClCompile Include="..\HashTable.cpp" />
+    <ClCompile Include="..\Kangaroo.cpp" />
+    <ClCompile Include="..\SECPK1\Int.cpp">
+      <Filter>SECPK1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SECPK1\IntGroup.cpp">
+      <Filter>SECPK1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SECPK1\IntMod.cpp">
+      <Filter>SECPK1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SECPK1\Point.cpp">
+      <Filter>SECPK1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SECPK1\Random.cpp">
+      <Filter>SECPK1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SECPK1\SECP256K1.cpp">
+      <Filter>SECPK1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Thread.cpp" />
+    <ClCompile Include="..\Check.cpp" />
+    <ClCompile Include="..\Backup.cpp" />
+    <ClCompile Include="..\Network.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Timer.h" />
+    <ClInclude Include="..\HashTable.h" />
+    <ClInclude Include="..\Kangaroo.h" />
+    <ClInclude Include="..\SECPK1\Int.h">
+      <Filter>SECPK1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SECPK1\IntGroup.h">
+      <Filter>SECPK1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SECPK1\Point.h">
+      <Filter>SECPK1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SECPK1\Random.h">
+      <Filter>SECPK1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SECPK1\SECP256k1.h">
+      <Filter>SECPK1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\GPU\GPUEngine.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\GPU\GPUMath.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\GPU\GPUCompute.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Constants.h" />
+    <ClInclude Include="..\WindowsErrors.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="SECPK1">
+      <UniqueIdentifier>{8caf15b2-3ab6-48c0-862b-ae72b7c23ca4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU">
+      <UniqueIdentifier>{71f0de0a-b083-42b0-ad08-2182418491f0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\GPU\GPUEngine.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+  </ItemGroup>
+</Project>
