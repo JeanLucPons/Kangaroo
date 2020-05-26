@@ -326,7 +326,11 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
   }
 
-  uint64_t size = ftell(f);
+#ifdef WIN64
+  uint64_t size = (uint64_t)_ftelli64(f);
+#else
+  uint64_t size = (uint64_t)ftello(f);
+#endif
   fclose(f);
 
   // Unblock threads

@@ -15,8 +15,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "Timer.h"
 #include "Kangaroo.h"
+#include "Timer.h"
 #include "SECPK1/SECP256k1.h"
 #include "GPU/GPUEngine.h"
 #include <fstream>

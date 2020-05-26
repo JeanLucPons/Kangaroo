@@ -173,6 +173,8 @@ void Kangaroo::ProcessServer() {
 #ifndef WIN64
   pthread_mutex_init(&ghMutex, NULL); // Why ?
   setvbuf(stdout, NULL, _IONBF, 0);
+#else
+  ghMutex = CreateMutex(NULL,FALSE,NULL);
 #endif
 
   while(!endOfSearch) {

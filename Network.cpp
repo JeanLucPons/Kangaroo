@@ -38,7 +38,7 @@ static SOCKET serverSock = 0;
 // Common part
 // ------------------------------------------------------------------------------------------------------
 
-#define MAX_CLIENT 50
+#define MAX_CLIENT 256
 #define WAIT_FOR_READ  1
 #define WAIT_FOR_WRITE 2
 
@@ -334,7 +334,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
           for(uint32_t i=0;i<nbDP;i++) {
             uint64_t h = (uint64_t)dp[i].h;
             if(h >= HASH_SIZE) {
-              ::printf("\nInvalid data from: %s\n",p->clientInfo);
+              ::printf("\nInvalid data from: %s [at dp=%d]\n",p->clientInfo,i);
               ::printf("\nClosing connection with %s\n",p->clientInfo);
               free(dp);
               close_socket(p->clientSock);

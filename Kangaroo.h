@@ -18,15 +18,10 @@
 #ifndef KANGAROOH
 #define KANGAROOH
 
-#include <string>
-#include <vector>
-#include "SECPK1/SECP256k1.h"
-#include "HashTable.h"
-#include "SECPK1/IntGroup.h"
-#include "GPU/GPUEngine.h"
-
 #ifdef WIN64
-#include <Windows.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
 #else
 typedef int SOCKET;
 #include <sys/socket.h>
@@ -40,6 +35,13 @@ typedef int SOCKET;
 #include <netinet/tcp.h>
 #include <signal.h>
 #endif
+
+#include <string>
+#include <vector>
+#include "SECPK1/SECP256k1.h"
+#include "HashTable.h"
+#include "SECPK1/IntGroup.h"
+#include "GPU/GPUEngine.h"
 
 #ifdef WIN64
 typedef HANDLE THREAD_HANDLE;
