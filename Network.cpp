@@ -464,6 +464,7 @@ void Kangaroo::RunServer() {
 
   // Main thread of server (handle backup and collision check)
   LaunchThread(_processServer,(TH_PARAM *)this);
+  Timer::SleepMillis(100);
 
   // Server stuff
 

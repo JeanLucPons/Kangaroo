@@ -107,7 +107,7 @@ public:
 
   Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,
            uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout,int sport,int ntimeout,
-           std::string serverIp);
+           std::string serverIp,std::string outputFile);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
   void RunServer();
   bool ParseConfigFile(std::string &fileName);
@@ -140,6 +140,7 @@ private:
   void InitRange();
   void InitSearchKey();
   std::string GetTimeStr(double s);
+  bool Output(Int* pk,char sInfo,int sType);
 
   // Backup stuff
   void SaveWork(FILE *f,uint64_t totalCount,double totalTime);
@@ -219,6 +220,7 @@ private:
   int CPU_GRP_SIZE;
 
   // Backup stuff
+  std::string outputFile;
   FILE *fRead;
   uint64_t offsetCount;
   double offsetTime;

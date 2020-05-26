@@ -41,7 +41,7 @@
 // SendDP Period in sec
 #define SEND_PERIOD 2.0
 
-// Timeout before closing client connection in sec
+// Timeout before closing connection idle client in sec
 #define CLIENT_TIMEOUT 300.0
 
 #endif //CONSTANTSH

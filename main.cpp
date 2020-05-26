@@ -51,6 +51,7 @@ void printUsage() {
   printf(" -c server_ip: Start in client mode and connect to server server_ip\n");
   printf(" -sp port: Server port, default is 17403\n");
   printf(" -nt timeout: Network timeout in millisec (default is 3000ms)\n");
+  printf(" -o fileName: output result to fileName\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
   printf(" inFile: intput configuration file\n");
@@ -150,6 +151,7 @@ static int ntimeout = 3000;
 static int port = 17403;
 static bool serverMode = false;
 static string serverIP = "";
+static string outputFile = "";
 
 int main(int argc, char* argv[]) {
 
@@ -210,6 +212,10 @@ int main(int argc, char* argv[]) {
     } else if(strcmp(argv[a],"-winfo") == 0) {
       a++;
       infoFile = string(argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-o") == 0) {
+      a++;
+      outputFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-wi") == 0) {
       a++;
@@ -278,7 +284,7 @@ int main(int argc, char* argv[]) {
     exit(-1);
   }
 
-  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,maxStep,wtimeout,port,ntimeout,serverIP);
+  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,maxStep,wtimeout,port,ntimeout,serverIP,outputFile);
   if(checkFlag) {
     v->Check(gpuId,gridSize);  
     exit(0);

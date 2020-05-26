@@ -170,8 +170,9 @@ void Kangaroo::ProcessServer() {
   startTime = t0;
   double lastSave = 0;
 
+  // Acquire mutex ownership
 #ifndef WIN64
-  pthread_mutex_init(&ghMutex, NULL); // Why ?
+  pthread_mutex_init(&ghMutex, NULL);
   setvbuf(stdout, NULL, _IONBF, 0);
 #else
   ghMutex = CreateMutex(NULL,FALSE,NULL);

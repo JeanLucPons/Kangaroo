@@ -34,7 +34,7 @@ using namespace std;
 // ----------------------------------------------------------------------------
 
 Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,
-                   double maxStep,int wtimeout,int port,int ntimeout,string serverIp) {
+                   double maxStep,int wtimeout,int port,int ntimeout,string serverIp,string outputFile) {
 
   this->secp = secp;
   this->initDPSize = initDPSize;
@@ -52,6 +52,7 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->port = port;
   this->ntimeout = ntimeout;
   this->serverIp = serverIp;
+  this->outputFile = outputFile;
   this->hostInfo = NULL;
   this->clientMode = serverIp.length()>0;
   this->endOfSearch = false;
@@ -169,6 +170,48 @@ void Kangaroo::SetDP(int size) {
 
 // ----------------------------------------------------------------------------
 
+bool Kangaroo::Output(Int *pk,char sInfo,int sType) {
+
+
+  FILE* f = stdout;
+  bool needToClose = false;
+
+  if(outputFile.length() > 0) {
+    f = fopen(outputFile.c_str(),"a");
+    if(f == NULL) {
+      printf("Cannot open %s for writing\n",outputFile.c_str());
+      f = stdout;
+    }
+    else {
+      needToClose = true;
+    }
+  }
+
+  if(!needToClose)
+    ::printf("\n");
+
+  Point PR = secp->ComputePublicKey(pk);
+
+  ::fprintf(f,"Key#%2d [%d%c]Pub:  0x%s \n",keyIdx,sType,sInfo,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
+  if(PR.equals(keysToSearch[keyIdx])) {
+    ::fprintf(f,"       Priv: 0x%s \n",pk->GetBase16().c_str());
+  } else {
+    ::fprintf(f,"       Failed !\n");
+    if(needToClose)
+      fclose(f);
+    return false;
+  }
+
+
+  if(needToClose)
+    fclose(f);
+
+  return true;
+
+}
+
+// ----------------------------------------------------------------------------
+
 bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
 
   // Resolve equivalence collision
@@ -189,15 +232,7 @@ bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
     pk.ModAddK1order(&rangeWidthDiv2);
 #endif
     pk.ModAddK1order(&rangeStart);    
-    Point PR = secp->ComputePublicKey(&pk);
-    ::printf("\nKey#%2d [%dN]Pub:  0x%s \n",keyIdx,type,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
-    if( PR.equals(keysToSearch[keyIdx]) ) {
-      ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-    } else {
-      ::printf("       Failed !\n");
-      return false;
-    }
-    return true;
+    return Output(&pk,'N',type);
   }
 
   if(P.equals(keyToSearchNeg)) {
@@ -207,15 +242,7 @@ bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
     pk.ModAddK1order(&rangeWidthDiv2);
 #endif
     pk.ModAddK1order(&rangeStart);
-    Point PR = secp->ComputePublicKey(&pk);
-    ::printf("\nKey#%2d [%dS]Pub:  0x%s \n",keyIdx,type,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
-    if(PR.equals(keysToSearch[keyIdx]) ) {
-      ::printf("       Priv: 0x%s \n",pk.GetBase16().c_str());
-    } else {
-      ::printf("       Failed !\n");
-      return false;
-    }
-    return true;
+    return Output(&pk,'S',type);
   }
 
   return false;
