@@ -212,8 +212,9 @@ void Kangaroo::ProcessServer() {
     t1 = Timer::get_tick();
 
     if(!endOfSearch)
-      printf("\r[Client %d][DP Count 2^%.2f/2^%.2f][Dead %d][%s][%s]  ",
+      printf("\r[Client %d][Kang 2^%.2f][DP Count 2^%.2f/2^%.2f][Dead %d][%s][%s]  ",
         connectedClient,
+        log2((double)totalRW),
         log2((double)hashTable.GetNbItem()),
         log2(expectedNbOp / pow(2.0,dpSize)),
         collisionInSameHerd,

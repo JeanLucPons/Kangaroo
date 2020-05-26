@@ -42,12 +42,13 @@ static SOCKET serverSock = 0;
 #define WAIT_FOR_READ  1
 #define WAIT_FOR_WRITE 2
 
-#define SERVER_VERSION 1
+#define SERVER_VERSION 2
 
 // Commands
 #define SERVER_GETCONFIG 0
 #define SERVER_STATUS    1
 #define SERVER_SENDDP    2
+#define SERVER_SETKNB    3
 
 // Status
 #define SERVER_OK            0
@@ -289,6 +290,12 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       PUT("KeyX",p->clientSock,keysToSearch[keyIdx].x.bits64,32,ntimeout);
       PUT("KeyY",p->clientSock,keysToSearch[keyIdx].y.bits64,32,ntimeout);
       PUT("DP",p->clientSock,&initDPSize,sizeof(int32_t),ntimeout);
+
+    } break;
+
+    case SERVER_SETKNB: {
+      GET("nbKangaroo",p->clientSock,&p->nbKangaroo,sizeof(uint64_t),ntimeout);
+      totalRW += p->nbKangaroo;
     } break;
 
     case SERVER_STATUS: {
@@ -379,6 +386,7 @@ void *_acceptThread(void *lpParam) {
   p->obj->AddConnectedClient();
   p->obj->HandleRequest(p);
   p->obj->RemoveConnectedClient();
+  p->obj->RemoveConnectedKangaroo(p->nbKangaroo);
   p->isRunning = false;
   free(p->clientInfo);
   free(p);
@@ -414,6 +422,7 @@ void Kangaroo::AcceptConnections(SOCKET server_soc) {
     } else {
       
       TH_PARAM *p = (TH_PARAM *)malloc(sizeof(TH_PARAM));
+      ::memset(p,0,sizeof(TH_PARAM));
       char info[256];
       ::sprintf(info,"%s:%d",inet_ntoa(client_add.sin_addr),ntohs(client_add.sin_port));
 #ifdef WIN64
@@ -763,6 +772,10 @@ void Kangaroo::RemoveConnectedClient() {
   connectedClient--;
 }
 
+void Kangaroo::RemoveConnectedKangaroo(uint64_t nb) {
+  totalRW -= nb;
+}
+
 // Get configuration from server
 bool Kangaroo::GetConfigFromServer() {
 
@@ -794,6 +807,13 @@ bool Kangaroo::GetConfigFromServer() {
   GET("KeyX",serverConn,key.x.bits64,32,ntimeout);
   GET("KeyY",serverConn,key.y.bits64,32,ntimeout);
   GET("DP",serverConn,&initDPSize,sizeof(int32_t),ntimeout);
+
+  if(version>=2) {
+    // Set kangaroo number
+    char cmd = SERVER_SETKNB;
+    PUT("CMD",serverConn,&cmd,1,ntimeout);
+    PUT("nbKangaroo",serverConn,&totalRW,sizeof(uint64_t),ntimeout);
+  }
 
   ::printf("Succesfully connected to server: %s (Version %d)\n",serverIp.c_str(),version);
 

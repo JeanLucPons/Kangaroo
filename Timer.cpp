@@ -62,6 +62,10 @@ double Timer::get_tick() {
 
 }
 
+uint32_t Timer::getSeed32() {
+  return ::strtoul(getSeed(4).c_str(),NULL,16);
+}
+
 std::string Timer::getSeed(int size) {
 
   std::string ret;

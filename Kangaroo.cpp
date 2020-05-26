@@ -783,7 +783,8 @@ void Kangaroo::CreateJumpTable() {
 
   ::printf("Jump Avg distance: 2^%.2f\n",log2(distAvg));
 
-  rseed((unsigned long)time(NULL));
+  unsigned long seed = Timer::getSeed32();
+  rseed(seed);
 
 }
 
@@ -899,16 +900,6 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   memset(counters, 0, sizeof(counters));
   ::printf("Number of CPU thread: %d\n", nbCPUThread);
 
-  // Set starting parameters
-  if( clientMode ) {
-    // Retrieve config from server
-    if( !GetConfigFromServer() )
-      ::exit(0);
-  }
-
-  InitRange();
-  CreateJumpTable();
-
 #ifdef WITHGPU
 
   // Compute grid size
@@ -927,8 +918,19 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
 #endif
 
-  // Compute optimal distinguished bits number (see README)
   totalRW += nbCPUThread * (uint64_t)CPU_GRP_SIZE;
+
+  // Set starting parameters
+  if( clientMode ) {
+    // Retrieve config from server
+    if( !GetConfigFromServer() )
+      ::exit(0);
+  }
+
+  InitRange();
+  CreateJumpTable();
+
+  // Compute optimal distinguished bits number (see README)
   int suggestedDP = (int)((double)rangePower / 2.0 - log2((double)totalRW));
   if(suggestedDP < 0) suggestedDP = 0;
 

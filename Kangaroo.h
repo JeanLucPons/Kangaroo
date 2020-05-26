@@ -124,6 +124,7 @@ public:
 
   void AddConnectedClient();
   void RemoveConnectedClient();
+  void RemoveConnectedKangaroo(uint64_t nb);
 
 private:
 
