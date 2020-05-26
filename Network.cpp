@@ -270,7 +270,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
   while( p->isRunning ) {
 
-    // Wait for command (5min timeout)
+    // Wait for command (1h timeout)
     nbRead = Read(p->clientSock,(char *)(&cmdBuff),1,(int)(CLIENT_TIMEOUT*1000.0));
     if(nbRead<=0) {
       ::printf("\nClosing connection with %s\n",p->clientInfo);
