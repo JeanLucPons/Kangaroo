@@ -5,7 +5,7 @@ Discusion thread: https://bitcointalk.org/index.php?topic=5244940.0
 
 Usage:
 ```
-Kangaroo v1.5
+Kangaroo v1.7
 Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
          [-gpuId gpuId1[,gpuId2,...]] [-g g1x,g1y[,g2x,g2y,...]]
          inFile
@@ -19,6 +19,7 @@ Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
  -i workfile: Specify file to load work from (current processed key only)
  -wi workInterval: Periodic interval (in seconds) for saving work
  -ws: Save kangaroos in the work file
+ -wsplit: Split work file of server and reset hashtable
  -wm file1 file2 destfile: Merge work file
  -wt timeout: Save work timeout in millisec (default is 3000ms)
  -winfo file1: Work file info file
@@ -27,6 +28,7 @@ Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
  -c server_ip: Start in client mode and connect to server server_ip
  -sp port: Server port, default is 17403
  -nt timeout: Network timeout in millisec (default is 3000ms)
+ -o fileName: output result to fileName
  -l: List cuda enabled devices
  -check: Check GPU kernel vs CPU
  inFile: intput configuration file
@@ -113,6 +115,52 @@ Key# 0 [1S]Pub:  0x031D91282433E664132046D25189A5FE0F64645A73494A37AB17BD6FB283A
        Priv: 0x3447F65ABC9F46F736A95F87B044829C8A0129D56782D635CD612C0F05F3DA03
 Dead kangaroo: 0
 Total f1+f2: count 2^30.04 [02:17]
+```
+
+Note on the wsplit option:
+
+In order to avoid to handle a big hashtable in RAM, it is possible to save it and reset it at each backup. It will save a work file with a prefix at each backup and reset the hashtable in RAM. Then a merge can be done offline and key solved by merge. Even with a small hashtable, the program may also solve the key as paths continue and collision may occur in the small hashtable.
+
+Exemple with a 64bit key:
+```
+Kangaroo.exe -d 10 -s -w save.work -wsplit -wi 10 ..\VC_CUDA8\in64.txt
+```
+
+```
+Kangaroo v1.6
+Start:5B3F38AF935A3640D158E871CE6E9666DB862636383386EE0000000000000000
+Stop :5B3F38AF935A3640D158E871CE6E9666DB862636383386EEFFFFFFFFFFFFFFFF
+Keys :1
+Range width: 2^64
+Expected operations: 2^33.05
+Expected RAM: 344.2MB
+DP size: 10 [0xFFC0000000000000]
+Kangaroo server is ready and listening to TCP port 17403 ...
+[Client 0][Kang 2^-inf][DP Count 2^-inf/2^23.05][Dead 0][04s][2.0/4.0MB]
+New connection from 127.0.0.1:58358
+[Client 1][Kang 2^18.58][DP Count 2^-inf/2^23.05][Dead 0][08s][2.0/4.0MB]
+New connection from 172.24.9.18:52090
+[Client 2][Kang 2^18.61][DP Count 2^16.17/2^23.05][Dead 0][10s][4.2/14.1MB]
+SaveWork: save.work_27May20_063455...............done [4.2 MB] [00s] Wed May 27 06:34:55 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.25/2^23.05][Dead 0][20s][40.1/73.9MB]
+SaveWork: save.work_27May20_063505...............done [40.1 MB] [00s] Wed May 27 06:35:06 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.17/2^23.05][Dead 0][30s][37.9/71.5MB]
+SaveWork: save.work_27May20_063516...............done [37.9 MB] [00s] Wed May 27 06:35:16 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.55/2^23.05][Dead 0][41s][48.9/82.8MB]
+SaveWork: save.work_27May20_063526...............done [48.9 MB] [00s] Wed May 27 06:35:27 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.29/2^23.05][Dead 0][51s][41.1/74.9MB]
+SaveWork: save.work_27May20_063537...............done [41.1 MB] [00s] Wed May 27 06:35:37 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.30/2^23.05][Dead 0][01:02][41.5/75.2MB]
+SaveWork: save.work_27May20_063547...............done [41.5 MB] [00s] Wed May 27 06:35:48 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.28/2^23.05][Dead 0][01:12][40.9/74.6MB]
+SaveWork: save.work_27May20_063558...............done [40.9 MB] [00s] Wed May 27 06:35:58 2020 <= offline merge solved the key there
+[Client 2][Kang 2^18.61][DP Count 2^20.19/2^23.05][Dead 0][01:22][38.5/72.2MB]
+SaveWork: save.work_27May20_063608...............done [38.5 MB] [00s] Wed May 27 06:36:08 2020
+[Client 2][Kang 2^18.61][DP Count 2^20.55/2^23.05][Dead 0][01:33][48.8/82.7MB]
+SaveWork: save.work_27May20_063618...............done [48.8 MB] [00s] Wed May 27 06:36:19 2020
+[Client 2][Kang 2^18.61][DP Count 2^19.98/2^23.05][Dead 0][01:41][33.5/66.8MB]
+Key# 0 [1S]Pub:  0x03BB113592002132E6EF387C3AEBC04667670D4CD40B2103C7D0EE4969E9FF56E4
+       Priv: 0x5B3F38AF935A3640D158E871CE6E9666DB862636383386EE510F18CCC3BD72EB
 ```
 
 # Distributed clients and central server
