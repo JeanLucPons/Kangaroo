@@ -119,7 +119,7 @@ Total f1+f2: count 2^30.04 [02:17]
 
 Note on the wsplit option:
 
-In order to avoid to handle a big hashtable in RAM, it is possible to save it and reset it at each backup. It will save a work file with a prefix at each backup and reset the hashtable in RAM. Then a merge can be done offline and key solved by merge. Even with a small hashtable, the program may also solve the key as paths continue and collision may occur in the small hashtable.
+In order to avoid to handle a big hashtable in RAM, it is possible to save it and reset it at each backup. It will save a work file with a prefix at each backup and reset the hashtable in RAM. Then a merge can be done offline and key solved by merge. Even with a small hashtable, the program may also solve the key as paths continue and collision may occur in the small hashtable. Note that to perform the merge you will need the expected RAM available, but this can be done on a dedicated host.
 
 Exemple with a 64bit key:
 ```
