@@ -179,3 +179,28 @@ void Timer::SleepMillis(uint32_t millis) {
 #endif
 
 }
+
+std::string Timer::getTS() {
+
+  std::string ret;
+  time_t now = time(NULL);
+  char *time = ctime(&now);
+
+  ret.push_back(time[8]);
+  ret.push_back(time[9]);
+  ret.push_back(time[4]);
+  ret.push_back(time[5]);
+  ret.push_back(time[6]);
+  ret.push_back(time[22]);
+  ret.push_back(time[23]);
+  ret.push_back('_');
+  ret.push_back(time[11]);
+  ret.push_back(time[12]);
+  ret.push_back(time[14]);
+  ret.push_back(time[15]);
+  ret.push_back(time[17]);
+  ret.push_back(time[18]);
+
+  return ret;
+
+}

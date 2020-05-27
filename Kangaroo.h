@@ -107,7 +107,7 @@ public:
 
   Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,
            uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout,int sport,int ntimeout,
-           std::string serverIp,std::string outputFile);
+           std::string serverIp,std::string outputFile,bool splitWorkfile);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
   void RunServer();
   bool ParseConfigFile(std::string &fileName);
@@ -144,7 +144,7 @@ private:
   bool Output(Int* pk,char sInfo,int sType);
 
   // Backup stuff
-  void SaveWork(FILE *f,uint64_t totalCount,double totalTime);
+  void SaveWork(std::string fileName,FILE *f,uint64_t totalCount,double totalTime);
   void SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread);
   void SaveServerWork();
   void FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d);
@@ -233,6 +233,7 @@ private:
   bool saveKangaroo;
   int wtimeout;
   int ntimeout;
+  bool splitWorkfile;
 
   // Network stuff
   int port;

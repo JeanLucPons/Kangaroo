@@ -196,15 +196,15 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
 
 
 // ----------------------------------------------------------------------------
-void  Kangaroo::SaveWork(FILE *f,uint64_t totalCount,double totalTime) {
+void  Kangaroo::SaveWork(string fileName,FILE *f,uint64_t totalCount,double totalTime) {
 
-  ::printf("\nSaveWork: %s",workFile.c_str());
+  ::printf("\nSaveWork: %s",fileName.c_str());
 
   // Header
   uint32_t head = HEAD;
   uint32_t version = 0;
   if(::fwrite(&head,sizeof(uint32_t),1,f) != 1) {
-    ::printf("SaveWork: Cannot write to %s\n",workFile.c_str());
+    ::printf("SaveWork: Cannot write to %s\n",fileName.c_str());
     ::printf("%s\n",::strerror(errno));
     return;
   }
@@ -230,15 +230,19 @@ void Kangaroo::SaveServerWork() {
 
   double t0 = Timer::get_tick();
 
-  FILE *f = fopen(workFile.c_str(),"wb");
+  string fileName = workFile;
+  if(splitWorkfile)
+    fileName = workFile + "_" + Timer::getTS();
+
+  FILE *f = fopen(fileName.c_str(),"wb");
   if(f == NULL) {
-    ::printf("\nSaveWork: Cannot open %s for writing\n",workFile.c_str());
+    ::printf("\nSaveWork: Cannot open %s for writing\n",fileName.c_str());
     ::printf("%s\n",::strerror(errno));
     saveRequest = false;
     return;
   }
 
-  SaveWork(f,0,0);
+  SaveWork(fileName,f,0,0);
 
   uint64_t totalWalk = 0;
   ::fwrite(&totalWalk,sizeof(uint64_t),1,f);
@@ -250,6 +254,8 @@ void Kangaroo::SaveServerWork() {
 #endif
   fclose(f);
 
+  if(splitWorkfile)
+    hashTable.Reset();
 
   double t1 = Timer::get_tick();
 
@@ -284,16 +290,20 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
     return;
   }
 
+  string fileName = workFile;
+  if(splitWorkfile)
+    fileName = workFile + "_" + Timer::getTS();
+
   // Save
-  FILE *f = fopen(workFile.c_str(),"wb");
+  FILE *f = fopen(fileName.c_str(),"wb");
   if(f == NULL) {
-    ::printf("\nSaveWork: Cannot open %s for writing\n",workFile.c_str());
+    ::printf("\nSaveWork: Cannot open %s for writing\n",fileName.c_str());
     ::printf("%s\n",::strerror(errno));
     UNLOCK(saveMutex);
     return;
   }
 
-  SaveWork(f,totalCount,totalTime);
+  SaveWork(fileName,f,totalCount,totalTime);
 
   uint64_t totalWalk = 0;
 
@@ -332,6 +342,9 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
   uint64_t size = (uint64_t)ftello(f);
 #endif
   fclose(f);
+
+  if(splitWorkfile)
+    hashTable.Reset();
 
   // Unblock threads
   saveRequest = false;

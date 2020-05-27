@@ -34,7 +34,7 @@ using namespace std;
 // ----------------------------------------------------------------------------
 
 Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,
-                   double maxStep,int wtimeout,int port,int ntimeout,string serverIp,string outputFile) {
+                   double maxStep,int wtimeout,int port,int ntimeout,string serverIp,string outputFile,bool splitWorkfile) {
 
   this->secp = secp;
   this->initDPSize = initDPSize;
@@ -61,6 +61,7 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->totalRW = 0;
   this->collisionInSameHerd = 0;
   this->keyIdx = 0;
+  this->splitWorkfile = splitWorkfile;
 
   CPU_GRP_SIZE = 1024;
 

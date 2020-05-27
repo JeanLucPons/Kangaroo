@@ -35,6 +35,7 @@ public:
   static std::string getSeed(int size);
   static void SleepMillis(uint32_t millis);
   static uint32_t getSeed32();
+  static std::string getTS();
 
 #ifdef WIN64
   static LARGE_INTEGER perfTickStart;
