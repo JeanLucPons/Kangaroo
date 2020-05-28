@@ -29,6 +29,7 @@
 HashTable::HashTable() {
 
   memset(E,0,sizeof(E));
+  duplicateWarning = false;
 
 }
 
@@ -41,6 +42,7 @@ void HashTable::Reset() {
     E[h].maxItem = 0;
     E[h].nbItem = 0;
   }
+  duplicateWarning = false;
 
 }
 
@@ -155,7 +157,20 @@ bool HashTable::Add(uint64_t h,ENTRY* e) {
       ed = mi - 1;
     } else if (comp==0) {
 
+      if((e->d.i64[0] == GET(h,mi)->d.i64[0]) && (e->d.i64[1] == GET(h,mi)->d.i64[1])) {
+        // Same point added 2 times !
+        if(!duplicateWarning) {
+          ::printf("\nHashTable::Add() one or more duplicate point, ignoring...\n");
+          duplicateWarning = true;
+        }
+        return false;
+      }
+
       // Collision
+      // Note:
+      // When comming from merger wich is multithreaded and has no lock on the hasshTable
+      // we enter here in a critical section but as collision as supposed to be very rare, do not lock
+
       int128_t d = GET(h,mi)->d;
       kType = (d.i64[1] & 0x4000000000000000ULL) != 0;
       int sign = (d.i64[1] & 0x8000000000000000ULL) != 0;

@@ -60,10 +60,12 @@ bool Kangaroo::MergeTable(TH_PARAM* p) {
 
     }
 
-    pointPrint++;
-    if(pointPrint > point) {
-      ::printf(".");
-      pointPrint = 0;
+    if(!endOfSearch) {
+      pointPrint++;
+      if(pointPrint > point) {
+        ::printf(".");
+        pointPrint = 0;
+      }
     }
 
   }
@@ -197,7 +199,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   // Read hashTable
   HashTable* h2 = new HashTable();
   h2->LoadTable(f2);
-  ::printf("MergeWork: [HashTable2 %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
+  ::printf("MergeWork: [HashTable2 %s] [%s]\n",h2->GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
 
   fclose(f2);
 

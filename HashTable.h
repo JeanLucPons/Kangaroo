@@ -90,6 +90,8 @@ private:
   // Collision
   Int      kDist;
   uint32_t kType;
+  bool     duplicateWarning;
+
 
 };
 
