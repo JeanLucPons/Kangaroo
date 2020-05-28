@@ -29,8 +29,7 @@
 HashTable::HashTable() {
 
   memset(E,0,sizeof(E));
-  duplicateWarning = false;
-
+  
 }
 
 void HashTable::Reset() {
@@ -42,7 +41,6 @@ void HashTable::Reset() {
     E[h].maxItem = 0;
     E[h].nbItem = 0;
   }
-  duplicateWarning = false;
 
 }
 
@@ -101,7 +99,7 @@ void HashTable::Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int1
 
 }
 
-bool HashTable::Add(Int *x,Int *d,uint32_t type) {
+int HashTable::Add(Int *x,Int *d,uint32_t type) {
 
   int128_t X;
   int128_t D;
@@ -122,14 +120,14 @@ void HashTable::ReAllocate(uint64_t h,uint32_t add) {
 
 }
 
-bool HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
+int HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
 
   ENTRY *e = CreateEntry(x,d);
   return Add(h,e);
 
 }
 
-bool HashTable::Add(uint64_t h,ENTRY* e) {
+int HashTable::Add(uint64_t h,ENTRY* e) {
 
   if(E[h].maxItem == 0) {
     E[h].maxItem = 16;
@@ -139,7 +137,7 @@ bool HashTable::Add(uint64_t h,ENTRY* e) {
   if(E[h].nbItem == 0) {
     E[h].items[0] = e;
     E[h].nbItem = 1;
-    return false;
+    return ADD_OK;
   }
 
   if(E[h].nbItem >= E[h].maxItem - 1) {
@@ -158,12 +156,8 @@ bool HashTable::Add(uint64_t h,ENTRY* e) {
     } else if (comp==0) {
 
       if((e->d.i64[0] == GET(h,mi)->d.i64[0]) && (e->d.i64[1] == GET(h,mi)->d.i64[1])) {
-        // Same point added 2 times !
-        if(!duplicateWarning) {
-          ::printf("\nHashTable::Add() one or more duplicate point, ignoring...\n");
-          duplicateWarning = true;
-        }
-        return false;
+        // Same point added 2 times or collision in same herd !
+        return ADD_DUPLICATE;
       }
 
       // Collision
@@ -181,7 +175,7 @@ bool HashTable::Add(uint64_t h,ENTRY* e) {
       kDist.bits64[1] = d.i64[1];
       if(sign) kDist.ModNegK1order();
 
-      return true;
+      return ADD_COLLISION;
 
     } else {
       st = mi + 1;
@@ -189,7 +183,7 @@ bool HashTable::Add(uint64_t h,ENTRY* e) {
   }
 
   ADD_ENTRY(e);
-  return false;
+  return ADD_OK;
 
 }
 

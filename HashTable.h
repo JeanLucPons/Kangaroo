@@ -29,6 +29,9 @@
 #define HASH_SIZE (1<<HASH_SIZE_BIT)
 #define HASH_MASK (HASH_SIZE-1)
 
+#define ADD_OK        0
+#define ADD_DUPLICATE 1
+#define ADD_COLLISION 2
 
 union int128_s {
 
@@ -63,9 +66,9 @@ class HashTable {
 public:
 
   HashTable();
-  bool Add(Int *x,Int *d,uint32_t type);
-  bool Add(uint64_t h,int128_t *x,int128_t *d);
-  bool Add(uint64_t h,ENTRY *e);
+  int Add(Int *x,Int *d,uint32_t type);
+  int Add(uint64_t h,int128_t *x,int128_t *d);
+  int Add(uint64_t h,ENTRY *e);
   uint64_t GetNbItem();
   void Reset();
   std::string GetSizeInfo();
@@ -90,7 +93,6 @@ private:
   // Collision
   Int      kDist;
   uint32_t kType;
-  bool     duplicateWarning;
 
 
 };

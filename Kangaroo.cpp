@@ -304,16 +304,18 @@ bool Kangaroo::CollisionCheck(Int *dist,uint32_t kType) {
 
 bool Kangaroo::AddToTable(Int *pos,Int *dist,uint32_t kType) {
 
-  if(hashTable.Add(pos,dist,kType))
+  int addStatus = hashTable.Add(pos,dist,kType);
+  if(addStatus== ADD_COLLISION)
     return CollisionCheck(dist,kType);
 
-  return true;
+  return addStatus == ADD_OK;
 
 }
 
 bool Kangaroo::AddToTable(uint64_t h,int128_t *x,int128_t *d) {
 
-  if(hashTable.Add(h,x,d)) {
+  int addStatus = hashTable.Add(h,x,d);
+  if(addStatus== ADD_COLLISION) {
 
     Int dist;
     dist.SetInt32(0);
@@ -328,7 +330,7 @@ bool Kangaroo::AddToTable(uint64_t h,int128_t *x,int128_t *d) {
 
   }
 
-  return true;
+  return addStatus == ADD_OK;
 
 }
 

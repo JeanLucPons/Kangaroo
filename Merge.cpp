@@ -42,8 +42,17 @@ bool Kangaroo::MergeTable(TH_PARAM* p) {
 
       // Add
       ENTRY* e = p->h2->E[h].items[i];
-      if(hashTable.Add(h,e)) {
+      int addStatus = hashTable.Add(h,e);
+      switch(addStatus) {
 
+      case ADD_OK:
+        break;
+
+      case ADD_DUPLICATE:
+        collisionInSameHerd++;
+        break;
+
+      case ADD_COLLISION:
         Int dist;
         dist.SetInt32(0);
         uint32_t kType = (e->d.i64[1] & 0x4000000000000000ULL) != 0;
@@ -53,8 +62,8 @@ bool Kangaroo::MergeTable(TH_PARAM* p) {
         dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
         if(sign) dist.ModNegK1order();
 
-        if(!CollisionCheck(&dist,kType))
-          collisionInSameHerd++;
+        CollisionCheck(&dist,kType);
+        break;
 
       }
 
