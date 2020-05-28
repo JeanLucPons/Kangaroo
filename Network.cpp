@@ -337,6 +337,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
         } else {
 
+#ifdef VALIDITY_POINT_CHECK
           // Check validity
           for(uint32_t i=0;i<nbDP;i++) {
             uint64_t h = (uint64_t)dp[i].h;
@@ -348,6 +349,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
               return false;
             }
           }
+#endif
 
           LOCK(ghMutex);
           DP_CACHE dc;

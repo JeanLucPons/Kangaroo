@@ -82,6 +82,10 @@ typedef struct {
   SOCKET clientSock;
   char  *clientInfo;
 
+  HashTable *h2;
+  uint32_t hStart;
+  uint32_t hStop;
+
 } TH_PARAM;
 
 
@@ -120,6 +124,7 @@ public:
   void SolveKeyCPU(TH_PARAM *p);
   void SolveKeyGPU(TH_PARAM *p);
   bool HandleRequest(TH_PARAM *p);
+  bool MergeTable(TH_PARAM* p);
   void ProcessServer();
 
   void AddConnectedClient();

@@ -105,11 +105,29 @@ bool HashTable::Add(Int *x,Int *d,uint32_t type) {
   int128_t D;
   uint64_t h;
   Convert(x,d,type,&h,&X,&D);
-  return Add(h,&X,&D);
+  ENTRY* e = CreateEntry(&X,&D);
+  return Add(h,e);
+
+}
+
+void HashTable::ReAllocate(uint64_t h,uint32_t add) {
+
+  E[h].maxItem += add;
+  ENTRY** nitems = (ENTRY**)malloc(sizeof(ENTRY*) * E[h].maxItem);
+  memcpy(nitems,E[h].items,sizeof(ENTRY*) * E[h].nbItem);
+  free(E[h].items);
+  E[h].items = nitems;
 
 }
 
 bool HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
+
+  ENTRY *e = CreateEntry(x,d);
+  return Add(h,e);
+
+}
+
+bool HashTable::Add(uint64_t h,ENTRY* e) {
 
   if(E[h].maxItem == 0) {
     E[h].maxItem = 16;
@@ -117,18 +135,14 @@ bool HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
   }
 
   if(E[h].nbItem == 0) {
-    E[h].items[0] = CreateEntry(x,d);
+    E[h].items[0] = e;
     E[h].nbItem = 1;
     return false;
   }
 
   if(E[h].nbItem >= E[h].maxItem - 1) {
     // We need to reallocate
-    E[h].maxItem += 4;
-    ENTRY **nitems = (ENTRY **)malloc(sizeof(ENTRY *) * E[h].maxItem);
-    memcpy(nitems,E[h].items,sizeof(ENTRY *) * E[h].nbItem);
-    free(E[h].items);
-    E[h].items = nitems;
+    ReAllocate(h,4);
   }
 
   // Search insertion position
@@ -136,7 +150,7 @@ bool HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
   st = 0; ed = E[h].nbItem - 1;
   while(st <= ed) {
     mi = (st + ed) / 2;
-    int comp = compare(x,&GET(h,mi)->x);
+    int comp = compare(&e->x,&GET(h,mi)->x);
     if(comp<0) {
       ed = mi - 1;
     } else if (comp==0) {
@@ -159,8 +173,7 @@ bool HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
     }
   }
 
-  ENTRY *entry = CreateEntry(x,d);
-  ADD_ENTRY(entry);
+  ADD_ENTRY(e);
   return false;
 
 }

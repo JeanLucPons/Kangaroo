@@ -65,6 +65,7 @@ public:
   HashTable();
   bool Add(Int *x,Int *d,uint32_t type);
   bool Add(uint64_t h,int128_t *x,int128_t *d);
+  bool Add(uint64_t h,ENTRY *e);
   uint64_t GetNbItem();
   void Reset();
   std::string GetSizeInfo();
@@ -73,6 +74,7 @@ public:
   void LoadTable(FILE *f);
   Int *GetD();
   uint32_t GetType();
+  void ReAllocate(uint64_t h,uint32_t add);
 
   HASH_ENTRY    E[HASH_SIZE];
 
