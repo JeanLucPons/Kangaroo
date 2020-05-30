@@ -33,6 +33,26 @@ using namespace std;
 
 // ----------------------------------------------------------------------------
 
+int Kangaroo::FSeek(FILE* stream,uint64_t pos) {
+
+#ifdef WIN64
+  return _fseeki64(stream,pos,SEEK_SET);
+#else
+  return _fseeko(stream,pos,SEEK_SET);
+#endif
+
+}
+
+uint64_t Kangaroo::FTell(FILE* stream) {
+
+#ifdef WIN64
+  return (uint64_t)_ftelli64(stream);
+#else
+  return (uint64_t)ftello(stream);
+#endif
+
+}
+
 FILE *Kangaroo::ReadHeader(std::string fileName,uint32_t *version) {
 
   FILE *f = fopen(fileName.c_str(),"rb");
@@ -196,17 +216,15 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
 
 
 // ----------------------------------------------------------------------------
-void  Kangaroo::SaveWork(string fileName,FILE *f,uint64_t totalCount,double totalTime) {
-
-  ::printf("\nSaveWork: %s",fileName.c_str());
+bool Kangaroo::SaveHeader(string fileName,FILE* f,uint64_t totalCount,double totalTime) {
 
   // Header
   uint32_t head = HEAD;
   uint32_t version = 0;
   if(::fwrite(&head,sizeof(uint32_t),1,f) != 1) {
-    ::printf("SaveWork: Cannot write to %s\n",fileName.c_str());
+    ::printf("SaveHeader: Cannot write to %s\n",fileName.c_str());
     ::printf("%s\n",::strerror(errno));
-    return;
+    return false;
   }
   ::fwrite(&version,sizeof(uint32_t),1,f);
 
@@ -218,6 +236,17 @@ void  Kangaroo::SaveWork(string fileName,FILE *f,uint64_t totalCount,double tota
   ::fwrite(&keysToSearch[keyIdx].y.bits64,32,1,f);
   ::fwrite(&totalCount,sizeof(uint64_t),1,f);
   ::fwrite(&totalTime,sizeof(double),1,f);
+
+  return true;
+}
+
+void  Kangaroo::SaveWork(string fileName,FILE *f,uint64_t totalCount,double totalTime) {
+
+  ::printf("\nSaveWork: %s",fileName.c_str());
+
+  // Header
+  if(!SaveHeader(fileName,f,totalCount,totalTime))
+    return;
 
   // Save hash table
   hashTable.SaveTable(f);
@@ -247,11 +276,7 @@ void Kangaroo::SaveServerWork() {
   uint64_t totalWalk = 0;
   ::fwrite(&totalWalk,sizeof(uint64_t),1,f);
 
-#ifdef WIN64
-  uint64_t size = (uint64_t)_ftelli64(f);
-#else
-  uint64_t size = (uint64_t)ftello(f);
-#endif
+  uint64_t size = FTell(f);
   fclose(f);
 
   if(splitWorkfile)
@@ -336,11 +361,7 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
   }
 
-#ifdef WIN64
-  uint64_t size = (uint64_t)_ftelli64(f);
-#else
-  uint64_t size = (uint64_t)ftello(f);
-#endif
+  uint64_t size = FTell(f);
   fclose(f);
 
   if(splitWorkfile)
@@ -392,7 +413,7 @@ void Kangaroo::WorkInfo(std::string &fileName) {
   }
 
   // Read hashTable
-  hashTable.LoadTable(f1);
+  hashTable.SeekNbItem(f1);
 
   ::printf("Version   : %d\n",version);
   ::printf("DP bits   : %d\n",dp1);

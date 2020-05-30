@@ -31,9 +31,6 @@ using namespace std;
 
 bool Kangaroo::MergeTable(TH_PARAM* p) {
 
-  uint64_t point = (p->hStop- p->hStart) / 16;
-  uint64_t pointPrint = 0;
-
   for(uint64_t h = p->hStart; h < p->hStop && !endOfSearch; h++) {
 
     hashTable.ReAllocate(h,p->h2->E[h].maxItem);
@@ -49,6 +46,7 @@ bool Kangaroo::MergeTable(TH_PARAM* p) {
         break;
 
       case ADD_DUPLICATE:
+        free(e);
         collisionInSameHerd++;
         break;
 
@@ -61,21 +59,15 @@ bool Kangaroo::MergeTable(TH_PARAM* p) {
         dist.bits64[1] = e->d.i64[1];
         dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
         if(sign) dist.ModNegK1order();
-
         CollisionCheck(&dist,kType);
         break;
 
       }
 
     }
-
-    if(!endOfSearch) {
-      pointPrint++;
-      if(pointPrint > point) {
-        ::printf(".");
-        pointPrint = 0;
-      }
-    }
+    safe_free(p->h2->E[h].items);
+    p->h2->E[h].nbItem = 0;
+    p->h2->E[h].maxItem = 0;
 
   }
 
@@ -103,11 +95,9 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   uint32_t v1;
   uint32_t v2;
 
-  // ---------------------------------------------------
-
-  ::printf("Loading: %s\n",file1.c_str());
-
   t0 = Timer::get_tick();
+
+  // ---------------------------------------------------
 
   FILE* f1 = ReadHeader(file1,&v1);
   if(f1 == NULL)
@@ -136,23 +126,14 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     return;
   }
 
-  t1 = Timer::get_tick();
-
-  // Read hashTable
-  hashTable.LoadTable(f1);
-  ::printf("MergeWork: [HashTable1 %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
-
-  fclose(f1);
 
   // ---------------------------------------------------
 
-  ::printf("Loading: %s\n",file2.c_str());
-
-  t0 = Timer::get_tick();
-
   FILE* f2 = ReadHeader(file2,&v2);
-  if(f2 == NULL)
+  if(f2 == NULL) {
+    fclose(f1);
     return;
+  }
 
   uint32_t dp2;
   Point k2;
@@ -172,6 +153,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
 
   if(v1 != v2) {
     ::printf("MergeWork: cannot merge workfile of different version\n");
+    fclose(f1);
     fclose(f2);
     return;
   }
@@ -179,6 +161,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   k2.z.SetInt32(1);
   if(!secp->EC(k2)) {
     ::printf("MergeWork: key2 does not lie on elliptic curve\n");
+    fclose(f1);
     fclose(f2);
     return;
   }
@@ -190,6 +173,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("RE1: %s\n",RE1.GetBase16().c_str());
     ::printf("RS2: %s\n",RS2.GetBase16().c_str());
     ::printf("RE2: %s\n",RE2.GetBase16().c_str());
+    fclose(f1);
     fclose(f2);
     return;
 
@@ -198,19 +182,21 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   if(!k1.equals(k2)) {
 
     ::printf("MergeWork: key differs, multiple keys not yet supported\n");
+    fclose(f1);
     fclose(f2);
     return;
 
   }
 
-  t1 = Timer::get_tick();
-
   // Read hashTable
   HashTable* h2 = new HashTable();
-  h2->LoadTable(f2);
-  ::printf("MergeWork: [HashTable2 %s] [%s]\n",h2->GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
-
-  fclose(f2);
+  hashTable.SeekNbItem(f1,true);
+  h2->SeekNbItem(f2,true);
+  uint64_t nb1 = hashTable.GetNbItem();
+  uint64_t nb2 = h2->GetNbItem();
+  uint64_t totalItem = nb1+nb2;
+  ::printf("%s: 2^%.2f DP [DP%d]\n",file1.c_str(),log2((double)nb1),dp1);
+  ::printf("%s: 2^%.2f DP [DP%d]\n",file2.c_str(),log2((double)nb2),dp2);
 
   endOfSearch = false;
 
@@ -229,7 +215,6 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   int nbCore = Timer::getCoreNumber();
   int l2 = (int)log2(nbCore);
   int nbThread = (int)pow(2.0,l2);
-  int stride = HASH_SIZE / nbThread;
 
   ::printf("Thread: %d\n",nbThread);
   ::printf("Merging");
@@ -238,27 +223,72 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   THREAD_HANDLE* thHandles = (THREAD_HANDLE*)malloc(nbThread * sizeof(THREAD_HANDLE));
   memset(params,0,nbThread * sizeof(TH_PARAM));
 
-  for(int i = 0; i < nbThread; i++) {
-    params[i].threadId = i;
-    params[i].isRunning = true;
-    params[i].h2 = h2;
-    params[i].hStart = i * stride;
-    params[i].hStop = (i + 1) * stride;
-    thHandles[i] = LaunchThread(_mergeThread,params + i);
+  // Open output file
+  string tmpName = dest + ".tmp";
+  FILE* f = fopen(tmpName.c_str(),"wb");
+  if(f == NULL) {
+    ::printf("\nMergeWork: Cannot open %s for writing\n",tmpName.c_str());
+    ::printf("%s\n",::strerror(errno));
+    fclose(f1);
+    fclose(f2);
+    return;
   }
-  JoinThreads(thHandles,nbThread);
-  FreeHandles(thHandles,nbThread);
+  dpSize = (dp1 < dp2) ? dp1 : dp2;
+  if( !SaveHeader(tmpName,f,count1 + count2,time1 + time2) ) {
+    fclose(f1);
+    fclose(f2);
+    return;
+  }
+
+
+  // Divide by 64 the amount of needed RAM
+  int block = HASH_SIZE / 64;
+
+  for(int s=0;s<HASH_SIZE && !endOfSearch;s += block) {
+
+    ::printf(".");
+
+    uint32_t S = s;
+    uint32_t E = s + block;
+
+    // Load hashtables
+    hashTable.LoadTable(f1,S,E);
+    h2->LoadTable(f2,S,E);
+
+    int stride = block/nbThread;
+
+    for(int i = 0; i < nbThread; i++) {
+      params[i].threadId = i;
+      params[i].isRunning = true;
+      params[i].h2 = h2;
+      params[i].hStart = S + i * stride;
+      params[i].hStop  = S + (i + 1) * stride;
+      thHandles[i] = LaunchThread(_mergeThread,params + i);
+    }
+    JoinThreads(thHandles,nbThread);
+    FreeHandles(thHandles,nbThread);
+
+    hashTable.SaveTable(f,S,E,false);
+    hashTable.Reset();
+
+  }
+
+  fclose(f1);
+  fclose(f2);
+  fclose(f);
 
   t1 = Timer::get_tick();
 
   if(!endOfSearch) {
 
-    ::printf("Done [%.3fs]",(t1 - t0));
+    remove(dest.c_str());
+    rename(tmpName.c_str(),dest.c_str());
+    ::printf("Done [%s]\n",GetTimeStr(t1-t0).c_str());
 
-    // Write the new work file
-    dpSize = (dp1 < dp2) ? dp1 : dp2;
-    workFile = dest;
-    SaveWork(count1 + count2,time1 + time2,NULL,0);
+  } else {
+
+    // remove tmp file
+    remove(tmpName.c_str());
 
   }
 
