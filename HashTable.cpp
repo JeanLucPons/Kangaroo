@@ -291,7 +291,7 @@ void HashTable::SeekNbItem(FILE* f,bool restorePos) {
 #ifdef WIN64
     _fseeki64(f,hSize,SEEK_CUR);
 #else
-    _fseeko(f,hSize,SEEK_CUR);
+    fseeko(f,hSize,SEEK_CUR);
 #endif
 
   }
@@ -301,7 +301,7 @@ void HashTable::SeekNbItem(FILE* f,bool restorePos) {
 #ifdef WIN64
     _fseeki64(f,org,SEEK_SET);
 #else
-    _fseeko(f,org,SEEK_SET);
+    fseeko(f,org,SEEK_SET);
 #endif
   }
 

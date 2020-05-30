@@ -38,7 +38,7 @@ int Kangaroo::FSeek(FILE* stream,uint64_t pos) {
 #ifdef WIN64
   return _fseeki64(stream,pos,SEEK_SET);
 #else
-  return _fseeko(stream,pos,SEEK_SET);
+  return fseeko(stream,pos,SEEK_SET);
 #endif
 
 }
