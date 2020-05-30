@@ -44,6 +44,8 @@ union int128_s {
 
 typedef union int128_s int128_t;
 
+#define safe_free(x) if(x) {free(x);x=NULL;}
+
 // We store only 128 (+18) bit a the x value which give a probabilty a wrong collision after 2^73 entries
 
 typedef struct {
@@ -74,10 +76,13 @@ public:
   std::string GetSizeInfo();
   void PrintInfo();
   void SaveTable(FILE *f);
+  void SaveTable(FILE* f,uint32_t from,uint32_t to,bool printPoint=true);
   void LoadTable(FILE *f);
+  void LoadTable(FILE* f,uint32_t from,uint32_t to);
   Int *GetD();
   uint32_t GetType();
   void ReAllocate(uint64_t h,uint32_t add);
+  void SeekNbItem(FILE* f,bool restorePos = false);
 
   HASH_ENTRY    E[HASH_SIZE];
 

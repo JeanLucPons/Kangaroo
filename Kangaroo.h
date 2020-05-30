@@ -155,7 +155,9 @@ private:
   void FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d);
   void FectchKangaroos(TH_PARAM *threads);
   FILE *ReadHeader(std::string fileName,uint32_t *version = NULL);
-
+  bool  SaveHeader(std::string fileName,FILE* f,uint64_t totalCount,double totalTime);
+  int FSeek(FILE *stream,uint64_t pos);
+  uint64_t FTell(FILE *stream);
 
   // Network stuff
   void AcceptConnections(SOCKET server_soc);

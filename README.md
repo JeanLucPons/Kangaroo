@@ -179,6 +179,14 @@ Starting client, using gpu and connect to the server linpons:
 Kangaroo.exe -t 0 -gpu -c linpons
 ```
 
+# Probability of success
+
+The picture below show the probability of success after a certain number of group operations. N is range size.
+This plot does not take into consideration the DP overhead.
+
+![Probability of success](DOC/successprob.jpg)
+
+
 # How it works
 
 The program uses 2 herds of kangaroos, a tame herd and a wild herd. When 2 kangoroos (a wild one and a tame one) collide, the 

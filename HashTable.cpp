@@ -23,8 +23,6 @@
 #endif
 
 #define GET(hash,id) E[hash].items[id]
-#define safe_free(x) if(x) {free(x);x=NULL;}
-
 
 HashTable::HashTable() {
 
@@ -35,8 +33,10 @@ HashTable::HashTable() {
 void HashTable::Reset() {
 
   for(uint32_t h = 0; h < HASH_SIZE; h++) {
-    for(uint32_t i = 0; i<E[h].nbItem; i++)
-      free(E[h].items[i]);
+    if(E[h].items) {
+      for(uint32_t i = 0; i<E[h].nbItem; i++)
+        free(E[h].items[i]);
+    }
     safe_free(E[h].items);
     E[h].maxItem = 0;
     E[h].nbItem = 0;
@@ -245,52 +245,97 @@ std::string HashTable::GetStr(int128_t *i) {
 
 }
 
-void HashTable::SaveTable(FILE *f) {
+void HashTable::SaveTable(FILE* f) {
+  SaveTable(f,0,HASH_SIZE,true);
+}
+
+void HashTable::SaveTable(FILE* f,uint32_t from,uint32_t to,bool printPoint) {
 
   uint64_t point = GetNbItem() / 16;
   uint64_t pointPrint = 0;
 
-  for(uint32_t h = 0; h < HASH_SIZE; h++) {
+  for(uint32_t h = from; h < to; h++) {
     fwrite(&E[h].nbItem,sizeof(uint32_t),1,f);
     fwrite(&E[h].maxItem,sizeof(uint32_t),1,f);
     for(uint32_t i = 0; i < E[h].nbItem; i++) {
       fwrite(&(E[h].items[i]->x),16,1,f);
       fwrite(&(E[h].items[i]->d),16,1,f);
-      pointPrint++;
-      if(pointPrint>point) {
-        ::printf(".");
-        pointPrint = 0;
+      if(printPoint) {
+        pointPrint++;
+        if(pointPrint > point) {
+          ::printf(".");
+          pointPrint = 0;
+        }
       }
     }
   }
 
 }
 
-void HashTable::LoadTable(FILE *f) {
-
-  uint32_t totalItem = 0;
+void HashTable::SeekNbItem(FILE* f,bool restorePos) {
 
   Reset();
+
+#ifdef WIN64
+  uint64_t org = (uint64_t)_ftelli64(f);
+#else
+  uint64_t org = (uint64_t)ftello(f);
+#endif
+
   for(uint32_t h = 0; h < HASH_SIZE; h++) {
-    
+
+    fread(&E[h].nbItem,sizeof(uint32_t),1,f);
+    fread(&E[h].maxItem,sizeof(uint32_t),1,f);
+
+    uint64_t hSize = 32ULL * E[h].nbItem;
+#ifdef WIN64
+    _fseeki64(f,hSize,SEEK_CUR);
+#else
+    fseeko(f,hSize,SEEK_CUR);
+#endif
+
+  }
+
+  if( restorePos ) {
+    // Restore position
+#ifdef WIN64
+    _fseeki64(f,org,SEEK_SET);
+#else
+    fseeko(f,org,SEEK_SET);
+#endif
+  }
+
+}
+
+
+void HashTable::LoadTable(FILE* f,uint32_t from,uint32_t to) {
+
+  Reset();
+
+  for(uint32_t h = from; h < to; h++) {
+
     fread(&E[h].nbItem,sizeof(uint32_t),1,f);
     fread(&E[h].maxItem,sizeof(uint32_t),1,f);
 
     if(E[h].maxItem > 0)
       // Allocate indexes
-      E[h].items = (ENTRY **)malloc(sizeof(ENTRY *) * E[h].maxItem);
+      E[h].items = (ENTRY**)malloc(sizeof(ENTRY*) * E[h].maxItem);
 
     for(uint32_t i = 0; i < E[h].nbItem; i++) {
-      ENTRY *e = (ENTRY *)malloc(sizeof(ENTRY));
+      ENTRY* e = (ENTRY*)malloc(sizeof(ENTRY));
       fread(&(e->x),16,1,f);
       fread(&(e->d),16,1,f);
       E[h].items[i] = e;
     }
-    totalItem += E[h].nbItem;
 
   }
 
-  //printf("HashTable::LoadTable(): %d items loaded\n",totalItem);
+
+}
+
+void HashTable::LoadTable(FILE *f) {
+
+  LoadTable(f,0,HASH_SIZE);
 
 }
 
