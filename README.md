@@ -182,6 +182,7 @@ Kangaroo.exe -t 0 -gpu -c linpons
 # Probability of success
 
 The picture below show the probability of success after a certain number of group operations. N is range size.
+This plot does not take into consideration the DP overhead.
 
 ![Probability of success](DOC/successprob.jpg)
 
