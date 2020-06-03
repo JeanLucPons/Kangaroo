@@ -230,12 +230,16 @@ k = k1 + Tame.dist - Wild.dist</br>
 
 ## Windows
 
-Install CUDA SDK and open Kangaroo.sln in Visual C++ 2017.\
+Install CUDA SDK 10.2 and open VC_CUDA102\Kangaroo.sln in Visual C++ 2019.\
 You may need to reset your *Windows SDK version* in project properties.\
 In Build->Configuration Manager, select the *Release* configuration.\
 Build and enjoy.\
 \
-Note: The current release has been compiled with CUDA SDK 10.0, if you have a different release of the CUDA SDK, you may need to update CUDA SDK paths in Kangaroo.vcxproj using a text editor. The current nvcc option are set up to architecture starting at 3.0 capability, for older hardware, add the desired compute capabilities to the list in GPUEngine.cu properties, CUDA C/C++, Device, Code Generation.
+Note: The current release has been compiled with Visual studio 2019 and CUDA SDK 10.2, if you have a different release of the CUDA SDK, you may need to update CUDA SDK paths in Kangaroo.vcxproj using a text editor. The current nvcc option are set up to architecture starting at 3.0 capability, for older hardware, add the desired compute capabilities to the list in GPUEngine.cu properties, CUDA C/C++, Device, Code Generation.
+
+Visual Studio 2015 + Cuda 8 => Take project files in VC_CUDA8\
+Visual Sutido 2017 + Cuda 10 => Take project files in VC_CUDA10 (project files might be out of date)\
+Visual Studio 2019 + Cuda10.2 => Take project files in VC_CUDA102\
 
 ## Linux
 
