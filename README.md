@@ -360,3 +360,5 @@ Expected time with 50 x GeForce RTX 2080 Ti  : ~55days
        https://www.iacr.org/archive/pkc2010/60560372/60560372.pdf
  - [2] Kangaroo Methods for Solving theInterval Discrete Logarithm Problem\
        https://arxiv.org/pdf/1501.07019.pdf
+ - [3] Factoring and Discrete Logarithms using Pseudorandom Walks\
+       https://www.math.auckland.ac.nz/~sgal018/crypto-book/ch14.pdf
