@@ -362,3 +362,5 @@ Expected time with 50 x GeForce RTX 2080 Ti  : ~55days
        https://arxiv.org/pdf/1501.07019.pdf
  - [3] Factoring and Discrete Logarithms using Pseudorandom Walks\
        https://www.math.auckland.ac.nz/~sgal018/crypto-book/ch14.pdf
+ - [4] Kangaroos, Monopoly and Discrete Logarithms
+       https://web.northeastern.edu/seigen/11Magic/KruskalsCount/PollardKangarooMonopoly.pdf
