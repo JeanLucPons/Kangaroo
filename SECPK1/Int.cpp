@@ -1112,6 +1112,55 @@ std::string Int::GetBase2() {
 
 }
 
+bool Int::IsProbablePrime() {
+
+  // Prime cheking (probalistic Miller-Rabin test)
+  Int::SetupField(this);
+  int nbBit = GetBitLength();
+
+  Int Q(this);
+  Q.SubOne();
+  Int N1(&Q);
+  uint64_t e = 0;
+  while(Q.IsEven()) {
+    Q.ShiftR(1);
+    e++;
+  }
+
+  uint64_t k = 50;
+
+  for(uint64_t i = 0; i < k; i++) {
+
+    Int a;
+    Int x(0LL);
+    while(x.IsLowerOrEqual(&_ONE) || x.IsGreaterOrEqual(&N1))
+      x.Rand(nbBit);
+    x.ModExp(&Q);
+    if(x.IsOne() || x.IsEqual(&N1))
+      continue;
+
+    for(uint64_t j = 0; j < e - 1; j++) {
+      x.ModSquare(&x);
+      if(x.IsOne()) {
+        // Composite
+        return false;
+      }
+      if(x.IsEqual(&N1))
+        break;
+    }
+
+    if(x.IsEqual(&N1))
+      continue;
+
+    return false;
+
+  }
+
+  // Probable prime
+  return true;
+
+}
+
 
 // ------------------------------------------------
 

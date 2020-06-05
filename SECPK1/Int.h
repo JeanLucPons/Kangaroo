@@ -88,6 +88,8 @@ public:
   bool IsNegative();
   bool IsEven();
   bool IsOdd();
+  bool IsProbablePrime();
+
 
   double ToDouble();
 

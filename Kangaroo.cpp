@@ -348,8 +348,8 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
   ph->nbKangaroo = CPU_GRP_SIZE;
 
 #ifdef USE_SYMMETRY
-  ph->lastJump = new uint64_t[CPU_GRP_SIZE];
-  for(int i = 0; i<CPU_GRP_SIZE; i++) ph->lastJump[i] = NB_JUMP;
+  ph->symClass = new uint64_t[CPU_GRP_SIZE];
+  for(int i = 0; i<CPU_GRP_SIZE; i++) ph->symClass[i] = 0;
 #endif
 
   IntGroup *grp = new IntGroup(CPU_GRP_SIZE);
@@ -383,11 +383,10 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
     for(int g = 0; g < CPU_GRP_SIZE; g++) {
 
-      uint64_t jmp = ph->px[g].bits64[0] % NB_JUMP;
-
 #ifdef USE_SYMMETRY
-      // Limit cycle
-      if(jmp == ph->lastJump[g]) jmp = (ph->lastJump[g] + 1) % NB_JUMP;
+      uint64_t jmp = ph->px[g].bits64[0] % (NB_JUMP/2) + (NB_JUMP / 2) * ph->symClass[g];
+#else
+      uint64_t jmp = ph->px[g].bits64[0] % NB_JUMP;
 #endif
 
       Int *p1x = &jumpPointx[jmp];
@@ -401,11 +400,10 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
     for(int g = 0; g < CPU_GRP_SIZE; g++) {
 
-      uint64_t jmp = ph->px[g].bits64[0] % NB_JUMP;
-
 #ifdef USE_SYMMETRY
-      // Limit cycle
-      if(jmp == ph->lastJump[g]) jmp = (ph->lastJump[g] + 1) % NB_JUMP;
+      uint64_t jmp = ph->px[g].bits64[0] % (NB_JUMP / 2) + (NB_JUMP / 2) * ph->symClass[g];
+#else
+      uint64_t jmp = ph->px[g].bits64[0] % NB_JUMP;
 #endif
 
       Int *p1x = &jumpPointx[jmp];
@@ -428,9 +426,10 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
 #ifdef USE_SYMMETRY
       // Equivalence symmetry class switch
-      if(ry.ModPositiveK1())
+      if( ry.ModPositiveK1() ) {
         ph->distance[g].ModNegK1order();
-      ph->lastJump[g] = jmp;
+        ph->symClass[g] = !ph->symClass[g];
+      }
 #endif
 
       ph->px[g].Set(&rx);
@@ -485,16 +484,15 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
 
       }
 
-      // Save request
-      if(saveRequest && !endOfSearch) {
-        ph->isWaiting = true;
-        LOCK(saveMutex);
-        ph->isWaiting = false;
-        UNLOCK(saveMutex);
-      }
-
     }
 
+    // Save request
+    if(saveRequest && !endOfSearch) {
+      ph->isWaiting = true;
+      LOCK(saveMutex);
+      ph->isWaiting = false;
+      UNLOCK(saveMutex);
+    }
 
   }
 
@@ -505,7 +503,7 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
   safe_delete_array(ph->py);
   safe_delete_array(ph->distance);
 #ifdef USE_SYMMETRY
-  safe_delete_array(ph->lastJump);
+  safe_delete_array(ph->symClass);
 #endif
 
   ph->isRunning = false;
@@ -614,17 +612,17 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
         UNLOCK(ghMutex);
       }
 
-      // Save request
-      if(saveRequest && !endOfSearch) {
-        // Get kangaroos
-        if(saveKangaroo)
-          gpu->GetKangaroos(ph->px,ph->py,ph->distance);
-        ph->isWaiting = true;
-        LOCK(saveMutex);
-        ph->isWaiting = false;
-        UNLOCK(saveMutex);
-      }
+    }
 
+    // Save request
+    if(saveRequest && !endOfSearch) {
+      // Get kangaroos
+      if(saveKangaroo)
+        gpu->GetKangaroos(ph->px,ph->py,ph->distance);
+      ph->isWaiting = true;
+      LOCK(saveMutex);
+      ph->isWaiting = false;
+      UNLOCK(saveMutex);
     }
 
   }
@@ -731,7 +729,7 @@ void Kangaroo::CreateHerd(int nbKangaroo,Int *px,Int *py,Int *d,int firstType,bo
 
 #ifdef USE_SYMMETRY
     // Equivalence symmetry class switch
-    if(py[j].ModPositiveK1())
+    if( py[j].ModPositiveK1() )
       d[j].ModNegK1order();
 #endif
 
@@ -752,27 +750,69 @@ void Kangaroo::CreateJumpTable() {
   if(jumpBit > 128) jumpBit = 128;
   int maxRetry = 100;
   bool ok = false;
+  double distAvg;
   double maxAvg = pow(2.0,(double)jumpBit - 0.95);
   double minAvg = pow(2.0,(double)jumpBit - 1.05);
-  double distAvg;
   //::printf("Jump Avg distance min: 2^%.2f\n",log2(minAvg));
   //::printf("Jump Avg distance max: 2^%.2f\n",log2(maxAvg));
-
+  
   // Kangaroo jumps
   // Constant seed for compatibilty of workfiles
   rseed(0x600DCAFE);
+
+#ifdef USE_SYMMETRY
+  Int old;
+  old.Set(Int::GetFieldCharacteristic());
+  Int u;
+  Int v;
+  u.SetInt32(1);
+  u.ShiftL(jumpBit/2);
+  u.AddOne();
+  while(!u.IsProbablePrime()) {
+    u.AddOne();
+    u.AddOne();
+  }
+  v.Set(&u);
+  v.AddOne();
+  v.AddOne();
+  while(!v.IsProbablePrime()) {
+    v.AddOne();
+    v.AddOne();
+  }
+  Int::SetupField(&old);
+
+  ::printf("U= %s\n",u.GetBase16().c_str());
+  ::printf("V= %s\n",v.GetBase16().c_str());
+#endif
 
   // Positive only
   // When using symmetry, the sign is switched by the symmetry class switch
   while(!ok && maxRetry>0 ) {
     Int totalDist;
     totalDist.SetInt32(0);
+#ifdef USE_SYMMETRY
+    for(int i = 0; i < NB_JUMP/2; ++i) {
+      jumpDistance[i].Rand(jumpBit/2);
+      jumpDistance[i].Mult(&u);
+      if(jumpDistance[i].IsZero())
+        jumpDistance[i].SetInt32(1);
+      totalDist.Add(&jumpDistance[i]);
+    }
+    for(int i = NB_JUMP / 2; i < NB_JUMP; ++i) {
+      jumpDistance[i].Rand(jumpBit/2);
+      jumpDistance[i].Mult(&v);
+      if(jumpDistance[i].IsZero())
+        jumpDistance[i].SetInt32(1);
+      totalDist.Add(&jumpDistance[i]);
+    }
+#else
     for(int i = 0; i < NB_JUMP; ++i) {
       jumpDistance[i].Rand(jumpBit);
       if(jumpDistance[i].IsZero())
         jumpDistance[i].SetInt32(1);
       totalDist.Add(&jumpDistance[i]);
-    }
+  }
+#endif
     distAvg = totalDist.ToDouble() / (double)(NB_JUMP);
     ok = distAvg>minAvg && distAvg<maxAvg;
     maxRetry--;
@@ -793,7 +833,7 @@ void Kangaroo::CreateJumpTable() {
 
 // ----------------------------------------------------------------------------
 
-void Kangaroo::ComputeExpected(double dp,double *op,double *ram) {
+void Kangaroo::ComputeExpected(double dp,double *op,double *ram,double *overHead) {
 
   // Compute expected number of operation and memory
 
@@ -832,6 +872,9 @@ void Kangaroo::ComputeExpected(double dp,double *op,double *ram) {
          (double)(sizeof(ENTRY) + sizeof(ENTRY *)) * (*op / theta); // Entries
 
   *ram /= (1024.0*1024.0);
+
+  if(overHead)
+    *overHead = *op/avgDP0;
 
 }
 
@@ -928,30 +971,36 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
     // Retrieve config from server
     if( !GetConfigFromServer() )
       ::exit(0);
+    // Client save only kangaroos, force -ws
+    if(workFile.length()>0)
+      saveKangaroo = true;
   }
 
   InitRange();
   CreateJumpTable();
 
-  // Compute optimal distinguished bits number (see README)
-  int suggestedDP = (int)((double)rangePower / 2.0 - log2((double)totalRW));
-  if(suggestedDP < 0) suggestedDP = 0;
-
-  //if(initDPSize > suggestedDP) {
-  //  ::printf("Warning, DP is too large, it may cause significant overload.\n");
-  //  ::printf("Hint: decrease number of threads, gridSize, or decrease dp using -d.\n");
-  //}
-
-  if(initDPSize < 0)
-    initDPSize = suggestedDP;
 
   ::printf("Number of kangaroos: 2^%.2f\n",log2((double)totalRW));
 
   if( !clientMode ) {
+
+    // Compute suggested distinguished bits number for less than 1% overhead (see README)
+    double dpOverHead;
+    int suggestedDP = (int)((double)rangePower / 2.0 - log2((double)totalRW));
+    ComputeExpected((double)suggestedDP,&expectedNbOp,&expectedMem,&dpOverHead);
+    while(dpOverHead>1.01 && suggestedDP>0) {
+      suggestedDP--;
+      ComputeExpected((double)suggestedDP,&expectedNbOp,&expectedMem,&dpOverHead);
+    }
+
+    if(initDPSize < 0)
+      initDPSize = suggestedDP;
+
     ComputeExpected((double)initDPSize,&expectedNbOp,&expectedMem);
     if(nbLoadedWalk == 0) ::printf("Suggested DP: %d\n",suggestedDP);
     ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
     ::printf("Expected RAM: %.1fMB\n",expectedMem);
+
   }
 
   SetDP(initDPSize);

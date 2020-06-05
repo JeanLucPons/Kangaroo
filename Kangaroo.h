@@ -76,7 +76,7 @@ typedef struct {
   Int *distance; // Travelled distance
 
 #ifdef USE_SYMMETRY
-  uint64_t *lastJump; // Last jump
+  uint64_t *symClass; // Last jump
 #endif
   
   SOCKET clientSock;
@@ -105,6 +105,10 @@ typedef struct {
   DP *dp;
 } DP_CACHE;
 
+// Wrok file type
+#define HEADW 0xFA6A8001  // Full work file
+#define HEADK 0xFA6A8002  // Kangaroo only file
+
 class Kangaroo {
 
 public:
@@ -117,7 +121,7 @@ public:
   bool ParseConfigFile(std::string &fileName);
   bool LoadWork(std::string &fileName);
   void Check(std::vector<int> gpuId,std::vector<int> gridSize);
-  void MergeWork(std::string &file1,std::string &file2,std::string &dest);
+  bool MergeWork(std::string &file1,std::string &file2,std::string &dest);
   void WorkInfo(std::string &fileName);
 
   // Threaded procedures
@@ -142,20 +146,20 @@ private:
   bool SendToServer(std::vector<ITEM> &dp);
   bool CheckKey(Int d1,Int d2,uint8_t type);
   bool CollisionCheck(Int *dist,uint32_t kType);
-  void ComputeExpected(double dp,double *op,double *ram);
+  void ComputeExpected(double dp,double *op,double *ram,double* overHead = NULL);
   void InitRange();
   void InitSearchKey();
   std::string GetTimeStr(double s);
   bool Output(Int* pk,char sInfo,int sType);
 
   // Backup stuff
-  void SaveWork(std::string fileName,FILE *f,uint64_t totalCount,double totalTime);
+  void SaveWork(std::string fileName,FILE *f,int type,uint64_t totalCount,double totalTime);
   void SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread);
   void SaveServerWork();
   void FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d);
   void FectchKangaroos(TH_PARAM *threads);
-  FILE *ReadHeader(std::string fileName,uint32_t *version = NULL);
-  bool  SaveHeader(std::string fileName,FILE* f,uint64_t totalCount,double totalTime);
+  FILE *ReadHeader(std::string fileName,uint32_t *version,int type);
+  bool  SaveHeader(std::string fileName,FILE* f,int type,uint64_t totalCount,double totalTime);
   int FSeek(FILE *stream,uint64_t pos);
   uint64_t FTell(FILE *stream);
 

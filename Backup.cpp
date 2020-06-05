@@ -29,7 +29,6 @@
 
 using namespace std;
 
-#define HEAD 0xFA6A8001
 
 // ----------------------------------------------------------------------------
 
@@ -53,7 +52,7 @@ uint64_t Kangaroo::FTell(FILE* stream) {
 
 }
 
-FILE *Kangaroo::ReadHeader(std::string fileName,uint32_t *version) {
+FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
 
   FILE *f = fopen(fileName.c_str(),"rb");
   if(f == NULL) {
@@ -77,8 +76,15 @@ FILE *Kangaroo::ReadHeader(std::string fileName,uint32_t *version) {
     return NULL;
   }
 
-  if(head!=HEAD) {
-    ::printf("ReadHeader: %s Not a work file\n",fileName.c_str());
+  if(head!=type) {
+    if(head==HEADK) {
+      fread(&nbLoadedWalk,sizeof(uint64_t),1,f);
+      ::printf("ReadHeader: %s is a kangaroo only file [2^%.2f kangaroos]\n",fileName.c_str(),log2((double)nbLoadedWalk));
+    } else if(head==HEADW) {
+      ::printf("ReadHeader: %s is a work file, kangaroo only file expected\n",fileName.c_str());
+    } else {
+      ::printf("ReadHeader: %s Not a work file\n",fileName.c_str());
+    }
     ::fclose(f);
     return NULL;
   }
@@ -92,52 +98,58 @@ FILE *Kangaroo::ReadHeader(std::string fileName,uint32_t *version) {
 
 bool Kangaroo::LoadWork(string &fileName) {
 
-  // In client mode, config come from the server
-  if(clientMode)
-    return true;
-
   double t0 = Timer::get_tick();
 
   ::printf("Loading: %s\n",fileName.c_str());
 
-  fRead = ReadHeader(fileName);
-  if(fRead == NULL)
-    return false;
+  if(!clientMode) {
 
-  keysToSearch.clear();
-  Point key;
+    fRead = ReadHeader(fileName,NULL,HEADW);
+    if(fRead == NULL)
+      return false;
 
-  // Read global param
-  uint32_t dp;
-  ::fread(&dp,sizeof(uint32_t),1,fRead);
-  if(initDPSize<0) initDPSize = dp;
-  ::fread(&rangeStart.bits64,32,1,fRead); rangeStart.bits64[4] = 0;
-  ::fread(&rangeEnd.bits64,32,1,fRead); rangeEnd.bits64[4] = 0;
-  ::fread(&key.x.bits64,32,1,fRead); key.x.bits64[4] = 0;
-  ::fread(&key.y.bits64,32,1,fRead); key.y.bits64[4] = 0;
-  ::fread(&offsetCount,sizeof(uint64_t),1,fRead);
-  ::fread(&offsetTime,sizeof(double),1,fRead);
-  
-  key.z.SetInt32(1);
-  if(!secp->EC(key)) {
-    ::printf("LoadWork: key does not lie on elliptic curve\n");
-    return false;
+    keysToSearch.clear();
+    Point key;
+
+    // Read global param
+    uint32_t dp;
+    ::fread(&dp,sizeof(uint32_t),1,fRead);
+    if(initDPSize < 0) initDPSize = dp;
+    ::fread(&rangeStart.bits64,32,1,fRead); rangeStart.bits64[4] = 0;
+    ::fread(&rangeEnd.bits64,32,1,fRead); rangeEnd.bits64[4] = 0;
+    ::fread(&key.x.bits64,32,1,fRead); key.x.bits64[4] = 0;
+    ::fread(&key.y.bits64,32,1,fRead); key.y.bits64[4] = 0;
+    ::fread(&offsetCount,sizeof(uint64_t),1,fRead);
+    ::fread(&offsetTime,sizeof(double),1,fRead);
+
+    key.z.SetInt32(1);
+    if(!secp->EC(key)) {
+      ::printf("LoadWork: key does not lie on elliptic curve\n");
+      return false;
+    }
+
+    keysToSearch.push_back(key);
+
+    ::printf("Start:%s\n",rangeStart.GetBase16().c_str());
+    ::printf("Stop :%s\n",rangeEnd.GetBase16().c_str());
+    ::printf("Keys :%d\n",(int)keysToSearch.size());
+
+    // Read hashTable
+    hashTable.LoadTable(fRead);
+
+  } else {
+
+    // In client mode, config come from the server, file has only kangaroo
+    fRead = ReadHeader(fileName,NULL,HEADK);
+    if(fRead == NULL)
+      return false;
+
   }
-  
-  keysToSearch.push_back(key);
-
-  ::printf("Start:%s\n",rangeStart.GetBase16().c_str());
-  ::printf("Stop :%s\n",rangeEnd.GetBase16().c_str());
-  ::printf("Keys :%d\n",(int)keysToSearch.size());
-
-  // Read hashTable
-  hashTable.LoadTable(fRead);
 
   // Read number of walk
   fread(&nbLoadedWalk,sizeof(uint64_t),1,fRead);
 
   double t1 = Timer::get_tick();
-
 
   ::printf("LoadWork: [HashTable %s] [%s]\n",hashTable.GetSizeInfo().c_str(),GetTimeStr(t1 - t0).c_str());
 
@@ -216,10 +228,10 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
 
 
 // ----------------------------------------------------------------------------
-bool Kangaroo::SaveHeader(string fileName,FILE* f,uint64_t totalCount,double totalTime) {
+bool Kangaroo::SaveHeader(string fileName,FILE* f,int type,uint64_t totalCount,double totalTime) {
 
   // Header
-  uint32_t head = HEAD;
+  uint32_t head = type;
   uint32_t version = 0;
   if(::fwrite(&head,sizeof(uint32_t),1,f) != 1) {
     ::printf("SaveHeader: Cannot write to %s\n",fileName.c_str());
@@ -240,12 +252,12 @@ bool Kangaroo::SaveHeader(string fileName,FILE* f,uint64_t totalCount,double tot
   return true;
 }
 
-void  Kangaroo::SaveWork(string fileName,FILE *f,uint64_t totalCount,double totalTime) {
+void  Kangaroo::SaveWork(string fileName,FILE *f,int type,uint64_t totalCount,double totalTime) {
 
   ::printf("\nSaveWork: %s",fileName.c_str());
 
   // Header
-  if(!SaveHeader(fileName,f,totalCount,totalTime))
+  if(!SaveHeader(fileName,f,type,totalCount,totalTime))
     return;
 
   // Save hash table
@@ -271,7 +283,7 @@ void Kangaroo::SaveServerWork() {
     return;
   }
 
-  SaveWork(fileName,f,0,0);
+  SaveWork(fileName,f,HEADW,0,0);
 
   uint64_t totalWalk = 0;
   ::fwrite(&totalWalk,sizeof(uint64_t),1,f);
@@ -328,7 +340,12 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
     return;
   }
 
-  SaveWork(fileName,f,totalCount,totalTime);
+  if (clientMode) {
+    SaveHeader(fileName,f,HEADK,totalCount,totalTime);
+    ::printf("\nSaveWork (Kangaroo): %s",fileName.c_str());
+  } else {
+    SaveWork(fileName,f,HEADW,totalCount,totalTime);
+  }
 
   uint64_t totalWalk = 0;
 
@@ -385,7 +402,7 @@ void Kangaroo::WorkInfo(std::string &fileName) {
   ::printf("Loading: %s\n",fileName.c_str());
 
   uint32_t version;
-  FILE *f1 = ReadHeader(fileName,&version);
+  FILE *f1 = ReadHeader(fileName,&version,HEADW);
   if(f1 == NULL)
     return;
 

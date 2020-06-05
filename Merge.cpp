@@ -88,7 +88,7 @@ void* _mergeThread(void* lpParam) {
   return 0;
 }
 
-void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest) {
+bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest) {
 
   double t0;
   double t1;
@@ -99,9 +99,9 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
 
   // ---------------------------------------------------
 
-  FILE* f1 = ReadHeader(file1,&v1);
+  FILE* f1 = ReadHeader(file1,&v1,HEADW);
   if(f1 == NULL)
-    return;
+    return false;
 
   uint32_t dp1;
   Point k1;
@@ -123,16 +123,16 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   if(!secp->EC(k1)) {
     ::printf("MergeWork: key1 does not lie on elliptic curve\n");
     fclose(f1);
-    return;
+    return false;
   }
 
 
   // ---------------------------------------------------
 
-  FILE* f2 = ReadHeader(file2,&v2);
+  FILE* f2 = ReadHeader(file2,&v2,HEADW);
   if(f2 == NULL) {
     fclose(f1);
-    return;
+    return false;
   }
 
   uint32_t dp2;
@@ -155,7 +155,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("MergeWork: cannot merge workfile of different version\n");
     fclose(f1);
     fclose(f2);
-    return;
+    return false;
   }
 
   k2.z.SetInt32(1);
@@ -163,7 +163,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("MergeWork: key2 does not lie on elliptic curve\n");
     fclose(f1);
     fclose(f2);
-    return;
+    return false;
   }
 
   if(!RS1.IsEqual(&RS2) || !RE1.IsEqual(&RE2)) {
@@ -175,7 +175,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("RE2: %s\n",RE2.GetBase16().c_str());
     fclose(f1);
     fclose(f2);
-    return;
+    return false;
 
   }
 
@@ -184,7 +184,7 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("MergeWork: key differs, multiple keys not yet supported\n");
     fclose(f1);
     fclose(f2);
-    return;
+    return false;
 
   }
 
@@ -231,13 +231,13 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("%s\n",::strerror(errno));
     fclose(f1);
     fclose(f2);
-    return;
+    return false;
   }
   dpSize = (dp1 < dp2) ? dp1 : dp2;
-  if( !SaveHeader(tmpName,f,count1 + count2,time1 + time2) ) {
+  if( !SaveHeader(tmpName,f,HEADW,count1 + count2,time1 + time2) ) {
     fclose(f1);
     fclose(f2);
-    return;
+    return false;
   }
 
 
@@ -289,11 +289,14 @@ void Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
 
     // remove tmp file
     remove(tmpName.c_str());
+    return true;
 
   }
 
   ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
   ::printf("Total f1+f2: count 2^%.2f [%s]\n",log2((double)count1 + (double)count2),GetTimeStr(time1 + time2).c_str());
+
+  return false;
 
 }
 

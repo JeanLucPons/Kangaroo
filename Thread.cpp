@@ -324,7 +324,7 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
     }
 
     // Save request
-    if(!clientMode && workFile.length() > 0 && !endOfSearch) {
+    if(workFile.length() > 0 && !endOfSearch) {
       if((t1 - lastSave) > saveWorkPeriod) {
         SaveWork(count + offsetCount,t1 - startTime + offsetTime,params,nbCPUThread + nbGPUThread);
         lastSave = t1;

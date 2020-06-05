@@ -26,6 +26,8 @@
 
 using namespace std;
 
+#define CHECKARG(opt) if(a>=argc-1) {::printf(opt " missing argument\n");exit(0);} else {a++;}
+
 // ------------------------------------------------------------------------------------------
 
 void printUsage() {
@@ -177,11 +179,11 @@ int main(int argc, char* argv[]) {
   while (a < argc) {
 
     if(strcmp(argv[a], "-t") == 0) {
-      a++;
+      CHECKARG("-t");
       nbCPUThread = getInt("nbCPUThread",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-d") == 0) {
-      a++;
+      CHECKARG("-d");
       dp = getInt("dpSize",argv[a]);
       a++;
     } else if (strcmp(argv[a], "-h") == 0) {
@@ -196,43 +198,43 @@ int main(int argc, char* argv[]) {
       exit(0);
 
     } else if(strcmp(argv[a],"-w") == 0) {
-      a++;
+      CHECKARG("-w");
       workFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-i") == 0) {
-      a++;
+      CHECKARG("-i");
       iWorkFile = string(argv[a]);
       a++;
     }  else if(strcmp(argv[a],"-wm") == 0) {
-      a++;
+      CHECKARG("-wm");
       merge1 = string(argv[a]);
-      a++;
+      CHECKARG("-wm");
       merge2 = string(argv[a]);
-      a++;
+      CHECKARG("-wm");
       mergeDest = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-winfo") == 0) {
-      a++;
+      CHECKARG("-winfo");
       infoFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-o") == 0) {
-      a++;
+      CHECKARG("-o");
       outputFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-wi") == 0) {
-      a++;
+      CHECKARG("-wi");
       savePeriod = getInt("savePeriod",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-wt") == 0) {
-      a++;
+      CHECKARG("-wt");
       wtimeout = getInt("timeout",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-nt") == 0) {
-      a++;
+      CHECKARG("-nt");
       ntimeout = getInt("timeout",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-m") == 0) {
-      a++;
+      CHECKARG("-m");
       maxStep = getDouble("maxStep",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-ws") == 0) {
@@ -245,22 +247,22 @@ int main(int argc, char* argv[]) {
       a++;
       serverMode = true;
     } else if(strcmp(argv[a],"-c") == 0) {
-      a++;
+      CHECKARG("-c");
       serverIP = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-sp") == 0) {
-      a++;
+      CHECKARG("-sp");
       port = getInt("serverPort",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-gpu") == 0) {
       gpuEnable = true;
       a++;
     } else if(strcmp(argv[a],"-gpuId") == 0) {
-      a++;
+      CHECKARG("-gpuId");
       getInts("gpuId",gpuId,string(argv[a]),',');
       a++;
     } else if(strcmp(argv[a],"-g") == 0) {
-      a++;
+      CHECKARG("-g");
       getInts("gridSize",gridSize,string(argv[a]),',');
       a++;
     } else if(strcmp(argv[a],"-v") == 0) {
@@ -268,8 +270,7 @@ int main(int argc, char* argv[]) {
     } else if(strcmp(argv[a],"-check") == 0) {
       checkFlag = true;
       a++;
-    }
-    else if(a == argc - 1) {
+    } else if(a == argc - 1) {
       configFile = string(argv[a]);
       a++;
     } else {
