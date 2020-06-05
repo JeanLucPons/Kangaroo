@@ -1132,7 +1132,8 @@ bool Int::IsProbablePrime() {
   for(uint64_t i = 0; i < k; i++) {
 
     Int a;
-    Int x(0LL);
+    Int x;
+    x.SetInt32(0); 
     while(x.IsLowerOrEqual(&_ONE) || x.IsGreaterOrEqual(&N1))
       x.Rand(nbBit);
     x.ModExp(&Q);
