@@ -76,6 +76,9 @@ FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
     return NULL;
   }
 
+  ::fread(&versionF,sizeof(uint32_t),1,f);
+  if(version) *version = versionF;
+
   if(head!=type) {
     if(head==HEADK) {
       fread(&nbLoadedWalk,sizeof(uint64_t),1,f);
@@ -88,9 +91,6 @@ FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
     ::fclose(f);
     return NULL;
   }
-
-  ::fread(&versionF,sizeof(uint32_t),1,f);
-  if(version) *version = versionF;
 
   return f;
 
@@ -240,14 +240,18 @@ bool Kangaroo::SaveHeader(string fileName,FILE* f,int type,uint64_t totalCount,d
   }
   ::fwrite(&version,sizeof(uint32_t),1,f);
 
-  // Save global param
-  ::fwrite(&dpSize,sizeof(uint32_t),1,f);
-  ::fwrite(&rangeStart.bits64,32,1,f);
-  ::fwrite(&rangeEnd.bits64,32,1,f);
-  ::fwrite(&keysToSearch[keyIdx].x.bits64,32,1,f);
-  ::fwrite(&keysToSearch[keyIdx].y.bits64,32,1,f);
-  ::fwrite(&totalCount,sizeof(uint64_t),1,f);
-  ::fwrite(&totalTime,sizeof(double),1,f);
+  if(type==HEADW) {
+
+    // Save global param
+    ::fwrite(&dpSize,sizeof(uint32_t),1,f);
+    ::fwrite(&rangeStart.bits64,32,1,f);
+    ::fwrite(&rangeEnd.bits64,32,1,f);
+    ::fwrite(&keysToSearch[keyIdx].x.bits64,32,1,f);
+    ::fwrite(&keysToSearch[keyIdx].y.bits64,32,1,f);
+    ::fwrite(&totalCount,sizeof(uint64_t),1,f);
+    ::fwrite(&totalTime,sizeof(double),1,f);
+
+  }
 
   return true;
 }

@@ -205,8 +205,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   keysToSearch.clear();
   keysToSearch.push_back(k1);
   keyIdx = 0;
-  if(printStat)
-    collisionInSameHerd = 0;
+  collisionInSameHerd = 0;
   rangeStart.Set(&RS1);
   rangeEnd.Set(&RE1);
   InitRange();
@@ -245,6 +244,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
 
   // Divide by 64 the amount of needed RAM
   int block = HASH_SIZE / 64;
+  uint64_t nbDP = 0;
 
   for(int s=0;s<HASH_SIZE && !endOfSearch;s += block) {
 
@@ -271,6 +271,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     FreeHandles(thHandles,nbThread);
 
     hashTable.SaveTable(f,S,E,false);
+    nbDP += hashTable.GetNbItem();
     hashTable.Reset();
 
   }
@@ -299,7 +300,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
 
   if(printStat) {
     ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
-    ::printf("Total f1+f2: count 2^%.2f [%s]\n",log2((double)count1 + (double)count2),GetTimeStr(time1 + time2).c_str());
+    ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
   } else {
     offsetTime = time1 + time2;
     offsetCount = count1 + count2;
@@ -347,8 +348,31 @@ void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
   } while(FindNextFile(hFind,&ffd) != 0);
 
 #else
-  fseeko(stream,0,SEEK_END);
-  e.size = (uint64_t)ftello(f);
+
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir(dirName.c_str())) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      if ( ent->d_type != 0x8) continue;
+      uint32_t version;
+      string fName = dirName + "/" + string(ent->d_name);
+      FILE *f = ReadHeader(fName,&version,HEADW);
+      if(f) {
+        File e;
+        e.name = fName;
+        fseeko(f,0,SEEK_END);
+        e.size = (uint64_t)ftello(f);
+        listFiles.push_back(e);
+        fclose(f);
+      }
+
+    }
+  } else {
+    ::printf("opendir(%s) Error:\n",dirName.c_str());
+    perror("");
+    return;
+  }
+
 #endif
 
   if(listFiles.size()<2) {
@@ -359,13 +383,11 @@ void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
   std::sort(listFiles.begin(),listFiles.end(),sortBySize);
 
   int lgth = (int)listFiles.size();
-  ::printf("------- File #1/%d\n",lgth-1);
+  ::printf("\n## File #1/%d\n",lgth-1);
   bool end = MergeWork(listFiles[0].name,listFiles[1].name,dest,false);
-  for(int i=2;i<(int)listFiles.size() && !end;i++) {
-    ::printf("------- File #%d/%d\n",i,lgth - 1);
-    end = MergeWork(dest,listFiles[i].name,dest,false);
+  for(int i=2;i<lgth && !end;i++) {
+    ::printf("\n## File #%d/%d\n",i,lgth - 1);
+    end = MergeWork(dest,listFiles[i].name,dest,i==lgth-1);
   }
-  ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
-  ::printf("Total %d files: count 2^%.2f [%s]\n",(int)listFiles.size(),log2((double)offsetCount),GetTimeStr(offsetTime).c_str());
  
 }
