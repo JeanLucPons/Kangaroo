@@ -384,7 +384,7 @@ void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
 
   int lgth = (int)listFiles.size();
   ::printf("\n## File #1/%d\n",lgth-1);
-  bool end = MergeWork(listFiles[0].name,listFiles[1].name,dest,false);
+  bool end = MergeWork(listFiles[0].name,listFiles[1].name,dest,lgth==2);
   for(int i=2;i<lgth && !end;i++) {
     ::printf("\n## File #%d/%d\n",i,lgth - 1);
     end = MergeWork(dest,listFiles[i].name,dest,i==lgth-1);

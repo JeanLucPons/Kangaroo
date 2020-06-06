@@ -984,11 +984,11 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
 
   if( !clientMode ) {
 
-    // Compute suggested distinguished bits number for less than 1% overhead (see README)
+    // Compute suggested distinguished bits number for less than 5% overhead (see README)
     double dpOverHead;
     int suggestedDP = (int)((double)rangePower / 2.0 - log2((double)totalRW));
     ComputeExpected((double)suggestedDP,&expectedNbOp,&expectedMem,&dpOverHead);
-    while(dpOverHead>1.01 && suggestedDP>0) {
+    while(dpOverHead>1.05 && suggestedDP>0) {
       suggestedDP--;
       ComputeExpected((double)suggestedDP,&expectedNbOp,&expectedMem,&dpOverHead);
     }
