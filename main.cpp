@@ -26,7 +26,7 @@
 
 using namespace std;
 
-#define CHECKARG(opt) if(a>=argc-1) {::printf(opt " missing argument\n");exit(0);} else {a++;}
+#define CHECKARG(opt,n) if(a>=argc-1) {::printf(opt " missing argument #%d\n",n);exit(0);} else {a++;}
 
 // ------------------------------------------------------------------------------------------
 
@@ -47,6 +47,7 @@ void printUsage() {
   printf(" -ws: Save kangaroos in the work file\n");
   printf(" -wsplit: Split work file of server and reset hashtable\n");
   printf(" -wm file1 file2 destfile: Merge work file\n");
+  printf(" -wmdir dir destfile: Merge directory of work files\n");
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
   printf(" -m maxStep: number of operations before give up the search (maxStep*expected operation)\n");
@@ -147,6 +148,7 @@ static bool saveKangaroo = false;
 static string merge1 = "";
 static string merge2 = "";
 static string mergeDest = "";
+static string mergeDir = "";
 static string infoFile = "";
 static double maxStep = 0.0;
 static int wtimeout = 3000;
@@ -179,11 +181,11 @@ int main(int argc, char* argv[]) {
   while (a < argc) {
 
     if(strcmp(argv[a], "-t") == 0) {
-      CHECKARG("-t");
+      CHECKARG("-t",1);
       nbCPUThread = getInt("nbCPUThread",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-d") == 0) {
-      CHECKARG("-d");
+      CHECKARG("-d",1);
       dp = getInt("dpSize",argv[a]);
       a++;
     } else if (strcmp(argv[a], "-h") == 0) {
@@ -198,43 +200,49 @@ int main(int argc, char* argv[]) {
       exit(0);
 
     } else if(strcmp(argv[a],"-w") == 0) {
-      CHECKARG("-w");
+      CHECKARG("-w",1);
       workFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-i") == 0) {
-      CHECKARG("-i");
+      CHECKARG("-i",1);
       iWorkFile = string(argv[a]);
       a++;
-    }  else if(strcmp(argv[a],"-wm") == 0) {
-      CHECKARG("-wm");
+    } else if(strcmp(argv[a],"-wm") == 0) {
+      CHECKARG("-wm",1);
       merge1 = string(argv[a]);
-      CHECKARG("-wm");
+      CHECKARG("-wm",2);
       merge2 = string(argv[a]);
-      CHECKARG("-wm");
+      CHECKARG("-wm",3);
+      mergeDest = string(argv[a]);
+      a++;
+    } else if(strcmp(argv[a],"-wmdir") == 0) {
+      CHECKARG("-wmdir",1);
+      mergeDir = string(argv[a]);
+      CHECKARG("-wmdir",2);
       mergeDest = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-winfo") == 0) {
-      CHECKARG("-winfo");
+      CHECKARG("-winfo",1);
       infoFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-o") == 0) {
-      CHECKARG("-o");
+      CHECKARG("-o",1);
       outputFile = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-wi") == 0) {
-      CHECKARG("-wi");
+      CHECKARG("-wi",1);
       savePeriod = getInt("savePeriod",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-wt") == 0) {
-      CHECKARG("-wt");
+      CHECKARG("-wt",1);
       wtimeout = getInt("timeout",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-nt") == 0) {
-      CHECKARG("-nt");
+      CHECKARG("-nt",1);
       ntimeout = getInt("timeout",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-m") == 0) {
-      CHECKARG("-m");
+      CHECKARG("-m",1);
       maxStep = getDouble("maxStep",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-ws") == 0) {
@@ -247,22 +255,22 @@ int main(int argc, char* argv[]) {
       a++;
       serverMode = true;
     } else if(strcmp(argv[a],"-c") == 0) {
-      CHECKARG("-c");
+      CHECKARG("-c",1);
       serverIP = string(argv[a]);
       a++;
     } else if(strcmp(argv[a],"-sp") == 0) {
-      CHECKARG("-sp");
+      CHECKARG("-sp",1);
       port = getInt("serverPort",argv[a]);
       a++;
     } else if(strcmp(argv[a],"-gpu") == 0) {
       gpuEnable = true;
       a++;
     } else if(strcmp(argv[a],"-gpuId") == 0) {
-      CHECKARG("-gpuId");
+      CHECKARG("-gpuId",1);
       getInts("gpuId",gpuId,string(argv[a]),',');
       a++;
     } else if(strcmp(argv[a],"-g") == 0) {
-      CHECKARG("-g");
+      CHECKARG("-g",1);
       getInts("gridSize",gridSize,string(argv[a]),',');
       a++;
     } else if(strcmp(argv[a],"-v") == 0) {
@@ -298,6 +306,9 @@ int main(int argc, char* argv[]) {
   } else {
     if(infoFile.length()>0) {
       v->WorkInfo(infoFile);
+      exit(0);
+    } else if(mergeDir.length() > 0) {
+      v->MergeDir(mergeDir,mergeDest);
       exit(0);
     } else if(merge1.length()>0) {
       v->MergeWork(merge1,merge2,mergeDest);

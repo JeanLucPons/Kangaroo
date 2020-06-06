@@ -186,6 +186,7 @@ std::string Timer::getTS() {
   time_t now = time(NULL);
   char *time = ctime(&now);
 
+  if(time[8]==' ') time[8]='0';
   ret.push_back(time[8]);
   ret.push_back(time[9]);
   ret.push_back(time[4]);

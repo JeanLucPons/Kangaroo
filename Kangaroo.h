@@ -121,7 +121,8 @@ public:
   bool ParseConfigFile(std::string &fileName);
   bool LoadWork(std::string &fileName);
   void Check(std::vector<int> gpuId,std::vector<int> gridSize);
-  bool MergeWork(std::string &file1,std::string &file2,std::string &dest);
+  void MergeDir(std::string& dirname,std::string& dest);
+  bool MergeWork(std::string &file1,std::string &file2,std::string &dest,bool printStat=true);
   void WorkInfo(std::string &fileName);
 
   // Threaded procedures

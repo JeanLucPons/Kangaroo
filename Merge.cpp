@@ -24,6 +24,7 @@
 #include <math.h>
 #include <algorithm>
 #ifndef WIN64
+#include <dirent.h>
 #include <pthread.h>
 #endif
 
@@ -88,7 +89,7 @@ void* _mergeThread(void* lpParam) {
   return 0;
 }
 
-bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest) {
+bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest,bool printStat) {
 
   double t0;
   double t1;
@@ -123,7 +124,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   if(!secp->EC(k1)) {
     ::printf("MergeWork: key1 does not lie on elliptic curve\n");
     fclose(f1);
-    return false;
+    return true;
   }
 
 
@@ -132,7 +133,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   FILE* f2 = ReadHeader(file2,&v2,HEADW);
   if(f2 == NULL) {
     fclose(f1);
-    return false;
+    return true;
   }
 
   uint32_t dp2;
@@ -155,7 +156,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("MergeWork: cannot merge workfile of different version\n");
     fclose(f1);
     fclose(f2);
-    return false;
+    return true;
   }
 
   k2.z.SetInt32(1);
@@ -163,7 +164,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("MergeWork: key2 does not lie on elliptic curve\n");
     fclose(f1);
     fclose(f2);
-    return false;
+    return true;
   }
 
   if(!RS1.IsEqual(&RS2) || !RE1.IsEqual(&RE2)) {
@@ -175,7 +176,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("RE2: %s\n",RE2.GetBase16().c_str());
     fclose(f1);
     fclose(f2);
-    return false;
+    return true;
 
   }
 
@@ -184,7 +185,7 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("MergeWork: key differs, multiple keys not yet supported\n");
     fclose(f1);
     fclose(f2);
-    return false;
+    return true;
 
   }
 
@@ -204,7 +205,8 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   keysToSearch.clear();
   keysToSearch.push_back(k1);
   keyIdx = 0;
-  collisionInSameHerd = 0;
+  if(printStat)
+    collisionInSameHerd = 0;
   rangeStart.Set(&RS1);
   rangeEnd.Set(&RE1);
   InitRange();
@@ -231,13 +233,13 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     ::printf("%s\n",::strerror(errno));
     fclose(f1);
     fclose(f2);
-    return false;
+    return true;
   }
   dpSize = (dp1 < dp2) ? dp1 : dp2;
   if( !SaveHeader(tmpName,f,HEADW,count1 + count2,time1 + time2) ) {
     fclose(f1);
     fclose(f2);
-    return false;
+    return true;
   }
 
 
@@ -276,6 +278,8 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   fclose(f1);
   fclose(f2);
   fclose(f);
+  free(params);
+  free(thHandles);
 
   t1 = Timer::get_tick();
 
@@ -293,10 +297,75 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
 
   }
 
-  ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
-  ::printf("Total f1+f2: count 2^%.2f [%s]\n",log2((double)count1 + (double)count2),GetTimeStr(time1 + time2).c_str());
+  if(printStat) {
+    ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+    ::printf("Total f1+f2: count 2^%.2f [%s]\n",log2((double)count1 + (double)count2),GetTimeStr(time1 + time2).c_str());
+  } else {
+    offsetTime = time1 + time2;
+    offsetCount = count1 + count2;
+  }
 
   return false;
 
 }
 
+typedef struct File {
+  std::string name;
+  uint64_t size;
+} File;
+
+bool sortBySize(const File& lhs,const File& rhs) { return lhs.size > rhs.size; }
+
+void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
+
+  vector<File> listFiles;
+
+#ifdef WIN64
+  WIN32_FIND_DATA ffd;
+  HANDLE hFind;
+
+  hFind = FindFirstFile((dirName.c_str()+string("\\*")).c_str(),&ffd);
+  if( hFind==INVALID_HANDLE_VALUE ) {
+    ::printf("FindFirstFile Error: %d\n",GetLastError());
+    return;
+  }
+
+  do {
+    if((ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)==0) {
+      uint32_t version;
+      string fName = dirName.c_str() + string("\\") + string(ffd.cFileName);
+      FILE *f = ReadHeader(fName,&version,HEADW);
+      if(f) {
+        File e;
+        e.name = fName;
+        _fseeki64(f,0,SEEK_END);
+        e.size = (uint64_t)_ftelli64(f);
+        listFiles.push_back(e);
+        fclose(f);
+      }
+    }
+  } while(FindNextFile(hFind,&ffd) != 0);
+
+#else
+  fseeko(stream,0,SEEK_END);
+  e.size = (uint64_t)ftello(f);
+#endif
+
+  if(listFiles.size()<2) {
+    ::printf("MergeDir: less than 2 work files in the directory\n");
+    return;
+  }
+
+  std::sort(listFiles.begin(),listFiles.end(),sortBySize);
+
+  int lgth = (int)listFiles.size();
+  ::printf("------- File #1/%d\n",lgth-1);
+  bool end = MergeWork(listFiles[0].name,listFiles[1].name,dest,false);
+  for(int i=2;i<(int)listFiles.size() && !end;i++) {
+    ::printf("------- File #%d/%d\n",i,lgth - 1);
+    end = MergeWork(dest,listFiles[i].name,dest,false);
+  }
+  ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+  ::printf("Total %d files: count 2^%.2f [%s]\n",(int)listFiles.size(),log2((double)offsetCount),GetTimeStr(offsetTime).c_str());
+ 
+}
