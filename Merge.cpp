@@ -217,6 +217,10 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   int l2 = (int)log2(nbCore);
   int nbThread = (int)pow(2.0,l2);
 
+#ifndef WIN64
+  setvbuf(stdout, NULL, _IONBF, 0);
+#endif
+
   ::printf("Thread: %d\n",nbThread);
   ::printf("Merging");
 
