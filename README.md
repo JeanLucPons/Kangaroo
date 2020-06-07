@@ -58,10 +58,10 @@ ex
 
 # Note on Time/Memory tradeoff of the DP method
 
-The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dp zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.\
-This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dp</sup> until a collision is detected. If dp is too small a large number of point will enter in the central table, will decrease performance and quickly fill the RAM.
+The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dpBit zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.\
+This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dpBit</sup> until a collision is detected. If dpBit is too small a large number of point will enter in the central table, will decrease performance and quickly fill the RAM.
 **Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
-Yau can change manualy the dp mask size using the -d option, take in considration that it will require about nbKangaroo.2<sup>dpBit</sup> more operations to complete.
+Yau can change manualy the DP mask size using the -d option, take in considration that it will require about nbKangaroo.2<sup>dpBit</sup> more operations to complete.
 
 # How to deal with work files
 
@@ -189,12 +189,12 @@ Retart the client using the last kangaroos backup:
 ```
 Kangaroo.exe -t 0 -gpu -i kang.work -w kang.work -wi 600 -c linpons
 ```
-When the client restart from backup, it will produce "dead kangaroo" until it reaches its progress before the crash.
+When the client restart from backup, it will produce "dead kangaroos" until it reaches its progress before the crash.
 It is important to restart the client with its backup, otherwise new kangaroos are created and the DP overhead increase.
 
-To build such an architecture, the total number of kangaroo running in parallel must be know at the starting time to estimate the DP overhaed. **It is not recommended to add or remove clients during running time**, the number of kangaroo must be constant.
+To build such an architecture, the total number of kangaroo running in parallel must be know at the starting time to estimate the DP overhead. **It is not recommended to add or remove clients during running time**, the number of kangaroo must be constant.
 
-This program solved puzzle #110 (109 bit key on Secp256K1 field) using this architecture.
+This program solved puzzle #110 in 2.1 days (109 bit key on the Secp256K1 field) using this architecture on 256 Tesla V100. It required 2<sup>55.55</sup> group operations using DP25 to complete.
 
 # Probability of success
 
