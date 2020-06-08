@@ -58,17 +58,17 @@ ex
 
 # Note on Time/Memory tradeoff of the DP method
 
-The distinguished point (DP) method is an efficent method for storing random walks and detect collision between them. Instead of storing all points of all kanagroo's random walks, we store only points that have an x value starting with dpBit zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collsion will be then detected until the 2 kangaroos reach a distinguished point.\
+The distinguished point (DP) method is an efficient method for storing random walks and detect collision between them. Instead of storing all points of all kangagroo's random walks, we store only points that have an x value starting with dpBit zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collision will be then detected when the 2 kangaroos reach a distinguished point.\
 This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dpBit</sup> until a collision is detected. If dpBit is too small a large number of point will enter in the central table, will decrease performance and quickly fill the RAM.
 **Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
-Yau can change manualy the DP mask size using the -d option, take in considration that it will require about nbKangaroo.2<sup>dpBit</sup> more operations to complete.
+Yau can change manualy the DP mask size using the -d option, take in consideration that it will require about nbKangaroo.2<sup>dpBit</sup> more operations to complete.
 
 # How to deal with work files
 
-You can save periodiacaly work files using -w -wi -ws options. When you save a work file, if it does not contains the kangaroos (-ws) you will lost a bit of work due to the DP overhead, so if you want to continue a file on a same configuration it is recommended to use -ws. To restart a work, use the -i option, the input ascii file is not needed.\
+You can save periodicaly work files using -w -wi -ws options. When you save a work file, if it does not contain the kangaroos (-ws) you will lost a bit of work due to the DP overhead, so if you want to continue a file on a same configuration it is recommended to use -ws. To restart a work, use the -i option, the input ascii file is not needed.\
 When you continue a work file on a different hardware, or using a different number of bits for the distinguished points, or a different number of kangaroos, you will also get an overhead.\
 However, work files are compatible (same key and range) and can be merged, if 2 work files have a different number of distinguished bits, the lowest will be recorded in the destination file.\
-If you have several hosts with different configrations, it is preferable to use -ws on each host and then merge all files from time to time in order to check if the key can be solved. When a merge solve a key, no output file is written. A merged file does not contains kangaroos.
+If you have several hosts with different configurations, it is preferable to use -ws on each host and then merge all files from time to time in order to check if the key can be solved. When a merge solve a key, no output file is written. A merged file does not contain kangaroos.
 
 Start a work from scratch and save work file every 30 seconds:
 ```
@@ -164,7 +164,7 @@ Key# 0 [1S]Pub:  0x03BB113592002132E6EF387C3AEBC04667670D4CD40B2103C7D0EE4969E9F
        Priv: 0x5B3F38AF935A3640D158E871CE6E9666DB862636383386EE510F18CCC3BD72EB
 ```
 
-# Distributed clients and central server
+# Distributed clients and central server(s)
 
 It is possible to run Kangaroo in client/server mode. The server has the same options as the standard program except that you have to specify manualy the number of distinguisehd point bits number using -d. All clients which connect will get back the configuration from the server. At the moment, the server is limitted to one single key. If you restart the server with a different configuration (range or key), you need to stop all clients otherwise they will reconnect and send wrong points.
 
@@ -189,8 +189,7 @@ Retart the client using the last kangaroos backup:
 ```
 Kangaroo.exe -t 0 -gpu -i kang.work -w kang.work -wi 600 -c linpons
 ```
-When the client restart from backup, it will produce "dead kangaroos" until it reaches its progress before the crash.
-It is important to restart the client with its backup, otherwise new kangaroos are created and the DP overhead increase.
+When the client restart from backup, it will produce duplicate points (counted as dead kangaroos) until it reaches its progress before the crash. It is important to restart the client with its backup, otherwise new kangaroos are created and the DP overhead increases.
 
 To build such an architecture, the total number of kangaroo running in parallel must be know at the starting time to estimate the DP overhead. **It is not recommended to add or remove clients during running time**, the number of kangaroo must be constant.
 
@@ -355,7 +354,7 @@ Done: Total time 01:55:48
 
 Next puzzles to solve:
 
-#110, 109bits private key [2<sup>109</sup>,2<sup>110</sup>-1], [12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg](https://www.blockchain.com/btc/address/12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg) **1.10BTC**
+#110, 109bits private key [2<sup>109</sup>,2<sup>110</sup>-1], [12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg](https://www.blockchain.com/btc/address/12JzYkkN76xkwvcPT6AWKZtGX6w2LAgsJg) **1.10BTC** **Solved by this program**
 
 ```
 2000000000000000000000000000
