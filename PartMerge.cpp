@@ -236,22 +236,9 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
 
   // Read hashTable
   HashTable* h2 = new HashTable();  
-  for(int i=0;i<MERGE_PART;i++) {
-    FILE *f = OpenPart(partName,"rb",i);
-#ifndef WIN64
-    int fd = fileno(f);
-    posix_fadvise(fd,0,0,POSIX_FADV_RANDOM|POSIX_FADV_NOREUSE);
-#endif
-    hashTable.SeekNbItem(f,i*H_PER_PART,(i+1)* H_PER_PART);
-    fclose(f);
-  }
-  uint64_t nb1 = hashTable.GetNbItem();
-  ::printf("%s: 2^%.2f DP [DP%d]\n",partName.c_str(),log2((double)nb1),dp1);
 
-  h2->SeekNbItem(f2,true);
-  uint64_t nb2 = h2->GetNbItem();
-  uint64_t totalItem = nb1 + nb2;
-  ::printf("%s: 2^%.2f DP [DP%d]\n",file2.c_str(),log2((double)nb2),dp2);
+  ::printf("%s: [DP%d]\n",partName.c_str(),dp1);
+  ::printf("%s: [DP%d]\n",file2.c_str(),dp2);
 
   endOfSearch = false;
 
@@ -348,10 +335,12 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
 
   if(!endOfSearch) {
 
-    ::printf("Done [%s]\n",GetTimeStr(t1 - t0).c_str());
+    ::printf("Done [2^%.3f DP][%s]\n",log2((double)nbDP),GetTimeStr(t1 - t0).c_str());
 
   } else {
 
+    ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+    ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
     return true;
 
   }
