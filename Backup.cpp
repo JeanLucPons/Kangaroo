@@ -25,6 +25,7 @@
 #include <algorithm>
 #ifndef WIN64
 #include <pthread.h>
+#include <sys/stat.h>
 #endif
 
 using namespace std;
@@ -83,10 +84,10 @@ int Kangaroo::IsDir(string dirName) {
 
   struct stat buffer;
   if(stat(dirName.c_str(),&buffer) != 0) {
-    ::printf("%s not found\n",fName.c_str());
+    ::printf("%s not found\n",dirName.c_str());
     return -1;
   }
-  isDir = (st.st_mode & S_IFDIR) != 0;
+  isDir = (buffer.st_mode & S_IFDIR) != 0;
 
 #endif
 
@@ -109,7 +110,7 @@ FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
   // Read header
   if(::fread(&head,sizeof(uint32_t),1,f) != 1) {
     ::printf("ReadHeader: Cannot read from %s\n",fileName.c_str());
-    if(::feof(fRead)) {
+    if(::feof(f)) {
       ::printf("Empty file\n");
     } else {
       ::printf("%s\n",::strerror(errno));

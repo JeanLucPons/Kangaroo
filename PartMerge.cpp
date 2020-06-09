@@ -26,6 +26,7 @@
 #ifndef WIN64
 #include <dirent.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #endif
 
 using namespace std;
@@ -66,10 +67,13 @@ void Kangaroo::CreateEmptyPartWork(std::string& partName) {
 #else
 
   struct stat buffer;
-  return (stat(partName.c_str(),&buffer) == 0);
+  if( stat(partName.c_str(),&buffer) == 0 ) {
+    ::printf("CreateEmptyPartWork: %s exists\n",partName.c_str());
+    return;
+  }
 
   if(mkdir(partName.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) != 0) {
-    ::printf("mkdir(%s) Error:\n",dirName.c_str());
+    ::printf("mkdir(%s) Error:\n",partName.c_str());
     perror("");
     return;
   }
