@@ -31,14 +31,24 @@
 
 using namespace std;
 
-FILE * Kangaroo::OpenPart(std::string& partName,char *mode,int i) {
+string Kangaroo::GetPartName(std::string& partName,int i,bool tmpPart) {
 
   char tmp[256];
-  sprintf(tmp,"part%03d",i);
+  if(tmpPart)
+    sprintf(tmp,"part%03d.tmp",i);
+  else
+    sprintf(tmp,"part%03d",i);
   string pName = partName + "/" + string(tmp);
-  FILE* f = fopen(pName.c_str(),mode);
+
+  return pName;
+
+}
+
+FILE * Kangaroo::OpenPart(std::string& partName,char *mode,int i,bool tmpPart) {
+
+  FILE* f = fopen(GetPartName(partName,i,tmpPart).c_str(),mode);
   if(f == NULL) {
-    ::printf("OpenPart: Cannot open %s for mode %s\n",pName.c_str(),mode);
+    ::printf("OpenPart: Cannot open %s for mode %s\n",partName.c_str(),mode);
     ::printf("%s\n",::strerror(errno));
   }
 
@@ -319,9 +329,17 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
 
     fclose(f);
 
-    f = OpenPart(partName,"wb",part);
+    // Save to tmp file
+    f = OpenPart(partName,"wb",part,true);
     hashTable.SaveTable(f,S,E,false);
     fclose(f);
+
+    // Rename
+    string oldName = GetPartName(partName,part,true);
+    string newName = GetPartName(partName,part,false);
+    remove(newName.c_str());
+    rename(oldName.c_str(),newName.c_str());
+
     nbDP += hashTable.GetNbItem();
     hashTable.Reset();
 

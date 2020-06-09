@@ -170,7 +170,8 @@ private:
   uint64_t FTell(FILE *stream);
   int IsDir(std::string dirName);
   bool IsEmpty(std::string fileName);
-  static FILE* OpenPart(std::string& partName,char* mode,int i);
+  static std::string GetPartName(std::string& partName,int i,bool tmpPart);
+  static FILE* OpenPart(std::string& partName,char* mode,int i,bool tmpPart=false);
 
   // Network stuff
   void AcceptConnections(SOCKET server_soc);
