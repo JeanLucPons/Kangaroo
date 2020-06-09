@@ -245,11 +245,12 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
     hashTable.SeekNbItem(f,i*H_PER_PART,(i+1)* H_PER_PART);
     fclose(f);
   }
-  h2->SeekNbItem(f2,true);
   uint64_t nb1 = hashTable.GetNbItem();
+  ::printf("%s: 2^%.2f DP [DP%d]\n",partName.c_str(),log2((double)nb1),dp1);
+
+  h2->SeekNbItem(f2,true);
   uint64_t nb2 = h2->GetNbItem();
   uint64_t totalItem = nb1 + nb2;
-  ::printf("%s: 2^%.2f DP [DP%d]\n",partName.c_str(),log2((double)nb1),dp1);
   ::printf("%s: 2^%.2f DP [DP%d]\n",file2.c_str(),log2((double)nb2),dp2);
 
   endOfSearch = false;
