@@ -105,9 +105,12 @@ typedef struct {
   DP *dp;
 } DP_CACHE;
 
-// Wrok file type
+// Work file type
 #define HEADW 0xFA6A8001  // Full work file
 #define HEADK 0xFA6A8002  // Kangaroo only file
+
+// Number of Hash entry per partition
+#define H_PER_PART (HASH_SIZE / MERGE_PART)
 
 class Kangaroo {
 
@@ -124,6 +127,8 @@ public:
   void MergeDir(std::string& dirname,std::string& dest);
   bool MergeWork(std::string &file1,std::string &file2,std::string &dest,bool printStat=true);
   void WorkInfo(std::string &fileName);
+  bool MergeWorkPart(std::string& file1,std::string& file2,bool printStat);
+  static void CreateEmptyPartWork(std::string& partName);
 
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);
@@ -163,6 +168,9 @@ private:
   bool  SaveHeader(std::string fileName,FILE* f,int type,uint64_t totalCount,double totalTime);
   int FSeek(FILE *stream,uint64_t pos);
   uint64_t FTell(FILE *stream);
+  int IsDir(std::string dirName);
+  bool IsEmpty(std::string fileName);
+  static FILE* OpenPart(std::string& partName,char* mode,int i);
 
   // Network stuff
   void AcceptConnections(SOCKET server_soc);

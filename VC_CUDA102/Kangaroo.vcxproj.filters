@@ -28,6 +28,7 @@
     <ClCompile Include="..\Backup.cpp" />
     <ClCompile Include="..\Network.cpp" />
     <ClCompile Include="..\Merge.cpp" />
+    <ClCompile Include="..\PartMerge.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Timer.h" />

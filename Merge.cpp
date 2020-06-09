@@ -91,6 +91,10 @@ void* _mergeThread(void* lpParam) {
 
 bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest,bool printStat) {
 
+  if(IsDir(file1)) {
+    return MergeWorkPart(file1,file2,true);
+  }
+
   double t0;
   double t1;
   uint32_t v1;
@@ -99,7 +103,6 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   t0 = Timer::get_tick();
 
   // ---------------------------------------------------
-
   FILE* f1 = ReadHeader(file1,&v1,HEADW);
   if(f1 == NULL)
     return false;
@@ -245,7 +248,6 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     return true;
   }
 
-
   // Divide by 64 the amount of needed RAM
   int block = HASH_SIZE / 64;
   uint64_t nbDP = 0;
@@ -350,6 +352,7 @@ void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
       }
     }
   } while(FindNextFile(hFind,&ffd) != 0);
+  FindClose(hFind);
 
 #else
 
@@ -371,6 +374,7 @@ void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
       }
 
     }
+    closedir(dir);
   } else {
     ::printf("opendir(%s) Error:\n",dirName.c_str());
     perror("");
@@ -379,19 +383,35 @@ void Kangaroo::MergeDir(std::string& dirName,std::string& dest) {
 
 #endif
 
-  if(listFiles.size()<2) {
-    ::printf("MergeDir: less than 2 work files in the directory\n");
-    return;
-  }
-
   std::sort(listFiles.begin(),listFiles.end(),sortBySize);
-
   int lgth = (int)listFiles.size();
-  ::printf("\n## File #1/%d\n",lgth-1);
-  bool end = MergeWork(listFiles[0].name,listFiles[1].name,dest,lgth==2);
-  for(int i=2;i<lgth && !end;i++) {
-    ::printf("\n## File #%d/%d\n",i,lgth - 1);
-    end = MergeWork(dest,listFiles[i].name,dest,i==lgth-1);
+
+  if(IsDir(dest)==1) {
+
+    // Partitioned merge
+    bool end = false;
+    for(int i = 0; i < lgth && !end; i++) {
+      ::printf("\n## File #%d/%d\n",i+1,lgth);
+      end = MergeWorkPart(dest,listFiles[i].name,i == lgth - 1);
+    }
+
+  } else {
+
+    // Standard merge
+    if(listFiles.size() < 2) {
+      ::printf("MergeDir: less than 2 work files in the directory\n");
+      return;
+    }
+
+    int i = 0;
+    ::printf("\n## File #1/%d\n",lgth - 1);
+    bool end = MergeWork(listFiles[0].name,listFiles[1].name,dest,lgth == 2);
+    for(int i = 2; i < lgth && !end; i++) {
+      ::printf("\n## File #%d/%d\n",i,lgth - 1);
+      end = MergeWork(dest,listFiles[i].name,dest,i == lgth - 1);
+    }
+
   }
+
  
 }

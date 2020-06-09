@@ -50,6 +50,7 @@ void printUsage() {
   printf(" -wmdir dir destfile: Merge directory of work files\n");
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
+  printf(" -wpartcreate name: Create empty partitioned merge file (name is a directory)\n");
   printf(" -m maxStep: number of operations before give up the search (maxStep*expected operation)\n");
   printf(" -s: Start in server mode\n");
   printf(" -c server_ip: Start in client mode and connect to server server_ip\n");
@@ -212,9 +213,11 @@ int main(int argc, char* argv[]) {
       merge1 = string(argv[a]);
       CHECKARG("-wm",2);
       merge2 = string(argv[a]);
-      CHECKARG("-wm",3);
-      mergeDest = string(argv[a]);
-      a++;
+      if(a<argc) {
+        // classic merge
+        mergeDest = string(argv[a]);
+        a++;
+      }
     } else if(strcmp(argv[a],"-wmdir") == 0) {
       CHECKARG("-wmdir",1);
       mergeDir = string(argv[a]);
@@ -251,6 +254,11 @@ int main(int argc, char* argv[]) {
     } else if(strcmp(argv[a],"-wsplit") == 0) {
       a++;
       splitWorkFile = true;
+    } else if(strcmp(argv[a],"-wpartcreate") == 0) {
+      CHECKARG("-wpartcreate",1);
+      workFile = string(argv[a]);
+      Kangaroo::CreateEmptyPartWork(workFile);
+      exit(0);
     } else if(strcmp(argv[a],"-s") == 0) {
       a++;
       serverMode = true;

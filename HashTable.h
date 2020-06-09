@@ -83,6 +83,7 @@ public:
   uint32_t GetType();
   void ReAllocate(uint64_t h,uint32_t add);
   void SeekNbItem(FILE* f,bool restorePos = false);
+  void HashTable::SeekNbItem(FILE* f,uint32_t from,uint32_t to);
 
   HASH_ENTRY    E[HASH_SIZE];
 

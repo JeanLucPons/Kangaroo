@@ -282,7 +282,22 @@ void HashTable::SeekNbItem(FILE* f,bool restorePos) {
   uint64_t org = (uint64_t)ftello(f);
 #endif
 
-  for(uint32_t h = 0; h < HASH_SIZE; h++) {
+  SeekNbItem(f,0,HASH_SIZE);
+
+  if( restorePos ) {
+    // Restore position
+#ifdef WIN64
+    _fseeki64(f,org,SEEK_SET);
+#else
+    fseeko(f,org,SEEK_SET);
+#endif
+  }
+
+}
+
+void HashTable::SeekNbItem(FILE* f,uint32_t from,uint32_t to) {
+
+  for(uint32_t h = from; h < to; h++) {
 
     fread(&E[h].nbItem,sizeof(uint32_t),1,f);
     fread(&E[h].maxItem,sizeof(uint32_t),1,f);
@@ -296,17 +311,7 @@ void HashTable::SeekNbItem(FILE* f,bool restorePos) {
 
   }
 
-  if( restorePos ) {
-    // Restore position
-#ifdef WIN64
-    _fseeki64(f,org,SEEK_SET);
-#else
-    fseeko(f,org,SEEK_SET);
-#endif
-  }
-
 }
-
 
 void HashTable::LoadTable(FILE* f,uint32_t from,uint32_t to) {
 

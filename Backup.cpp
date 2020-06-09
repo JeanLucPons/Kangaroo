@@ -52,6 +52,48 @@ uint64_t Kangaroo::FTell(FILE* stream) {
 
 }
 
+bool Kangaroo::IsEmpty(std::string fileName) {
+
+  FILE *pFile = fopen(fileName.c_str(),"r");
+  fseek(pFile,0,SEEK_END);
+  uint32_t size = ftell(pFile);
+  fclose(pFile);
+  return size==0;
+
+}
+
+int Kangaroo::IsDir(string dirName) {
+
+  bool isDir = 0;
+
+#ifdef WIN64
+
+  WIN32_FIND_DATA ffd;
+  HANDLE hFind;
+
+  hFind = FindFirstFile(dirName.c_str(),&ffd);
+  if(hFind == INVALID_HANDLE_VALUE) {
+    ::printf("%s not found\n",dirName.c_str());
+    return -1;
+  }
+  isDir = (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  FindClose(hFind);
+
+#else
+
+  struct stat buffer;
+  if(stat(dirName.c_str(),&buffer) != 0) {
+    ::printf("%s not found\n",fName.c_str());
+    return -1;
+  }
+  isDir = (st.st_mode & S_IFDIR) != 0;
+
+#endif
+
+  return isDir;
+
+}
+
 FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
 
   FILE *f = fopen(fileName.c_str(),"rb");
@@ -401,7 +443,15 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
 }
 
-void Kangaroo::WorkInfo(std::string &fileName) {
+void Kangaroo::WorkInfo(std::string &fName) {
+
+  int isDir = IsDir(fName);
+  if(isDir<0)
+    return;
+
+  string fileName = fName;
+  if(isDir)
+    fileName = fName + "/header";
 
   ::printf("Loading: %s\n",fileName.c_str());
 
@@ -434,7 +484,15 @@ void Kangaroo::WorkInfo(std::string &fileName) {
   }
 
   // Read hashTable
-  hashTable.SeekNbItem(f1);
+  if(isDir) {
+    for(int i = 0; i < MERGE_PART; i++) {
+      FILE* f = OpenPart(fName,"rb",i);
+      hashTable.SeekNbItem(f,i * H_PER_PART,(i + 1) * H_PER_PART);
+      fclose(f);
+    }
+  } else {
+    hashTable.SeekNbItem(f1);
+  }
 
   ::printf("Version   : %d\n",version);
   ::printf("DP bits   : %d\n",dp1);
