@@ -103,7 +103,6 @@ FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
     ::printf("%s\n",::strerror(errno));
     return NULL;
   }
-
   uint32_t head;
   uint32_t versionF;
 
@@ -460,6 +459,11 @@ void Kangaroo::WorkInfo(std::string &fName) {
   FILE *f1 = ReadHeader(fileName,&version,HEADW);
   if(f1 == NULL)
     return;
+
+#ifndef WIN64
+  int fd = fileno(f1);
+  posix_fadvise(fd,0,0,POSIX_FADV_RANDOM|POSIX_FADV_NOREUSE);
+#endif
 
   uint32_t dp1;
   Point k1;
