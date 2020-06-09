@@ -238,6 +238,10 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
   HashTable* h2 = new HashTable();  
   for(int i=0;i<MERGE_PART;i++) {
     FILE *f = OpenPart(partName,"rb",i);
+#ifndef WIN64
+    int fd = fileno(f);
+    posix_fadvise(fd,0,0,POSIX_FADV_RANDOM|POSIX_FADV_NOREUSE);
+#endif
     hashTable.SeekNbItem(f,i*H_PER_PART,(i+1)* H_PER_PART);
     fclose(f);
   }
