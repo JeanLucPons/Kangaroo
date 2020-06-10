@@ -60,7 +60,7 @@ bool Kangaroo::MergeTable(TH_PARAM* p) {
         dist.bits64[1] = e->d.i64[1];
         dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
         if(sign) dist.ModNegK1order();
-        CollisionCheck(&dist,kType);
+        CollisionCheck(&hashTable,&dist,kType);
         break;
 
       }
@@ -90,6 +90,10 @@ void* _mergeThread(void* lpParam) {
 }
 
 bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest,bool printStat) {
+
+  if(IsDir(file1) && IsDir(file2)) {
+    return MergeWorkPartPart(file1,file2);
+  }
 
   if(IsDir(file1)) {
     return MergeWorkPart(file1,file2,true);

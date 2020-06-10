@@ -85,6 +85,8 @@ typedef struct {
   HashTable *h2;
   uint32_t hStart;
   uint32_t hStop;
+  char *part1Name;
+  char* part2Name;
 
 } TH_PARAM;
 
@@ -128,6 +130,7 @@ public:
   bool MergeWork(std::string &file1,std::string &file2,std::string &dest,bool printStat=true);
   void WorkInfo(std::string &fileName);
   bool MergeWorkPart(std::string& file1,std::string& file2,bool printStat);
+  bool MergeWorkPartPart(std::string& part1Name,std::string& part2Name);
   static void CreateEmptyPartWork(std::string& partName);
 
   // Threaded procedures
@@ -135,6 +138,7 @@ public:
   void SolveKeyGPU(TH_PARAM *p);
   bool HandleRequest(TH_PARAM *p);
   bool MergeTable(TH_PARAM* p);
+  bool MergePartition(TH_PARAM* p);
   void ProcessServer();
 
   void AddConnectedClient();
@@ -151,7 +155,7 @@ private:
   bool AddToTable(Int *pos,Int *dist,uint32_t kType);
   bool SendToServer(std::vector<ITEM> &dp);
   bool CheckKey(Int d1,Int d2,uint8_t type);
-  bool CollisionCheck(Int *dist,uint32_t kType);
+  bool CollisionCheck(HashTable *hT,Int *dist,uint32_t kType);
   void ComputeExpected(double dp,double *op,double *ram,double* overHead = NULL);
   void InitRange();
   void InitSearchKey();
