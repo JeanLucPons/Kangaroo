@@ -155,6 +155,8 @@ void Kangaroo::CheckPartition(std::string& partName) {
       if(!ok) ::printf("%s[%d]\n",partName.c_str(),p);
     }
 
+    fclose(f);
+
   }
 
   t1 = Timer::get_tick();
