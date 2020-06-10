@@ -171,6 +171,10 @@ void Kangaroo::CheckWorkFile(std::string& fileName) {
   double t1;
   uint32_t v1;
 
+#ifndef WIN64
+  setvbuf(stdout,NULL,_IONBF,0);
+#endif
+
   if(IsDir(fileName)) {
     CheckPartition(fileName);
     return;
