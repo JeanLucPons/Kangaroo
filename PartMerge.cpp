@@ -190,7 +190,8 @@ bool Kangaroo::MergePartition(TH_PARAM* p) {
   FILE *f = OpenPart(p1Name,"wb",part,true);
   h1->SaveTable(f,hStart,hStop,false);
   ::fclose(f);
-  p->hStop = h1->GetNbItem();
+  // Counting overflow after (2^32)*MARGE_PART DP
+  p->hStop = (uint32_t)h1->GetNbItem();
 
   // Rename
   string oldName = GetPartName(p1Name,part,true);

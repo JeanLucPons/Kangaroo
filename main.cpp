@@ -51,6 +51,7 @@ void printUsage() {
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
   printf(" -wpartcreate name: Create empty partitioned merge file (name is a directory)\n");
+  printf(" -wcheck worfile: Check workfile integrity\n");
   printf(" -m maxStep: number of operations before give up the search (maxStep*expected operation)\n");
   printf(" -s: Start in server mode\n");
   printf(" -c server_ip: Start in client mode and connect to server server_ip\n");
@@ -143,6 +144,7 @@ static bool gpuEnable = false;
 static vector<int> gpuId = { 0 };
 static vector<int> gridSize;
 static string workFile = "";
+static string checkWorkFile = "";
 static string iWorkFile = "";
 static uint32_t savePeriod = 60;
 static bool saveKangaroo = false;
@@ -225,7 +227,11 @@ int main(int argc, char* argv[]) {
       CHECKARG("-wmdir",2);
       mergeDest = string(argv[a]);
       a++;
-    } else if(strcmp(argv[a],"-winfo") == 0) {
+    }  else if(strcmp(argv[a],"-wcheck") == 0) {
+      CHECKARG("-wcheck",1);
+      checkWorkFile = string(argv[a]);
+      a++;
+    }  else if(strcmp(argv[a],"-winfo") == 0) {
       CHECKARG("-winfo",1);
       infoFile = string(argv[a]);
       a++;
@@ -313,7 +319,10 @@ int main(int argc, char* argv[]) {
     v->Check(gpuId,gridSize);  
     exit(0);
   } else {
-    if(infoFile.length()>0) {
+    if(checkWorkFile.length() > 0) {
+      v->CheckWorkFile(checkWorkFile);
+      exit(0);
+    } if(infoFile.length()>0) {
       v->WorkInfo(infoFile);
       exit(0);
     } else if(mergeDir.length() > 0) {

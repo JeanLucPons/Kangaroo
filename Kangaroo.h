@@ -132,6 +132,8 @@ public:
   bool MergeWorkPart(std::string& file1,std::string& file2,bool printStat);
   bool MergeWorkPartPart(std::string& part1Name,std::string& part2Name);
   static void CreateEmptyPartWork(std::string& partName);
+  void CheckWorkFile(std::string& fileName);
+  void CheckPartition(std::string& partName);
 
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);
@@ -176,6 +178,8 @@ private:
   bool IsEmpty(std::string fileName);
   static std::string GetPartName(std::string& partName,int i,bool tmpPart);
   static FILE* OpenPart(std::string& partName,char* mode,int i,bool tmpPart=false);
+  bool CheckHash(uint32_t h);
+
 
   // Network stuff
   void AcceptConnections(SOCKET server_soc);

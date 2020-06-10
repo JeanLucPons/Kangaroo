@@ -29,6 +29,219 @@
 
 using namespace std;
 
+bool Kangaroo::CheckHash(uint32_t h) {
+
+  bool ok=true;
+  vector<Int> dists;
+  vector<uint32_t> types;
+  Point Z;
+  Z.Clear();
+
+  for(uint32_t i = 0; i < hashTable.E[h].nbItem; i++) {
+
+    ENTRY* e = hashTable.E[h].items[i];
+    Int dist;
+    dist.SetInt32(0);
+    uint32_t kType = (e->d.i64[1] & 0x4000000000000000ULL) != 0;
+    int sign = (e->d.i64[1] & 0x8000000000000000ULL) != 0;
+    dist.bits64[0] = e->d.i64[0];
+    dist.bits64[1] = e->d.i64[1];
+    dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
+    if(sign) dist.ModNegK1order();
+    dists.push_back(dist);
+    types.push_back(kType);
+
+  }
+
+  vector<Point> P = secp->ComputePublicKeys(dists);
+  vector<Point> Sp;
+
+  for(uint32_t i = 0; i < hashTable.E[h].nbItem; i++) {
+
+    if(types[i] == TAME) {
+      Sp.push_back(Z);
+    } else {
+      Sp.push_back(keyToSearch);
+    }
+
+  }
+
+  vector<Point> S = secp->AddDirect(Sp,P);
+
+  for(uint32_t i = 0; i < hashTable.E[h].nbItem && ok; i++) {
+
+    ENTRY* e = hashTable.E[h].items[i];
+    uint32_t hC = S[i].x.bits64[2] & HASH_MASK;
+    ok = (hC == h) && (S[i].x.bits64[0] == e->x.i64[0]) && (S[i].x.bits64[1] == e->x.i64[1]);
+    if(!ok) {
+      ::printf("\nCheckWorkFile wrong at: %06X [%d]\n",h,i);
+      ::printf("X=%s\n",S[i].x.GetBase16().c_str());
+      ::printf("X=%08X%08X%08X%08X\n",e->x.i32[3],e->x.i32[2],e->x.i32[1],e->x.i32[0]);
+    }
+
+  }
+
+  return ok;
+
+}
+
+void Kangaroo::CheckPartition(std::string& partName) {
+
+  double t0;
+  double t1;
+  uint32_t v1;
+
+  t0 = Timer::get_tick();
+
+  // ---------------------------------------------------
+  FILE* f1 = ReadHeader(partName+"/header",&v1,HEADW);
+  if(f1 == NULL)
+    return;
+
+  uint32_t dp1;
+  Point k1;
+  uint64_t count1;
+  double time1;
+  Int RS1;
+  Int RE1;
+
+  // Read global param
+  ::fread(&dp1,sizeof(uint32_t),1,f1);
+  ::fread(&RS1.bits64,32,1,f1); RS1.bits64[4] = 0;
+  ::fread(&RE1.bits64,32,1,f1); RE1.bits64[4] = 0;
+  ::fread(&k1.x.bits64,32,1,f1); k1.x.bits64[4] = 0;
+  ::fread(&k1.y.bits64,32,1,f1); k1.y.bits64[4] = 0;
+  ::fread(&count1,sizeof(uint64_t),1,f1);
+  ::fread(&time1,sizeof(double),1,f1);
+
+  k1.z.SetInt32(1);
+  if(!secp->EC(k1)) {
+    ::printf("CheckPartition: key1 does not lie on elliptic curve\n");
+    ::fclose(f1);
+    return;
+  }
+
+  ::fclose(f1);
+
+  // Set starting parameters
+  keysToSearch.clear();
+  keysToSearch.push_back(k1);
+  keyIdx = 0;
+  collisionInSameHerd = 0;
+  rangeStart.Set(&RS1);
+  rangeEnd.Set(&RE1);
+  InitRange();
+  InitSearchKey();
+  bool ok = true;
+  ::printf("Checking");
+
+  uint32_t pointPrint = MERGE_PART / 64;
+
+  for(uint32_t p = 0; p < MERGE_PART && ok; p++) {
+
+    if(p % pointPrint == 0) ::printf(".");
+
+    FILE *f = OpenPart(partName,"rb",p,false);
+    uint32_t hStart = p * (HASH_SIZE / MERGE_PART);
+    uint32_t hStop = (p + 1) * (HASH_SIZE / MERGE_PART);
+
+    hashTable.LoadTable(f,hStart,hStop);
+
+    for(uint32_t h = 0; h < HASH_SIZE && ok; h++) {
+      if(hashTable.E[h].nbItem == 0)
+        continue;
+      ok = CheckHash(h);
+    }
+
+  }
+
+  t1 = Timer::get_tick();
+
+  if(ok)
+    ::printf("Ok [%s]\n",GetTimeStr(t1 - t0).c_str());
+
+  ::fclose(f1);
+
+
+}
+
+void Kangaroo::CheckWorkFile(std::string& fileName) {
+
+  double t0;
+  double t1;
+  uint32_t v1;
+
+  if(IsDir(fileName)) {
+    CheckPartition(fileName);
+    return;
+  }
+    
+  t0 = Timer::get_tick();
+
+  // ---------------------------------------------------
+  FILE* f1 = ReadHeader(fileName,&v1,HEADW);
+  if(f1 == NULL)
+    return;
+
+  uint32_t dp1;
+  Point k1;
+  uint64_t count1;
+  double time1;
+  Int RS1;
+  Int RE1;
+
+  // Read global param
+  ::fread(&dp1,sizeof(uint32_t),1,f1);
+  ::fread(&RS1.bits64,32,1,f1); RS1.bits64[4] = 0;
+  ::fread(&RE1.bits64,32,1,f1); RE1.bits64[4] = 0;
+  ::fread(&k1.x.bits64,32,1,f1); k1.x.bits64[4] = 0;
+  ::fread(&k1.y.bits64,32,1,f1); k1.y.bits64[4] = 0;
+  ::fread(&count1,sizeof(uint64_t),1,f1);
+  ::fread(&time1,sizeof(double),1,f1);
+
+  k1.z.SetInt32(1);
+  if(!secp->EC(k1)) {
+    ::printf("CheckWorkFile: key1 does not lie on elliptic curve\n");
+    ::fclose(f1);
+    return;
+  }
+
+  // Set starting parameters
+  keysToSearch.clear();
+  keysToSearch.push_back(k1);
+  keyIdx = 0;
+  collisionInSameHerd = 0;
+  rangeStart.Set(&RS1);
+  rangeEnd.Set(&RE1);
+  InitRange();
+  InitSearchKey();
+  bool ok = true;
+  ::printf("Checking");
+
+  uint32_t pointPrint = HASH_SIZE/64;
+
+  for(uint32_t h=0;h<HASH_SIZE && ok;h++) {
+
+    if(h%pointPrint==0) ::printf(".");
+
+    hashTable.LoadTable(f1,h,h+1);
+    if(hashTable.E[h].nbItem==0)
+      continue;
+
+    ok = CheckHash(h);
+
+  }
+
+  t1 = Timer::get_tick();
+
+  if(ok)
+    ::printf("Ok [%s]\n",GetTimeStr(t1-t0).c_str());
+
+  ::fclose(f1);
+
+}
+
+
 void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 
   initDPSize = 8;
