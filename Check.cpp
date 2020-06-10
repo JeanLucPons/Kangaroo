@@ -133,7 +133,7 @@ void Kangaroo::CheckPartition(std::string& partName) {
   InitRange();
   InitSearchKey();
   bool ok = true;
-  ::printf("CheckingPart");
+  ::printf("Checking");
 
   uint32_t pointPrint = MERGE_PART / 64;
 
@@ -151,6 +151,7 @@ void Kangaroo::CheckPartition(std::string& partName) {
       if(hashTable.E[h].nbItem == 0)
         continue;
       ok = CheckHash(h);
+      if(!ok) ::printf("%s[%d]\n",partName.c_str(),p);
     }
 
   }
