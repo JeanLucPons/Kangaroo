@@ -213,6 +213,7 @@ int main(int argc, char* argv[]) {
       merge1 = string(argv[a]);
       CHECKARG("-wm",2);
       merge2 = string(argv[a]);
+      a++;
       if(a<argc) {
         // classic merge
         mergeDest = string(argv[a]);

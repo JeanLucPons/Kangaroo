@@ -99,6 +99,11 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
     return MergeWorkPart(file1,file2,true);
   }
 
+  if(dest.length()==0) {
+    ::printf("MergeWork: destination argument missing\n");
+    return true;
+  }
+
   double t0;
   double t1;
   uint32_t v1;
@@ -199,11 +204,12 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   // Read hashTable
   HashTable* h2 = new HashTable();
   hashTable.SeekNbItem(f1,true);
-  h2->SeekNbItem(f2,true);
   uint64_t nb1 = hashTable.GetNbItem();
+  ::printf("%s: 2^%.2f DP [DP%d]\n",file1.c_str(),log2((double)nb1),dp1);
+
+  h2->SeekNbItem(f2,true);
   uint64_t nb2 = h2->GetNbItem();
   uint64_t totalItem = nb1+nb2;
-  ::printf("%s: 2^%.2f DP [DP%d]\n",file1.c_str(),log2((double)nb1),dp1);
   ::printf("%s: 2^%.2f DP [DP%d]\n",file2.c_str(),log2((double)nb2),dp2);
 
   endOfSearch = false;
