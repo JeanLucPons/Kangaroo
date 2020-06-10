@@ -126,10 +126,12 @@ void Kangaroo::CreateEmptyPartWork(std::string& partName) {
 bool Kangaroo::MergePartition(TH_PARAM* p) {
 
   uint32_t part = p->hStart;
+  string p1Name = string(p->part1Name);
+  string p2Name = string(p->part2Name);
 
-  FILE *f1 = OpenPart(string(p->part1Name),"rb",part,false);
+  FILE *f1 = OpenPart(p1Name,"rb",part,false);
   if(f1 == NULL) return false;
-  FILE* f2 = OpenPart(string(p->part2Name),"rb",part,false);
+  FILE* f2 = OpenPart(p2Name,"rb",part,false);
   if(f2 == NULL) return false;
 
   HashTable* h1 = new HashTable();
@@ -185,14 +187,14 @@ bool Kangaroo::MergePartition(TH_PARAM* p) {
   ::fclose(f2);
 
   // Save to tmp file
-  FILE *f = OpenPart(string(p->part1Name),"wb",part,true);
+  FILE *f = OpenPart(p1Name,"wb",part,true);
   h1->SaveTable(f,hStart,hStop,false);
   ::fclose(f);
   p->hStop = h1->GetNbItem();
 
   // Rename
-  string oldName = GetPartName(string(p->part1Name),part,true);
-  string newName = GetPartName(string(p->part1Name),part,false);
+  string oldName = GetPartName(p1Name,part,true);
+  string newName = GetPartName(p1Name,part,false);
   remove(newName.c_str());
   rename(oldName.c_str(),newName.c_str());
 
