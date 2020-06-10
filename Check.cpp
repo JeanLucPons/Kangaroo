@@ -77,6 +77,7 @@ bool Kangaroo::CheckHash(uint32_t h) {
       ::printf("\nCheckWorkFile wrong at: %06X [%d]\n",h,i);
       ::printf("X=%s\n",S[i].x.GetBase16().c_str());
       ::printf("X=%08X%08X%08X%08X\n",e->x.i32[3],e->x.i32[2],e->x.i32[1],e->x.i32[0]);
+      ::printf("D=%08X%08X%08X%08X\n",e->d.i32[3],e->d.i32[2],e->d.i32[1],e->d.i32[0]);
     }
 
   }
