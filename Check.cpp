@@ -25,6 +25,7 @@
 #include <algorithm>
 #ifndef WIN64
 #include <pthread.h>
+#define _strdup strdup
 #endif
 
 using namespace std;

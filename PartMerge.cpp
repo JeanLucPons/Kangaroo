@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#define _strdup strdup
 #endif
 
 using namespace std;
