@@ -74,6 +74,9 @@ public:
   void ShiftL(uint32_t n);
   void ShiftL32Bit();
   void ShiftL64Bit();
+  // Bit swap
+  void SwapBit(int bitNumber);
+
 
   // Comp 
   bool IsGreater(Int *a);

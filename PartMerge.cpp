@@ -46,9 +46,10 @@ string Kangaroo::GetPartName(std::string& partName,int i,bool tmpPart) {
 
 FILE * Kangaroo::OpenPart(std::string& partName,char *mode,int i,bool tmpPart) {
 
-  FILE* f = fopen(GetPartName(partName,i,tmpPart).c_str(),mode);
+  string fName = GetPartName(partName,i,tmpPart);
+  FILE* f = fopen(fName.c_str(),mode);
   if(f == NULL) {
-    ::printf("OpenPart: Cannot open %s for mode %s\n",partName.c_str(),mode);
+    ::printf("OpenPart: Cannot open %s for mode %s\n",fName.c_str(),mode);
     ::printf("%s\n",::strerror(errno));
   }
 
@@ -133,65 +134,39 @@ bool Kangaroo::MergePartition(TH_PARAM* p) {
   if(f1 == NULL) return false;
   FILE* f2 = OpenPart(p2Name,"rb",part,false);
   if(f2 == NULL) return false;
-
-  HashTable* h1 = new HashTable();
-  HashTable* h2 = new HashTable();
+  FILE* f = OpenPart(p1Name,"wb",part,true);
+  if(f == NULL) return false;
 
   uint32_t hStart = part * (HASH_SIZE / MERGE_PART);
   uint32_t hStop = (part +1) * (HASH_SIZE / MERGE_PART);
 
-  h1->LoadTable(f1,hStart,hStop);
-  h2->LoadTable(f2,hStart,hStop);
+  uint32_t hDP;
+  uint32_t hDuplicate;
+  Int d1;
+  uint32_t type1;
+  Int d2;
+  uint32_t type2;
 
-  for(uint64_t h = hStart; h < hStop && !endOfSearch; h++) {
+  for(uint32_t h = hStart; h < hStop && !endOfSearch; h++) {
 
-    h1->ReAllocate(h,h2->E[h].maxItem);
-
-    for(uint32_t i = 0; i < h2->E[h].nbItem && !endOfSearch; i++) {
-
-      // Add
-      ENTRY* e = h2->E[h].items[i];
-      int addStatus = h1->Add(h,e);
-      switch(addStatus) {
-
-      case ADD_OK:
-        break;
-
-      case ADD_DUPLICATE:
-        free(e);
-        collisionInSameHerd++;
-        break;
-
-      case ADD_COLLISION:
-        Int dist;
-        dist.SetInt32(0);
-        uint32_t kType = (e->d.i64[1] & 0x4000000000000000ULL) != 0;
-        int sign = (e->d.i64[1] & 0x8000000000000000ULL) != 0;
-        dist.bits64[0] = e->d.i64[0];
-        dist.bits64[1] = e->d.i64[1];
-        dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
-        if(sign) dist.ModNegK1order();
-        CollisionCheck(h1,&dist,kType);
-        break;
-
-      }
-
+    int mStatus = HashTable::MergeH(h,f1,f2,f,&hDP,&hDuplicate,&d1,&type1,&d2,&type2);
+    switch(mStatus) {
+    case ADD_OK:
+      break;
+    case ADD_COLLISION:
+      CollisionCheck(&d1,type1,&d2,type2);
+      break;
     }
-    safe_free(h2->E[h].items);
-    h2->E[h].nbItem = 0;
-    h2->E[h].maxItem = 0;
+
+    // Counting overflow after (2^32)*MARGE_PART DP
+    p->hStop += hDP;
+    collisionInSameHerd += hDuplicate;
 
   }
 
   ::fclose(f1);
   ::fclose(f2);
-
-  // Save to tmp file
-  FILE *f = OpenPart(p1Name,"wb",part,true);
-  h1->SaveTable(f,hStart,hStop,false);
   ::fclose(f);
-  // Counting overflow after (2^32)*MARGE_PART DP
-  p->hStop = (uint32_t)h1->GetNbItem();
 
   // Rename
   string oldName = GetPartName(p1Name,part,true);
@@ -199,10 +174,6 @@ bool Kangaroo::MergePartition(TH_PARAM* p) {
   remove(newName.c_str());
   rename(oldName.c_str(),newName.c_str());
 
-  h1->Reset();
-  h2->Reset();
-  delete h1;
-  delete h2;
   return true;
 
 }
@@ -401,8 +372,8 @@ bool Kangaroo::MergeWorkPartPart(std::string& part1Name,std::string& part2Name) 
       params[i].isRunning = true;
       params[i].hStart = p+i;
       params[i].hStop = 0;
-      params[i].part1Name = strdup(part1Name.c_str());
-      params[i].part2Name = strdup(part2Name.c_str());
+      params[i].part1Name = _strdup(part1Name.c_str());
+      params[i].part2Name = _strdup(part2Name.c_str());
       thHandles[i] = LaunchThread(_mergePartThread,params + i);
     }
 
@@ -441,18 +412,11 @@ bool Kangaroo::MergeWorkPartPart(std::string& part1Name,std::string& part2Name) 
 
 }
 
-bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool printStat) {
+bool Kangaroo::FillEmptyPartFromFile(std::string& partName,std::string& fileName,bool printStat) {
 
   double t0;
   double t1;
   uint32_t v1;
-  uint32_t v2;
-
-  t0 = Timer::get_tick();
-
-  // ---------------------------------------------------
-  string file1 = partName + "/header";
-  bool partIsEmpty = IsEmpty(file1);
 
   uint32_t dp1;
   Point k1;
@@ -461,30 +425,141 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
   Int RS1;
   Int RE1;
 
-  if( !partIsEmpty) {
+  t0 = Timer::get_tick();
 
-    FILE* f1 = ReadHeader(file1,&v1,HEADW);
-    if(f1 == NULL)
-      return false;
+  FILE* f1 = ReadHeader(fileName,&v1,HEADW);
+  if(f1 == NULL)
+    return true;
 
-    // Read global param
-    ::fread(&dp1,sizeof(uint32_t),1,f1);
-    ::fread(&RS1.bits64,32,1,f1); RS1.bits64[4] = 0;
-    ::fread(&RE1.bits64,32,1,f1); RE1.bits64[4] = 0;
-    ::fread(&k1.x.bits64,32,1,f1); k1.x.bits64[4] = 0;
-    ::fread(&k1.y.bits64,32,1,f1); k1.y.bits64[4] = 0;
-    ::fread(&count1,sizeof(uint64_t),1,f1);
-    ::fread(&time1,sizeof(double),1,f1);
+  // Read global param
+  ::fread(&dp1,sizeof(uint32_t),1,f1);
+  ::fread(&RS1.bits64,32,1,f1); RS1.bits64[4] = 0;
+  ::fread(&RE1.bits64,32,1,f1); RE1.bits64[4] = 0;
+  ::fread(&k1.x.bits64,32,1,f1); k1.x.bits64[4] = 0;
+  ::fread(&k1.y.bits64,32,1,f1); k1.y.bits64[4] = 0;
+  ::fread(&count1,sizeof(uint64_t),1,f1);
+  ::fread(&time1,sizeof(double),1,f1);
 
-    k1.z.SetInt32(1);
-    if(!secp->EC(k1)) {
-      ::printf("MergeWorkPart: key1 does not lie on elliptic curve\n");
-      ::fclose(f1);
-      return true;
-    }
+  k1.z.SetInt32(1);
+  if(!secp->EC(k1)) {
+    ::printf("FillEmptyPartFromFile: key1 does not lie on elliptic curve\n");
     ::fclose(f1);
+    return true;
+  }
+
+  // Save header
+  dpSize = dp1;
+  keysToSearch.clear();
+  keysToSearch.push_back(k1);
+  keyIdx = 0;
+  collisionInSameHerd = 0;
+  rangeStart.Set(&RS1);
+  rangeEnd.Set(&RE1);
+  InitRange();
+  InitSearchKey();
+
+  string file1 = partName + "/header";
+  FILE* f = fopen(file1.c_str(),"wb");
+  if(f == NULL) {
+    ::printf("FillEmptyPartFromFile: Cannot open %s for writing\n",file1.c_str());
+    ::printf("%s\n",::strerror(errno));
+    return true;
+  }
+  if(!SaveHeader(file1,f,HEADW,count1,time1)) {
+    return true;
+  }
+  ::fclose(f);
+
+  ::printf("Part %s: [DP%d]\n",partName.c_str(),dp1);
+  ::printf("File %s: [DP%d]\n",fileName.c_str(),dp1);
+
+  uint64_t nbDP = 0;
+  ::printf("Filling");
+
+  // Save parts
+  for(int p = 0; p < MERGE_PART; p++) {
+
+    if(p%(MERGE_PART/64)==0) 
+      ::printf(".");
+
+    FILE *f = OpenPart(partName,"wb",p,false);
+    uint32_t hStart = p * (HASH_SIZE / MERGE_PART);
+    uint32_t hStop = (p + 1) * (HASH_SIZE / MERGE_PART);
+
+    uint32_t nbItem;
+    uint32_t maxItem;
+    unsigned char buff[32];
+
+    for(uint32_t h= hStart;h<hStop;h++) {
+      ::fread(&nbItem,sizeof(uint32_t),1,f1);
+      ::fread(&maxItem,sizeof(uint32_t),1,f1);
+      ::fwrite(&nbItem,sizeof(uint32_t),1,f);
+      ::fwrite(&maxItem,sizeof(uint32_t),1,f);
+      for(uint32_t i=0;i<nbItem;i++) {
+        ::fread(&buff,32,1,f1);
+        ::fwrite(&buff,32,1,f);
+      }
+      nbDP += nbItem;
+    }
+
+    ::fclose(f);
 
   }
+
+  ::fclose(f1);
+  t1 = Timer::get_tick();
+
+  ::printf("Done [2^%.3f DP][%s]\n",log2((double)nbDP),GetTimeStr(t1 - t0).c_str());
+
+  return false;
+
+}
+
+bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool printStat) {
+
+  double t0;
+  double t1;
+  uint32_t v1;
+  uint32_t v2;
+
+#ifndef WIN64
+  setvbuf(stdout,NULL,_IONBF,0);
+#endif
+
+  t0 = Timer::get_tick();
+
+  // ---------------------------------------------------
+  string file1 = partName + "/header";
+  if( IsEmpty(file1) ) 
+    return FillEmptyPartFromFile(partName,file2,printStat);
+
+  uint32_t dp1;
+  Point k1;
+  uint64_t count1;
+  double time1;
+  Int RS1;
+  Int RE1;
+
+  FILE* f1 = ReadHeader(file1,&v1,HEADW);
+  if(f1 == NULL)
+    return true;
+
+  // Read global param
+  ::fread(&dp1,sizeof(uint32_t),1,f1);
+  ::fread(&RS1.bits64,32,1,f1); RS1.bits64[4] = 0;
+  ::fread(&RE1.bits64,32,1,f1); RE1.bits64[4] = 0;
+  ::fread(&k1.x.bits64,32,1,f1); k1.x.bits64[4] = 0;
+  ::fread(&k1.y.bits64,32,1,f1); k1.y.bits64[4] = 0;
+  ::fread(&count1,sizeof(uint64_t),1,f1);
+  ::fread(&time1,sizeof(double),1,f1);
+
+  k1.z.SetInt32(1);
+  if(!secp->EC(k1)) {
+    ::printf("MergeWorkPart: key1 does not lie on elliptic curve\n");
+    ::fclose(f1);
+    return true;
+  }
+  ::fclose(f1);
 
   // ---------------------------------------------------
 
@@ -516,50 +591,34 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
     return true;
   }
 
-  if( !partIsEmpty ) {
+  if(v1 != v2) {
+    ::printf("MergeWorkPart: cannot merge workfile of different version\n");
+    ::fclose(f2);
+    return true;
+  }
 
-    if(v1 != v2) {
-      ::printf("MergeWorkPart: cannot merge workfile of different version\n");
-      ::fclose(f2);
-      return true;
-    }
+  if(!RS1.IsEqual(&RS2) || !RE1.IsEqual(&RE2)) {
 
-    if(!RS1.IsEqual(&RS2) || !RE1.IsEqual(&RE2)) {
-
-      ::printf("MergeWorkPart: File range differs\n");
-      ::printf("RS1: %s\n",RS1.GetBase16().c_str());
-      ::printf("RE1: %s\n",RE1.GetBase16().c_str());
-      ::printf("RS2: %s\n",RS2.GetBase16().c_str());
-      ::printf("RE2: %s\n",RE2.GetBase16().c_str());
-      ::fclose(f2);
-      return true;
-
-    }
-
-    if(!k1.equals(k2)) {
-
-      ::printf("MergeWorkPart: key differs, multiple keys not yet supported\n");
-      ::fclose(f2);
-      return true;
-
-    }
-
-  } else {
-
-    dp1 = dp2;
-    k1 = k2;
-    count1 = 0;
-    time1 = 0;
-    RS1.Set(&RS2);
-    RE1.Set(&RE2);
+    ::printf("MergeWorkPart: File range differs\n");
+    ::printf("RS1: %s\n",RS1.GetBase16().c_str());
+    ::printf("RE1: %s\n",RE1.GetBase16().c_str());
+    ::printf("RS2: %s\n",RS2.GetBase16().c_str());
+    ::printf("RE2: %s\n",RE2.GetBase16().c_str());
+    ::fclose(f2);
+    return true;
 
   }
 
-  // Read hashTable
-  HashTable* h2 = new HashTable();  
+  if(!k1.equals(k2)) {
 
-  ::printf("%s: [DP%d]\n",partName.c_str(),dp1);
-  ::printf("%s: [DP%d]\n",file2.c_str(),dp2);
+    ::printf("MergeWorkPart: key differs, multiple keys not yet supported\n");
+    ::fclose(f2);
+    return true;
+
+  }
+
+  ::printf("Part %s: [DP%d]\n",partName.c_str(),dp1);
+  ::printf("File %s: [DP%d]\n",file2.c_str(),dp2);
 
   endOfSearch = false;
 
@@ -575,21 +634,7 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
 
   t0 = Timer::get_tick();
 
-  int nbCore = Timer::getCoreNumber();
-  int l2 = (int)log2(nbCore);
-  int nbThread = (int)pow(2.0,l2);
-  if(nbThread>512) nbThread = 512;
-
-#ifndef WIN64
-  setvbuf(stdout,NULL,_IONBF,0);
-#endif
-
-  ::printf("Thread: %d\n",nbThread);
   ::printf("Merging");
-
-  TH_PARAM* params = (TH_PARAM*)malloc(nbThread * sizeof(TH_PARAM));
-  THREAD_HANDLE* thHandles = (THREAD_HANDLE*)malloc(nbThread * sizeof(THREAD_HANDLE));
-  memset(params,0,nbThread * sizeof(TH_PARAM));
 
   // Save header
   FILE* f = fopen(file1.c_str(),"wb");
@@ -606,43 +651,44 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
   }
   fclose(f);
 
-
-  // Divide by MERGE_PART the amount of needed RAM
-  int block = HASH_SIZE / MERGE_PART;
   uint64_t nbDP = 0;
-  int pointPrint = 0;
+  uint32_t hDP;
+  uint32_t hDuplicate;
+  Int d1;
+  uint32_t type1;
+  Int d2;
+  uint32_t type2;
 
-  for(int s = 0; s < HASH_SIZE && !endOfSearch; s += block) {
+  for(int part = 0; part < MERGE_PART && !endOfSearch; part++) {
 
-    int part = s / block;
     if(part%4==0) ::printf(".");
 
-    uint32_t S = s;
-    uint32_t E = s + block;
+    uint32_t hStart = part * (HASH_SIZE / MERGE_PART);
+    uint32_t hStop = (part + 1) * (HASH_SIZE / MERGE_PART);
 
     // Load hashtables
-    FILE *f = OpenPart(partName,"rb",part);
-    hashTable.LoadTable(f,S,E);
-    h2->LoadTable(f2,S,E);
+    FILE *f1 = OpenPart(partName,"rb",part);
+    FILE *f = OpenPart(partName,"wb",part,true);
 
-    int stride = block / nbThread;
+    for(uint32_t h = hStart; h < hStop && !endOfSearch; h++) {
 
-    for(int i = 0; i < nbThread; i++) {
-      params[i].threadId = i;
-      params[i].isRunning = true;
-      params[i].h2 = h2;
-      params[i].hStart = S + i * stride;
-      params[i].hStop = S + (i + 1) * stride;
-      thHandles[i] = LaunchThread(_mergeThread,params + i);
+      if(h % (HASH_SIZE / 64) == 0) ::printf(".");
+
+      int mStatus = HashTable::MergeH(h,f1,f2,f,&hDP,&hDuplicate,&d1,&type1,&d2,&type2);
+      switch(mStatus) {
+      case ADD_OK:
+        break;
+      case ADD_COLLISION:
+        CollisionCheck(&d1,type1,&d2,type2);
+        break;
+      }
+
+      nbDP += hDP;
+      collisionInSameHerd += hDuplicate;
+
     }
-    JoinThreads(thHandles,nbThread);
-    FreeHandles(thHandles,nbThread);
 
-    fclose(f);
-
-    // Save to tmp file
-    f = OpenPart(partName,"wb",part,true);
-    hashTable.SaveTable(f,S,E,false);
+    fclose(f1);
     fclose(f);
 
     // Rename
@@ -651,16 +697,9 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
     remove(newName.c_str());
     rename(oldName.c_str(),newName.c_str());
 
-    nbDP += hashTable.GetNbItem();
-    hashTable.Reset();
-
   }
 
   fclose(f2);
-  free(params);
-  free(thHandles);
-  h2->Reset();
-  delete h2;
 
   t1 = Timer::get_tick();
 

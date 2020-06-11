@@ -99,6 +99,125 @@ void HashTable::Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int1
 
 }
 
+
+#define AV1() if(pnb1) { ::fread(&e1,32,1,f1); pnb1--; }
+#define AV2() if(pnb2) { ::fread(&e2,32,1,f2); pnb2--; }
+
+int HashTable::MergeH(uint32_t h,FILE* f1,FILE* f2,FILE* fd,uint32_t* nbDP,uint32_t *duplicate,Int* d1,uint32_t* k1,Int* d2,uint32_t* k2) {
+
+  // Merge by line
+  // N comparison but avoid slow item allocation
+  // return ADD_OK or ADD_COLLISION if a COLLISION is detected
+
+  uint32_t nb1;
+  uint32_t m1;
+  uint32_t nb2;
+  uint32_t m2;
+  *duplicate = 0;
+  *nbDP = 0;
+
+  ::fread(&nb1,sizeof(uint32_t),1,f1);
+  ::fread(&m1,sizeof(uint32_t),1,f1);
+  ::fread(&nb2,sizeof(uint32_t),1,f2);
+  ::fread(&m2,sizeof(uint32_t),1,f2);
+
+  // Maximum in destination
+  uint32_t nbd = 0;
+  uint32_t md = nb1 + nb2;
+
+  if(md==0) {
+
+    ::fwrite(&md,sizeof(uint32_t),1,fd);
+    ::fwrite(&md,sizeof(uint32_t),1,fd);
+    return ADD_OK;
+
+  }
+
+  ENTRY *output = (ENTRY *)malloc( md * sizeof(ENTRY) );
+
+  ENTRY e1;
+  ENTRY e2;
+
+  uint32_t pnb1 = nb1;
+  uint32_t pnb2 = nb2;
+  AV1();
+  AV2();
+  bool end1 = (nb1 == 0);
+  bool end2 = (nb2 == 0);
+  bool collisionFound = false;
+
+  while(!(end1 && end2)) {
+
+    if( !end1 && !end2 ) {
+
+      int comp = compare(&e1.x,&e2.x);
+      if(comp < 0) {
+        memcpy(output+nbd,&e1,32);
+        nbd++;
+        AV1();
+        nb1--;
+      } else if (comp==0) {
+        if((e1.d.i64[0] == e2.d.i64[0]) && (e1.d.i64[1] == e2.d.i64[1])) {
+          *duplicate = *duplicate + 1;
+        } else {
+          // Collision
+          CalcCollision(e1.d,d1,k1);
+          CalcCollision(e2.d,d2,k2);
+          collisionFound = true;
+        }
+        memcpy(output + nbd,&e1,32);
+        nbd++;
+        AV1();
+        AV2();
+        nb1--;
+        nb2--;
+      } else {
+        memcpy(output + nbd,&e2,32);
+        nbd++;
+        AV2();
+        nb2--;
+      }
+
+    } else if( !end1 && end2 ) {
+
+      memcpy(output + nbd,&e1,32);
+      nbd++;
+      AV1();
+      nb1--;
+
+    } else if( end1 && !end2) {
+
+      memcpy(output + nbd,&e2,32);
+      nbd++;
+      AV2();
+      nb2--;
+
+    }
+
+    end1 = (nb1 == 0);
+    end2 = (nb2 == 0);
+
+  }
+
+  // write output
+
+  // Round md to next multiple of 4
+  if(nbd%4==0) {
+    md = nbd;
+  } else {
+    md = ((nbd/4)+1)*4;
+  }
+
+  ::fwrite(&nbd,sizeof(uint32_t),1,fd);
+  ::fwrite(&md,sizeof(uint32_t),1,fd);
+  ::fwrite(output,32,nbd,fd);
+  free(output);
+
+  *nbDP = nbd;
+  return (collisionFound?ADD_COLLISION:ADD_OK);
+
+}
+
 int HashTable::Add(Int *x,Int *d,uint32_t type) {
 
   int128_t X;
@@ -124,6 +243,19 @@ int HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
 
   ENTRY *e = CreateEntry(x,d);
   return Add(h,e);
+
+}
+
+void HashTable::CalcCollision(int128_t d,Int* kDist,uint32_t* kType) {
+
+  *kType = (d.i64[1] & 0x4000000000000000ULL) != 0;
+  int sign = (d.i64[1] & 0x8000000000000000ULL) != 0;
+  d.i64[1] &= 0x3FFFFFFFFFFFFFFFULL;
+
+  kDist->SetInt32(0);
+  kDist->bits64[0] = d.i64[0];
+  kDist->bits64[1] = d.i64[1];
+  if(sign) kDist->ModNegK1order();
 
 }
 
@@ -161,20 +293,7 @@ int HashTable::Add(uint64_t h,ENTRY* e) {
       }
 
       // Collision
-      // Note:
-      // When comming from merger wich is multithreaded and has no lock on the hasshTable
-      // we enter here in a critical section but as collision as supposed to be very rare, do not lock
-
-      int128_t d = GET(h,mi)->d;
-      kType = (d.i64[1] & 0x4000000000000000ULL) != 0;
-      int sign = (d.i64[1] & 0x8000000000000000ULL) != 0;
-      d.i64[1] &= 0x3FFFFFFFFFFFFFFFULL;
-
-      kDist.SetInt32(0);
-      kDist.bits64[0] = d.i64[0];
-      kDist.bits64[1] = d.i64[1];
-      if(sign) kDist.ModNegK1order();
-
+      CalcCollision(GET(h,mi)->d , &kDist, &kType);
       return ADD_COLLISION;
 
     } else {
@@ -202,14 +321,6 @@ int HashTable::compare(int128_t *i1,int128_t *i2) {
     return (a[1] > b[1]) ? 1 : -1;
   }
 
-}
-
-Int *HashTable::GetD() {
-  return &kDist;
-}
-
-uint32_t HashTable::GetType() {
-  return kType;
 }
 
 std::string HashTable::GetSizeInfo() {

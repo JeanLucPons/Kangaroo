@@ -79,27 +79,25 @@ public:
   void SaveTable(FILE* f,uint32_t from,uint32_t to,bool printPoint=true);
   void LoadTable(FILE *f);
   void LoadTable(FILE* f,uint32_t from,uint32_t to);
-  Int *GetD();
-  uint32_t GetType();
   void ReAllocate(uint64_t h,uint32_t add);
   void SeekNbItem(FILE* f,bool restorePos = false);
   void SeekNbItem(FILE* f,uint32_t from,uint32_t to);
 
   HASH_ENTRY    E[HASH_SIZE];
+  // Collision info
+  Int      kDist;
+  uint32_t kType;
 
   static void Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int128_t *D);
+  static int MergeH(uint32_t h,FILE* f1,FILE* f2,FILE* fd,uint32_t *nbDP,uint32_t* duplicate,
+                    Int* d1,uint32_t* k1,Int* d2,uint32_t* k2);
+  static void CalcCollision(int128_t d,Int* kDist,uint32_t* kType);
 
 private:
 
   ENTRY *CreateEntry(int128_t *x,int128_t *d);
-  int compare(int128_t *i1,int128_t *i2);
+  static int compare(int128_t *i1,int128_t *i2);
   std::string GetStr(int128_t *i);
-
-
-  // Collision
-  Int      kDist;
-  uint32_t kType;
-
 
 };
 

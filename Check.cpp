@@ -29,17 +29,18 @@
 
 using namespace std;
 
-bool Kangaroo::CheckHash(uint32_t h) {
+uint32_t Kangaroo::CheckHash(HashTable *hT,uint32_t h) {
 
   bool ok=true;
   vector<Int> dists;
   vector<uint32_t> types;
   Point Z;
   Z.Clear();
+  uint32_t nbWrong = 0;
 
-  for(uint32_t i = 0; i < hashTable.E[h].nbItem; i++) {
+  for(uint32_t i = 0; i < hT->E[h].nbItem; i++) {
 
-    ENTRY* e = hashTable.E[h].items[i];
+    ENTRY* e = hT->E[h].items[i];
     Int dist;
     dist.SetInt32(0);
     uint32_t kType = (e->d.i64[1] & 0x4000000000000000ULL) != 0;
@@ -56,7 +57,7 @@ bool Kangaroo::CheckHash(uint32_t h) {
   vector<Point> P = secp->ComputePublicKeys(dists);
   vector<Point> Sp;
 
-  for(uint32_t i = 0; i < hashTable.E[h].nbItem; i++) {
+  for(uint32_t i = 0; i < hT->E[h].nbItem; i++) {
 
     if(types[i] == TAME) {
       Sp.push_back(Z);
@@ -68,25 +69,106 @@ bool Kangaroo::CheckHash(uint32_t h) {
 
   vector<Point> S = secp->AddDirect(Sp,P);
 
-  for(uint32_t i = 0; i < hashTable.E[h].nbItem && ok; i++) {
+  for(uint32_t i = 0; i < hT->E[h].nbItem; i++) {
 
-    ENTRY* e = hashTable.E[h].items[i];
+    ENTRY* e = hT->E[h].items[i];
     uint32_t hC = S[i].x.bits64[2] & HASH_MASK;
     ok = (hC == h) && (S[i].x.bits64[0] == e->x.i64[0]) && (S[i].x.bits64[1] == e->x.i64[1]);
-    if(!ok) {
-      ::printf("\nCheckWorkFile wrong at: %06X [%d]\n",h,i);
-      ::printf("X=%s\n",S[i].x.GetBase16().c_str());
-      ::printf("X=%08X%08X%08X%08X\n",e->x.i32[3],e->x.i32[2],e->x.i32[1],e->x.i32[0]);
-      ::printf("D=%08X%08X%08X%08X\n",e->d.i32[3],e->d.i32[2],e->d.i32[1],e->d.i32[0]);
+    if(!ok) nbWrong++;
+    //if(!ok) {
+    //  ::printf("\nCheckWorkFile wrong at: %06X [%d]\n",h,i);
+    //  ::printf("X=%s\n",S[i].x.GetBase16().c_str());
+    //  ::printf("X=%08X%08X%08X%08X\n",e->x.i32[3],e->x.i32[2],e->x.i32[1],e->x.i32[0]);
+    //  ::printf("D=%08X%08X%08X%08X\n",e->d.i32[3],e->d.i32[2],e->d.i32[1],e->d.i32[0]);
+    //  exit(0);
+    //}
+
+
+  }
+
+  return nbWrong;
+
+}
+
+bool Kangaroo::CheckPartition(TH_PARAM* p) {
+
+  uint32_t part = p->hStart;
+  string pName = string(p->part1Name);
+
+  FILE* f1 = OpenPart(pName,"rb",part,false);
+  if(f1 == NULL) return false;
+
+  HashTable* h1 = new HashTable();
+
+  uint32_t hStart = part * (HASH_SIZE / MERGE_PART);
+  uint32_t hStop = (part + 1) * (HASH_SIZE / MERGE_PART);
+
+  h1->LoadTable(f1,hStart,hStop);
+
+  for(uint32_t h = hStart; h < hStop; h++) {
+
+    for(uint32_t i = 0; i < h1->E[h].nbItem; i++) {
+      if(h1->E[h].nbItem == 0)
+        continue;
+      p->hStop += CheckHash(h1,h);
     }
 
   }
 
-  return ok;
+  ::fclose(f1);
+
+  p->hStart = (uint32_t)h1->GetNbItem();
+
+  h1->Reset();
+  delete h1;
+  return true;
 
 }
 
-void Kangaroo::CheckPartition(std::string& partName) {
+bool Kangaroo::CheckWorkFile(TH_PARAM* p) {
+
+  uint32_t nWrong = 0;
+
+  for(uint32_t h = p->hStart; h < p->hStop; h++) {
+
+    for(uint32_t i = 0; i < hashTable.E[h].nbItem; i++) {
+      if(hashTable.E[h].nbItem == 0)
+        continue;
+      nWrong += CheckHash(&hashTable,h);
+    }
+
+  }
+
+  p->hStop = nWrong;
+
+  return true;
+
+}
+
+// Threaded proc
+#ifdef WIN64
+DWORD WINAPI _checkPartThread(LPVOID lpParam) {
+#else
+void* _checkPartThread(void* lpParam) {
+#endif
+  TH_PARAM* p = (TH_PARAM*)lpParam;
+  p->obj->CheckPartition(p);
+  p->isRunning = false;
+  return 0;
+}
+
+#ifdef WIN64
+DWORD WINAPI _checkWorkThread(LPVOID lpParam) {
+#else
+void* _checkWorkThread(void* lpParam) {
+#endif
+  TH_PARAM* p = (TH_PARAM*)lpParam;
+  p->obj->CheckWorkFile(p);
+  p->isRunning = false;
+  return 0;
+}
+
+void Kangaroo::CheckPartition(int nbCore,std::string& partName) {
 
   double t0;
   double t1;
@@ -133,43 +215,68 @@ void Kangaroo::CheckPartition(std::string& partName) {
   rangeEnd.Set(&RE1);
   InitRange();
   InitSearchKey();
-  bool ok = true;
-  ::printf("Checking");
 
-  uint32_t pointPrint = MERGE_PART / 64;
+  int l2 = (int)log2(nbCore);
+  int nbThread = (int)pow(2.0,l2);
+  if(nbThread > MERGE_PART) nbThread = MERGE_PART;
 
-  for(uint32_t p = 0; p < MERGE_PART && ok; p++) {
+  ::printf("Thread: %d\n",nbThread);
+  ::printf("CheckingPart");
 
-    if(p % pointPrint == 0) ::printf(".");
+  TH_PARAM* params = (TH_PARAM*)malloc(nbThread * sizeof(TH_PARAM));
+  THREAD_HANDLE* thHandles = (THREAD_HANDLE*)malloc(nbThread * sizeof(THREAD_HANDLE));
+  memset(params,0,nbThread * sizeof(TH_PARAM));
+  uint64_t nbDP = 0;
+  uint64_t nbWrong = 0;
 
-    FILE *f = OpenPart(partName,"rb",p,false);
-    uint32_t hStart = p * (HASH_SIZE / MERGE_PART);
-    uint32_t hStop = (p + 1) * (HASH_SIZE / MERGE_PART);
+  for(int p = 0; p < MERGE_PART; p += nbThread) {
 
-    hashTable.LoadTable(f,hStart,hStop);
+    printf(".");
 
-    for(uint32_t h = hStart; h < hStop && ok; h++) {
-      if(hashTable.E[h].nbItem == 0)
-        continue;
-      ok = CheckHash(h);
-      if(!ok) ::printf("%s[%d]\n",partName.c_str(),p);
+    for(int i = 0; i < nbThread; i++) {
+      params[i].threadId = i;
+      params[i].isRunning = true;
+      params[i].hStart = p + i;
+      params[i].hStop = 0;
+      params[i].part1Name = _strdup(partName.c_str());
+      thHandles[i] = LaunchThread(_checkPartThread,params + i);
     }
 
-    fclose(f);
+    JoinThreads(thHandles,nbThread);
+    FreeHandles(thHandles,nbThread);
+
+    for(int i = 0; i < nbThread; i++) {
+      free(params[i].part1Name);
+      nbDP += params[i].hStart;
+      nbWrong += params[i].hStop;
+    }
 
   }
 
+  free(params);
+  free(thHandles);
+
   t1 = Timer::get_tick();
 
-  if(ok)
-    ::printf("Ok [%s]\n",GetTimeStr(t1 - t0).c_str());
+  double O = (double)nbWrong / (double)nbDP;
+  O = (1.0-O) * 100.0;
 
-  ::fclose(f1);
+  ::printf("[%.3f%% OK][%s]\n",O,GetTimeStr(t1 - t0).c_str());
+  if(nbWrong>0) {
 
+#ifdef WIN64
+    ::printf("DP: %I64d\n",nbDP);
+    ::printf("Wrong DP: %I64d\n",nbWrong);
+#else
+    ::printf("DP: %" PRId64 "\n",nbDP);
+    ::printf("DP Wrong: %" PRId64 "\n",nbWrong);
+#endif
+
+  }
 
 }
 
-void Kangaroo::CheckWorkFile(std::string& fileName) {
+void Kangaroo::CheckWorkFile(int nbCore,std::string& fileName) {
 
   double t0;
   double t1;
@@ -180,7 +287,7 @@ void Kangaroo::CheckWorkFile(std::string& fileName) {
 #endif
 
   if(IsDir(fileName)) {
-    CheckPartition(fileName);
+    CheckPartition(nbCore,fileName);
     return;
   }
     
@@ -223,29 +330,72 @@ void Kangaroo::CheckWorkFile(std::string& fileName) {
   rangeEnd.Set(&RE1);
   InitRange();
   InitSearchKey();
-  bool ok = true;
+
+  int l2 = (int)log2(nbCore);
+  int nbThread = (int)pow(2.0,l2);
+  uint64_t nbDP = 0;
+  uint64_t nbWrong = 0;
+
+  ::printf("Thread: %d\n",nbThread);
   ::printf("Checking");
 
-  uint32_t pointPrint = HASH_SIZE/64;
+  TH_PARAM* params = (TH_PARAM*)malloc(nbThread * sizeof(TH_PARAM));
+  THREAD_HANDLE* thHandles = (THREAD_HANDLE*)malloc(nbThread * sizeof(THREAD_HANDLE));
+  memset(params,0,nbThread * sizeof(TH_PARAM));
 
-  for(uint32_t h=0;h<HASH_SIZE && ok;h++) {
+  int block = HASH_SIZE / 64;
 
-    if(h%pointPrint==0) ::printf(".");
+  for(int s = 0; s < HASH_SIZE; s += block) {
 
-    hashTable.LoadTable(f1,h,h+1);
-    if(hashTable.E[h].nbItem==0)
-      continue;
+    ::printf(".");
 
-    ok = CheckHash(h);
+    uint32_t S = s;
+    uint32_t E = s + block;
+
+    // Load hashtables
+    hashTable.LoadTable(f1,S,E);
+
+    int stride = block / nbThread;
+
+    for(int i = 0; i < nbThread; i++) {
+      params[i].threadId = i;
+      params[i].isRunning = true;
+      params[i].hStart = S + i * stride;
+      params[i].hStop = S + (i + 1) * stride;
+      thHandles[i] = LaunchThread(_checkWorkThread,params + i);
+    }
+    JoinThreads(thHandles,nbThread);
+    FreeHandles(thHandles,nbThread);
+
+    for(int i = 0; i < nbThread; i++)
+      nbWrong += params[i].hStop;
+    nbDP += hashTable.GetNbItem();
+
+    hashTable.Reset();
 
   }
 
+  ::fclose(f1);
+  free(params);
+  free(thHandles);
+
   t1 = Timer::get_tick();
 
-  if(ok)
-    ::printf("Ok [%s]\n",GetTimeStr(t1-t0).c_str());
+  double O = (double)nbWrong / (double)nbDP;
+  O = (1.0 - O) * 100.0;
 
-  ::fclose(f1);
+  ::printf("[%.3f%% OK][%s]\n",O,GetTimeStr(t1 - t0).c_str());
+  if(nbWrong > 0) {
+
+#ifdef WIN64
+    ::printf("DP: %I64d\n",nbDP);
+    ::printf("Wrong DP: %I64d\n",nbWrong);
+#else
+    ::printf("DP: %" PRId64 "\n",nbDP);
+    ::printf("DP Wrong: %" PRId64 "\n",nbWrong);
+#endif
+
+  }
 
 }
 

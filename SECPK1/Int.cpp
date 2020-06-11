@@ -545,6 +545,21 @@ void Int::ShiftR(uint32_t n) {
 
 // ------------------------------------------------
 
+void Int::SwapBit(int bitNumber) {
+
+  uint32_t nb64 = bitNumber / 64;
+  uint32_t nb = bitNumber % 64;
+  uint64_t mask = 1ULL << nb;
+  if(bits64[nb64] & mask ) {
+    bits64[nb64] &= ~mask;
+  } else {
+    bits64[nb64] |= mask;
+  }
+
+}
+
+// ------------------------------------------------
+
 void Int::Mult(Int *a) {
 
   Int b(this);

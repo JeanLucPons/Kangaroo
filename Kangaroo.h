@@ -82,11 +82,10 @@ typedef struct {
   SOCKET clientSock;
   char  *clientInfo;
 
-  HashTable *h2;
   uint32_t hStart;
   uint32_t hStop;
   char *part1Name;
-  char* part2Name;
+  char *part2Name;
 
 } TH_PARAM;
 
@@ -132,15 +131,17 @@ public:
   bool MergeWorkPart(std::string& file1,std::string& file2,bool printStat);
   bool MergeWorkPartPart(std::string& part1Name,std::string& part2Name);
   static void CreateEmptyPartWork(std::string& partName);
-  void CheckWorkFile(std::string& fileName);
-  void CheckPartition(std::string& partName);
+  void CheckWorkFile(int nbCore,std::string& fileName);
+  void CheckPartition(int nbCore,std::string& partName);
+  bool FillEmptyPartFromFile(std::string& partName,std::string& fileName,bool printStat);
 
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);
   void SolveKeyGPU(TH_PARAM *p);
   bool HandleRequest(TH_PARAM *p);
-  bool MergeTable(TH_PARAM* p);
   bool MergePartition(TH_PARAM* p);
+  bool CheckPartition(TH_PARAM* p);
+  bool CheckWorkFile(TH_PARAM* p);
   void ProcessServer();
 
   void AddConnectedClient();
@@ -157,7 +158,7 @@ private:
   bool AddToTable(Int *pos,Int *dist,uint32_t kType);
   bool SendToServer(std::vector<ITEM> &dp);
   bool CheckKey(Int d1,Int d2,uint8_t type);
-  bool CollisionCheck(HashTable *hT,Int *dist,uint32_t kType);
+  bool CollisionCheck(Int* d1,uint32_t type1,Int* d2,uint32_t type2);
   void ComputeExpected(double dp,double *op,double *ram,double* overHead = NULL);
   void InitRange();
   void InitSearchKey();
@@ -178,7 +179,7 @@ private:
   bool IsEmpty(std::string fileName);
   static std::string GetPartName(std::string& partName,int i,bool tmpPart);
   static FILE* OpenPart(std::string& partName,char* mode,int i,bool tmpPart=false);
-  bool CheckHash(uint32_t h);
+  uint32_t CheckHash(HashTable* hT,uint32_t h);
 
 
   // Network stuff

@@ -250,11 +250,10 @@ bool  Kangaroo::CheckKey(Int d1,Int d2,uint8_t type) {
 
 }
 
-bool Kangaroo::CollisionCheck(HashTable* hT,Int *dist,uint32_t kType) {
+bool Kangaroo::CollisionCheck(Int* d1,uint32_t type1,Int* d2,uint32_t type2) {
 
-  uint32_t type = hT->GetType();
 
-  if(type == kType) {
+  if(type1 == type2) {
 
     // Collision inside the same herd
     return false;
@@ -264,12 +263,12 @@ bool Kangaroo::CollisionCheck(HashTable* hT,Int *dist,uint32_t kType) {
     Int Td;
     Int Wd;
 
-    if(kType == TAME) {
-      Td.Set(dist);
-      Wd.Set(hT->GetD());
+    if(type1 == TAME) {
+      Td.Set(d1);
+      Wd.Set(d2);
     }  else {
-      Td.Set(hT->GetD());
-      Wd.Set(dist);
+      Td.Set(d2);
+      Wd.Set(d1);
     }
 
     endOfSearch = CheckKey(Td,Wd,0) || CheckKey(Td,Wd,1) || CheckKey(Td,Wd,2) || CheckKey(Td,Wd,3);
@@ -306,7 +305,7 @@ bool Kangaroo::AddToTable(Int *pos,Int *dist,uint32_t kType) {
 
   int addStatus = hashTable.Add(pos,dist,kType);
   if(addStatus== ADD_COLLISION)
-    return CollisionCheck(&hashTable,dist,kType);
+    return CollisionCheck(&hashTable.kDist,hashTable.kType,dist,kType);
 
   return addStatus == ADD_OK;
 
@@ -318,15 +317,9 @@ bool Kangaroo::AddToTable(uint64_t h,int128_t *x,int128_t *d) {
   if(addStatus== ADD_COLLISION) {
 
     Int dist;
-    dist.SetInt32(0);
-    uint32_t kType = (d->i64[1] & 0x4000000000000000ULL) != 0;
-    int sign = (d->i64[1] & 0x8000000000000000ULL) != 0;
-    dist.bits64[0] = d->i64[0];
-    dist.bits64[1] = d->i64[1];
-    dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
-    if(sign) dist.ModNegK1order();
-
-    return CollisionCheck(&hashTable,&dist,kType);
+    uint32_t kType;
+    HashTable::CalcCollision(*d,&dist,&kType);
+    return CollisionCheck(&hashTable.kDist,hashTable.kType,&dist,kType);
 
   }
 

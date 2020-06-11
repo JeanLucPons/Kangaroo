@@ -108,7 +108,7 @@ std::vector<Point> Secp256K1::ComputePublicKeys(std::vector<Int> &privKeys) {
     pts[i].z.SetInt32(1);
   }
 
-  delete inv;
+  delete[] inv;
   return pts;
 
 }
@@ -317,7 +317,7 @@ std::vector<Point> Secp256K1::AddDirect(std::vector<Point> &p1,std::vector<Point
 
   }
 
-  delete dx;
+  delete[] dx;
   return pts;
 
 }

@@ -320,7 +320,7 @@ int main(int argc, char* argv[]) {
     exit(0);
   } else {
     if(checkWorkFile.length() > 0) {
-      v->CheckWorkFile(checkWorkFile);
+      v->CheckWorkFile(nbCPUThread,checkWorkFile);
       exit(0);
     } if(infoFile.length()>0) {
       v->WorkInfo(infoFile);
