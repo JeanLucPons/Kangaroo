@@ -108,11 +108,9 @@ bool Kangaroo::CheckPartition(TH_PARAM* p) {
 
   for(uint32_t h = hStart; h < hStop; h++) {
 
-    for(uint32_t i = 0; i < h1->E[h].nbItem; i++) {
-      if(h1->E[h].nbItem == 0)
-        continue;
-      p->hStop += CheckHash(h1,h);
-    }
+    if(h1->E[h].nbItem == 0)
+      continue;
+    p->hStop += CheckHash(h1,h);
 
   }
 
