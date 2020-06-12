@@ -212,12 +212,12 @@ void Kangaroo::ProcessServer() {
     t1 = Timer::get_tick();
 
     if(!endOfSearch)
-      printf("\r[Client %d][Kang 2^%.2f][DP Count 2^%.2f/2^%.2f][Dead %d][%s][%s]  ",
+      printf("\r[Client %d][Kang 2^%.2f][DP Count 2^%.2f/2^%.2f][Dead %.0f][%s][%s]  ",
         connectedClient,
         log2((double)totalRW),
         log2((double)hashTable.GetNbItem()),
         log2(expectedNbOp / pow(2.0,dpSize)),
-        collisionInSameHerd,
+        (double)collisionInSameHerd,
         GetTimeStr(t1 - startTime).c_str(),
         hashTable.GetSizeInfo().c_str()
         );
@@ -311,11 +311,11 @@ void Kangaroo::Process(TH_PARAM *params,std::string unit) {
           serverStatus.c_str()
           );
       } else {
-        printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %d][%s (Avg %s)][%s]  ",
+        printf("\r[%.2f %s][GPU %.2f %s][Count 2^%.2f][Dead %.0f][%s (Avg %s)][%s]  ",
           avgKeyRate / 1000000.0,unit.c_str(),
           avgGpuKeyRate / 1000000.0,unit.c_str(),
           log2((double)count + offsetCount),
-          collisionInSameHerd,
+          (double)collisionInSameHerd,
           GetTimeStr(t1 - startTime + offsetTime).c_str(),GetTimeStr(expectedTime).c_str(),
           hashTable.GetSizeInfo().c_str()
         );

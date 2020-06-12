@@ -232,7 +232,7 @@ private:
   uint64_t dMask;
   uint32_t dpSize;
   int32_t initDPSize;
-  int collisionInSameHerd;
+  uint64_t collisionInSameHerd;
   std::vector<Point> keysToSearch;
   Point keyToSearch;
   Point keyToSearchNeg;

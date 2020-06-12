@@ -230,7 +230,11 @@ bool Kangaroo::MergeWork(std::string& file1,std::string& file2,std::string& dest
   }
 
   if(printStat) {
-    ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+#ifdef WIN64
+    ::printf("Dead kangaroo: %I64d\n",collisionInSameHerd);
+#else
+    ::printf("Dead kangaroo: %" PRId64 "\n",collisionInSameHerd);
+#endif
     ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
   } else {
     offsetTime = time1 + time2;

@@ -400,13 +400,21 @@ bool Kangaroo::MergeWorkPartPart(std::string& part1Name,std::string& part2Name) 
 
   } else {
 
-    ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+#ifdef WIN64
+    ::printf("Dead kangaroo: %I64d\n",collisionInSameHerd);
+#else
+    ::printf("Dead kangaroo: %" PRId64 "\n",collisionInSameHerd);
+#endif
     ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
     return true;
 
   }
 
-  ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+#ifdef WIN64
+  ::printf("Dead kangaroo: %I64d\n",collisionInSameHerd);
+#else
+  ::printf("Dead kangaroo: %" PRId64 "\n",collisionInSameHerd);
+#endif
   ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
 
   return false;
@@ -480,8 +488,7 @@ bool Kangaroo::FillEmptyPartFromFile(std::string& partName,std::string& fileName
   // Save parts
   for(int p = 0; p < MERGE_PART; p++) {
 
-    if(p%(MERGE_PART/64)==0) 
-      ::printf(".");
+    if(p % (MERGE_PART / 64) == 0) ::printf(".");
 
     FILE *f = OpenPart(partName,"wb",p,false);
     uint32_t hStart = p * (HASH_SIZE / MERGE_PART);
@@ -662,7 +669,7 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
 
   for(int part = 0; part < MERGE_PART && !endOfSearch; part++) {
 
-    if(part%4==0) ::printf(".");
+    if(part % (MERGE_PART / 64) == 0) ::printf(".");
 
     uint32_t hStart = part * (HASH_SIZE / MERGE_PART);
     uint32_t hStop = (part + 1) * (HASH_SIZE / MERGE_PART);
@@ -672,8 +679,6 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
     FILE *f = OpenPart(partName,"wb",part,true);
 
     for(uint32_t h = hStart; h < hStop && !endOfSearch; h++) {
-
-      if(h % (HASH_SIZE / 64) == 0) ::printf(".");
 
       int mStatus = HashTable::MergeH(h,f1,f2,f,&hDP,&hDuplicate,&d1,&type1,&d2,&type2);
       switch(mStatus) {
@@ -710,14 +715,22 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
 
   } else {
 
-    ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+#ifdef WIN64
+    ::printf("Dead kangaroo: %I64d\n",collisionInSameHerd);
+#else
+    ::printf("Dead kangaroo: %" PRId64 "\n",collisionInSameHerd);
+#endif
     ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
     return true;
 
   }
 
   if(printStat) {
-    ::printf("Dead kangaroo: %d\n",collisionInSameHerd);
+#ifdef WIN64
+    ::printf("Dead kangaroo: %I64d\n",collisionInSameHerd);
+#else
+    ::printf("Dead kangaroo: %" PRId64 "\n",collisionInSameHerd);
+#endif
     ::printf("Total f1+f2: DP count 2^%.2f\n",log2((double)nbDP));
   } else {
     offsetTime = time1 + time2;
