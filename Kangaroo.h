@@ -179,7 +179,7 @@ private:
   bool IsEmpty(std::string fileName);
   static std::string GetPartName(std::string& partName,int i,bool tmpPart);
   static FILE* OpenPart(std::string& partName,char* mode,int i,bool tmpPart=false);
-  uint32_t CheckHash(HashTable* hT,uint32_t h);
+  uint32_t CheckHash(uint32_t h,uint32_t nbItem,HashTable* hT,FILE* f);
 
 
   // Network stuff

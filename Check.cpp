@@ -30,7 +30,7 @@
 
 using namespace std;
 
-uint32_t Kangaroo::CheckHash(HashTable *hT,uint32_t h) {
+uint32_t Kangaroo::CheckHash(uint32_t h,uint32_t nbItem,HashTable* hT,FILE* f) {
 
   bool ok=true;
   vector<Int> dists;
@@ -38,27 +38,40 @@ uint32_t Kangaroo::CheckHash(HashTable *hT,uint32_t h) {
   Point Z;
   Z.Clear();
   uint32_t nbWrong = 0;
+  ENTRY *items = NULL;
+  ENTRY* e;
 
-  for(uint32_t i = 0; i < hT->E[h].nbItem; i++) {
+  if( hT ) {
 
-    ENTRY* e = hT->E[h].items[i];
-    Int dist;
-    dist.SetInt32(0);
-    uint32_t kType = (e->d.i64[1] & 0x4000000000000000ULL) != 0;
-    int sign = (e->d.i64[1] & 0x8000000000000000ULL) != 0;
-    dist.bits64[0] = e->d.i64[0];
-    dist.bits64[1] = e->d.i64[1];
-    dist.bits64[1] &= 0x3FFFFFFFFFFFFFFFULL;
-    if(sign) dist.ModNegK1order();
-    dists.push_back(dist);
-    types.push_back(kType);
+    for(uint32_t i = 0; i < nbItem; i++) {
+      e = hT->E[h].items[i];
+      Int dist;
+      uint32_t kType;
+      HashTable::CalcCollision(e->d,&dist,&kType);
+      dists.push_back(dist);
+      types.push_back(kType);
+    }
+
+  } else {
+
+    items = (ENTRY*)malloc(nbItem * sizeof(ENTRY));
+
+    for(uint32_t i = 0; i < nbItem; i++) {
+      ::fread(items+i,32,1,f);
+      e = items + i;
+      Int dist;
+      uint32_t kType;
+      HashTable::CalcCollision(e->d,&dist,&kType);
+      dists.push_back(dist);
+      types.push_back(kType);
+    }
 
   }
 
   vector<Point> P = secp->ComputePublicKeys(dists);
   vector<Point> Sp;
 
-  for(uint32_t i = 0; i < hT->E[h].nbItem; i++) {
+  for(uint32_t i = 0; i < nbItem; i++) {
 
     if(types[i] == TAME) {
       Sp.push_back(Z);
@@ -70,9 +83,11 @@ uint32_t Kangaroo::CheckHash(HashTable *hT,uint32_t h) {
 
   vector<Point> S = secp->AddDirect(Sp,P);
 
-  for(uint32_t i = 0; i < hT->E[h].nbItem; i++) {
+  for(uint32_t i = 0; i < nbItem; i++) {
 
-    ENTRY* e = hT->E[h].items[i];
+    if(hT)    e = hT->E[h].items[i];
+    else      e = items + i;
+
     uint32_t hC = S[i].x.bits64[2] & HASH_MASK;
     ok = (hC == h) && (S[i].x.bits64[0] == e->x.i64[0]) && (S[i].x.bits64[1] == e->x.i64[1]);
     if(!ok) nbWrong++;
@@ -87,6 +102,7 @@ uint32_t Kangaroo::CheckHash(HashTable *hT,uint32_t h) {
 
   }
 
+  if(items) free(items);
   return nbWrong;
 
 }
@@ -99,27 +115,25 @@ bool Kangaroo::CheckPartition(TH_PARAM* p) {
   FILE* f1 = OpenPart(pName,"rb",part,false);
   if(f1 == NULL) return false;
 
-  HashTable* h1 = new HashTable();
-
   uint32_t hStart = part * (HASH_SIZE / MERGE_PART);
   uint32_t hStop = (part + 1) * (HASH_SIZE / MERGE_PART);
-
-  h1->LoadTable(f1,hStart,hStop);
+  p->hStart = 0;
 
   for(uint32_t h = hStart; h < hStop; h++) {
 
-    if(h1->E[h].nbItem == 0)
+    uint32_t nbItem;
+    uint32_t maxItem;
+    ::fread(&nbItem,sizeof(uint32_t),1,f1);
+    ::fread(&maxItem,sizeof(uint32_t),1,f1);
+
+    if(nbItem == 0)
       continue;
-    p->hStop += CheckHash(h1,h);
+    p->hStop += CheckHash(h,nbItem,NULL,f1);
+    p->hStart += nbItem;
 
   }
 
   ::fclose(f1);
-
-  p->hStart = (uint32_t)h1->GetNbItem();
-
-  h1->Reset();
-  delete h1;
   return true;
 
 }
@@ -132,7 +146,7 @@ bool Kangaroo::CheckWorkFile(TH_PARAM* p) {
 
     if(hashTable.E[h].nbItem == 0)
       continue;
-    nWrong += CheckHash(&hashTable,h);
+    nWrong += CheckHash(h,hashTable.E[h].nbItem,&hashTable,NULL);
 
   }
 
