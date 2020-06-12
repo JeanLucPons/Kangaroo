@@ -50,7 +50,7 @@ void printUsage() {
   printf(" -wmdir dir destfile: Merge directory of work files\n");
   printf(" -wt timeout: Save work timeout in millisec (default is 3000ms)\n");
   printf(" -winfo file1: Work file info file\n");
-  printf(" -wpartcreate name: Create empty partitioned merge file (name is a directory)\n");
+  printf(" -wpartcreate name: Create empty partitioned work file (name is a directory)\n");
   printf(" -wcheck worfile: Check workfile integrity\n");
   printf(" -m maxStep: number of operations before give up the search (maxStep*expected operation)\n");
   printf(" -s: Start in server mode\n");
