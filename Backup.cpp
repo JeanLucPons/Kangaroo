@@ -56,6 +56,11 @@ uint64_t Kangaroo::FTell(FILE* stream) {
 bool Kangaroo::IsEmpty(std::string fileName) {
 
   FILE *pFile = fopen(fileName.c_str(),"r");
+  if(pFile==NULL) {
+    ::printf("OpenPart: Cannot open %s for reading\n",fileName.c_str());
+    ::printf("%s\n",::strerror(errno));
+    ::exit(0);
+  }
   fseek(pFile,0,SEEK_END);
   uint32_t size = ftell(pFile);
   fclose(pFile);
