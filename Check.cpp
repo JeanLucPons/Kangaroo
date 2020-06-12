@@ -130,11 +130,9 @@ bool Kangaroo::CheckWorkFile(TH_PARAM* p) {
 
   for(uint32_t h = p->hStart; h < p->hStop; h++) {
 
-    for(uint32_t i = 0; i < hashTable.E[h].nbItem; i++) {
-      if(hashTable.E[h].nbItem == 0)
-        continue;
-      nWrong += CheckHash(&hashTable,h);
-    }
+    if(hashTable.E[h].nbItem == 0)
+      continue;
+    nWrong += CheckHash(&hashTable,h);
 
   }
 
