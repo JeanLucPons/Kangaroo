@@ -371,7 +371,7 @@ Next puzzles to solve:
 0248D313B0398D4923CDCA73B8CFA6532B91B96703902FC8B32FD438A3B7CD7F55
 ```
 
-#120, 119bits private key [2<sup>114</sup>,2<sup>115</sup>-1], [17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT](https://www.blockchain.com/btc/address/17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT) **1.2BTC**
+#120, 119bits private key [2<sup>119</sup>,2<sup>120</sup>-1], [17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT](https://www.blockchain.com/btc/address/17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT) **1.20BTC**
 
 ```
 800000000000000000000000000000
