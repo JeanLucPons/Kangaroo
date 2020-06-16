@@ -194,7 +194,7 @@ When the client restart from backup, it will produce duplicate points (counted a
 To build such an architecture, the total number of kangaroo running in parallel must be know at the starting time to estimate the DP overhead. **It is not recommended to add or remove clients during running time**, the number of kangaroo must be constant.
 
 This program solved puzzle #110 in 2.1 days (109 bit key on the Secp256K1 field) using this architecture on 256 Tesla V100. It required 2<sup>55.55</sup> group operations using DP25 to complete.
-This program also solved #115 in 11 days (114 bit key on the Secp256K1 field). It requiresd 2<sup>58.36</sup> group operations using DP25 to complete.
+This program also solved #115 in 13 days (114 bit key on the Secp256K1 field). It required 2<sup>58.36</sup> group operations using DP25 to complete.
 
 # Probability of success
 
