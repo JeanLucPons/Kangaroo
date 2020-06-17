@@ -194,6 +194,7 @@ When the client restart from backup, it will produce duplicate points (counted a
 To build such an architecture, the total number of kangaroo running in parallel must be know at the starting time to estimate the DP overhead. **It is not recommended to add or remove clients during running time**, the number of kangaroo must be constant.
 
 This program solved puzzle #110 in 2.1 days (109 bit key on the Secp256K1 field) using this architecture on 256 Tesla V100. It required 2<sup>55.55</sup> group operations using DP25 to complete.
+This program also solved #115 in 13 days (114 bit key on the Secp256K1 field). It required 2<sup>58.36</sup> group operations using DP25 to complete.
 
 # Probability of success
 
@@ -361,16 +362,24 @@ Next puzzles to solve:
 3FFFFFFFFFFFFFFFFFFFFFFFFFFF
 0309976BA5570966BF889196B7FDF5A0F9A1E9AB340556EC29F8BB60599616167D
 ```
-Expected time with 10 x GeForce RTX 2080 Ti  : ~50days
 
-#115, 114bits private key [2<sup>114</sup>,2<sup>115</sup>-1], [1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv](https://www.blockchain.com/btc/address/1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv) **1.15BTC**
+#115, 114bits private key [2<sup>114</sup>,2<sup>115</sup>-1], [1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv](https://www.blockchain.com/btc/address/1NLbHuJebVwUZ1XqDjsAyfTRUPwDQbemfv) **1.15BTC** **Solved by this program**
 
 ```
 40000000000000000000000000000
 7FFFFFFFFFFFFFFFFFFFFFFFFFFFF
 0248D313B0398D4923CDCA73B8CFA6532B91B96703902FC8B32FD438A3B7CD7F55
 ```
-Expected time with 50 x GeForce RTX 2080 Ti  : ~55days
+
+#120, 119bits private key [2<sup>119</sup>,2<sup>120</sup>-1], [17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT](https://www.blockchain.com/btc/address/17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT) **1.20BTC**
+
+```
+800000000000000000000000000000
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+02CEB6CBBCDBDF5EF7150682150F4CE2C6F4807B349827DCDBDD1F2EFA885A2630
+```
+
+Expected time: 2 months on 256 Tesla V100.
 
 [Up to #160](https://raw.githubusercontent.com/JeanLucPons/Kangaroo/master/puzzle32.txt)
 
@@ -382,5 +391,5 @@ Expected time with 50 x GeForce RTX 2080 Ti  : ~55days
        https://arxiv.org/pdf/1501.07019.pdf
  - [3] Factoring and Discrete Logarithms using Pseudorandom Walks\
        https://www.math.auckland.ac.nz/~sgal018/crypto-book/ch14.pdf
- - [4] Kangaroos, Monopoly and Discrete Logarithms
+ - [4] Kangaroos, Monopoly and Discrete Logarithms\
        https://web.northeastern.edu/seigen/11Magic/KruskalsCount/PollardKangarooMonopoly.pdf
