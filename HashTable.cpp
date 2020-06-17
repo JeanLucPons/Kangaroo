@@ -161,8 +161,8 @@ int HashTable::MergeH(uint32_t h,FILE* f1,FILE* f2,FILE* fd,uint32_t* nbDP,uint3
           *duplicate = *duplicate + 1;
         } else {
           // Collision
-          CalcCollision(e1.d,d1,k1);
-          CalcCollision(e2.d,d2,k2);
+          CalcDistAndType(e1.d,d1,k1);
+          CalcDistAndType(e2.d,d2,k2);
           collisionFound = true;
         }
         memcpy(output + nbd,&e1,32);
@@ -246,7 +246,7 @@ int HashTable::Add(uint64_t h,int128_t *x,int128_t *d) {
 
 }
 
-void HashTable::CalcCollision(int128_t d,Int* kDist,uint32_t* kType) {
+void HashTable::CalcDistAndType(int128_t d,Int* kDist,uint32_t* kType) {
 
   *kType = (d.i64[1] & 0x4000000000000000ULL) != 0;
   int sign = (d.i64[1] & 0x8000000000000000ULL) != 0;
@@ -293,7 +293,7 @@ int HashTable::Add(uint64_t h,ENTRY* e) {
       }
 
       // Collision
-      CalcCollision(GET(h,mi)->d , &kDist, &kType);
+      CalcDistAndType(GET(h,mi)->d , &kDist, &kType);
       return ADD_COLLISION;
 
     } else {

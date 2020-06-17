@@ -62,6 +62,7 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->collisionInSameHerd = 0;
   this->keyIdx = 0;
   this->splitWorkfile = splitWorkfile;
+  this->pid = Timer::getPID();
 
   CPU_GRP_SIZE = 1024;
 
@@ -318,7 +319,7 @@ bool Kangaroo::AddToTable(uint64_t h,int128_t *x,int128_t *d) {
 
     Int dist;
     uint32_t kType;
-    HashTable::CalcCollision(*d,&dist,&kType);
+    HashTable::CalcDistAndType(*d,&dist,&kType);
     return CollisionCheck(&hashTable.kDist,hashTable.kType,&dist,kType);
 
   }
@@ -446,7 +447,7 @@ void Kangaroo::SolveKeyCPU(TH_PARAM *ph) {
       double now = Timer::get_tick();
       if( now-lastSent > SEND_PERIOD ) {
         LOCK(ghMutex);
-        SendToServer(dps);
+        SendToServer(dps,ph->threadId,0xFFFF);
         UNLOCK(ghMutex);
         lastSent = now;
       }
@@ -575,7 +576,7 @@ void Kangaroo::SolveKeyGPU(TH_PARAM *ph) {
       double now = Timer::get_tick();
       if(now - lastSent > SEND_PERIOD) {
         LOCK(ghMutex);
-        SendToServer(dps);
+        SendToServer(dps,ph->threadId,ph->gpuId);
         UNLOCK(ghMutex);
         lastSent = now;
       }
@@ -845,20 +846,14 @@ void Kangaroo::ComputeExpected(double dp,double *op,double *ram,double *overHead
   // theta
   double theta = pow(2.0,dp);
 
+  // Z0
+  double Z0 = (2.0 * (2.0 - sqrt(2.0)) * gainS) * sqrt(M_PI);
+
   // Average for DP = 0
-  double avgDP0 = (2.0 * (2.0 - sqrt(2.0)) * gainS) * sqrt(M_PI) * sqrt(N);
+  double avgDP0 = Z0 * sqrt(N);
 
-  // DP Overhead (for small number of kangaroo)
-  double overSmallK = k * theta;
-
-  // Average estimation (when k >> theta)
-  double overLargeK = pow(16.0 * N * theta * k,1.0 / 3.0);
-
-  double avg =  avgDP0 + overSmallK;
-  if(overLargeK>avg)
-    *op = overLargeK;
-  else
-    *op = avg;
+  // DP Overhead
+  *op = Z0 * pow(N * (k * theta + sqrt(N)),1.0 / 3.0);
 
   *ram = (double)sizeof(HASH_ENTRY) * (double)HASH_SIZE + // Table
          (double)sizeof(ENTRY *) * (double)(HASH_SIZE * 4) + // Allocation overhead
@@ -1001,7 +996,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   // Fetch kangaroos (if any)
   FectchKangaroos(params);
 
-//#define STATS
+#define STATS
 #ifdef STATS
 
     CPU_GRP_SIZE = 1024;
@@ -1057,7 +1052,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
       double SN = pow(2.0,rangePower / 2.0);
       double avg = (double)totalCount / (double)(keyIdx + 1);
       ::printf("\n[%3d] 2^%.3f Dead:%d Avg:2^%.3f DeadAvg:%.1f (%.3f %.3f sqrt(N))\n",
-                              keyIdx, log2((double)count), collisionInSameHerd, 
+                              keyIdx, log2((double)count), (int)collisionInSameHerd, 
                               log2(avg), (double)totalDead / (double)(keyIdx + 1),
                               avg/SN,expectedNbOp/SN);
     }

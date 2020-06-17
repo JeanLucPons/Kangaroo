@@ -66,6 +66,16 @@ uint32_t Timer::getSeed32() {
   return ::strtoul(getSeed(4).c_str(),NULL,16);
 }
 
+uint32_t Timer::getPID() {
+
+#ifdef WIN64
+  return GetCurrentProcessId();
+#else
+  return (uint32_t)getpid();
+#endif
+
+}
+
 std::string Timer::getSeed(int size) {
 
   std::string ret;

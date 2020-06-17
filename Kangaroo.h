@@ -100,6 +100,16 @@ typedef struct {
 
 } DP;
 
+typedef struct {
+
+  uint32_t header;
+  uint32_t nbDP;
+  uint32_t threadId;
+  uint32_t processId;
+  uint32_t gpuId;
+
+} DPHEADER;
+
 // DP cache
 typedef struct {
   uint32_t nbDP;
@@ -156,7 +166,7 @@ private:
   void CreateJumpTable();
   bool AddToTable(uint64_t h,int128_t *x,int128_t *d);
   bool AddToTable(Int *pos,Int *dist,uint32_t kType);
-  bool SendToServer(std::vector<ITEM> &dp);
+  bool SendToServer(std::vector<ITEM> &dp,uint32_t threadId,uint32_t gpuId);
   bool CheckKey(Int d1,Int d2,uint8_t type);
   bool CollisionCheck(Int* d1,uint32_t type1,Int* d2,uint32_t type2);
   void ComputeExpected(double dp,double *op,double *ram,double* overHead = NULL);
@@ -279,6 +289,7 @@ private:
   std::vector<DP_CACHE> localCache;
   std::string serverStatus;
   int connectedClient;
+  uint32_t pid;
 
 };
 

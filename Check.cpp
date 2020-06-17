@@ -47,7 +47,7 @@ uint32_t Kangaroo::CheckHash(uint32_t h,uint32_t nbItem,HashTable* hT,FILE* f) {
       e = hT->E[h].items[i];
       Int dist;
       uint32_t kType;
-      HashTable::CalcCollision(e->d,&dist,&kType);
+      HashTable::CalcDistAndType(e->d,&dist,&kType);
       dists.push_back(dist);
       types.push_back(kType);
     }
@@ -61,7 +61,7 @@ uint32_t Kangaroo::CheckHash(uint32_t h,uint32_t nbItem,HashTable* hT,FILE* f) {
       e = items + i;
       Int dist;
       uint32_t kType;
-      HashTable::CalcCollision(e->d,&dist,&kType);
+      HashTable::CalcDistAndType(e->d,&dist,&kType);
       dists.push_back(dist);
       types.push_back(kType);
     }

@@ -172,8 +172,12 @@ bool Kangaroo::MergePartition(TH_PARAM* p) {
   // Rename
   string oldName = GetPartName(p1Name,part,true);
   string newName = GetPartName(p1Name,part,false);
-  remove(newName.c_str());
-  rename(oldName.c_str(),newName.c_str());
+  if(!endOfSearch) {
+    remove(newName.c_str());
+    rename(oldName.c_str(),newName.c_str());
+  } else {
+    remove(oldName.c_str());
+  }
 
   return true;
 
@@ -700,8 +704,12 @@ bool Kangaroo::MergeWorkPart(std::string& partName,std::string& file2,bool print
     // Rename
     string oldName = GetPartName(partName,part,true);
     string newName = GetPartName(partName,part,false);
-    remove(newName.c_str());
-    rename(oldName.c_str(),newName.c_str());
+    if(!endOfSearch) {
+      remove(newName.c_str());
+      rename(oldName.c_str(),newName.c_str());
+    } else {
+      remove(oldName.c_str());
+    }
 
   }
 

@@ -42,7 +42,9 @@ static SOCKET serverSock = 0;
 #define WAIT_FOR_READ  1
 #define WAIT_FOR_WRITE 2
 
-#define SERVER_VERSION 2
+#define SERVER_VERSION 3
+
+#define SERVER_HEADER 0x67DEDDC1
 
 // Commands
 #define SERVER_GETCONFIG 0
@@ -307,13 +309,22 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
     case SERVER_SENDDP: {
 
-      uint32_t nbDP=0;
+      DPHEADER head;
 
-      GET("nbDP",p->clientSock,&nbDP,sizeof(uint32_t),ntimeout);
+      GET("DPHeader",p->clientSock,&head,sizeof(DPHEADER),ntimeout);
 
-      if(nbDP == 0) {
+      if(head.header != SERVER_HEADER) {
 
-        ::printf("\nUnexpected number of DP [%d] from %s\n",nbDP,p->clientInfo);
+        ::printf("\nUnexpected DP header from %s\n",p->clientInfo);
+        ::printf("\nClosing connection with %s\n",p->clientInfo);
+        close_socket(p->clientSock);
+        return false;
+
+      }
+
+      if(head.nbDP == 0) {
+
+        ::printf("\nUnexpected number of DP [%d] from %s\n",head.nbDP,p->clientInfo);
         ::printf("\nClosing connection with %s\n",p->clientInfo);
         close_socket(p->clientSock);
         return false;
@@ -322,14 +333,15 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
         //::printf("%d DP from %s\n",nbDP,p->clientInfo.c_str());
 
-        DP *dp = (DP *)malloc(sizeof(DP)*nbDP);
-        GETFREE("DP",p->clientSock,dp,sizeof(DP)*nbDP,ntimeout,dp);
+        DP *dp = (DP *)malloc(sizeof(DP)* head.nbDP);
+        GETFREE("DP",p->clientSock,dp,sizeof(DP)* head.nbDP,ntimeout,dp);
         state = GetServerStatus();
         PUTFREE("Status",p->clientSock,&state,sizeof(int32_t),ntimeout,dp);
 
-        if(nbRead != sizeof(DP)*nbDP) {
+        if(nbRead != sizeof(DP)* head.nbDP) {
 
-          ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",p->clientInfo,nbDP,nbRead,(int)(sizeof(DP)*nbDP));
+          ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",
+            p->clientInfo,head.nbDP,nbRead,(int)(sizeof(DP)* head.nbDP));
           ::printf("\nClosing connection with %s\n",p->clientInfo);
           free(dp);
           close_socket(p->clientSock);
@@ -337,23 +349,54 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
         } else {
 
+#define VALIDITY_POINT_CHECK
 #ifdef VALIDITY_POINT_CHECK
           // Check validity
-          for(uint32_t i=0;i<nbDP;i++) {
+          for(uint32_t i=0;i< head.nbDP;i++) {
+            
             uint64_t h = (uint64_t)dp[i].h;
             if(h >= HASH_SIZE) {
-              ::printf("\nInvalid data from: %s [at dp=%d]\n",p->clientInfo,i);
+              ::printf("\nInvalid data from: %s [dp=%d PID=%u thId=%u gpuId=%u]\n",p->clientInfo,i,
+                                                            head.processId,head.threadId,head.gpuId);
               ::printf("\nClosing connection with %s\n",p->clientInfo);
               free(dp);
               close_socket(p->clientSock);
               return false;
             }
+
+            Int dist;
+            uint32_t kType;
+            HashTable::CalcDistAndType(dp[i].d,&dist,&kType);
+            Point P = secp->ComputePublicKey(&dist);
+
+            if(kType == WILD)
+              P = secp->AddDirect(keyToSearch,P);
+
+            uint32_t hC = P.x.bits64[2] & HASH_MASK;
+            bool ok = (hC == h) && (P.x.bits64[0] == dp[i].x.i64[0]) && (P.x.bits64[1] == dp[i].x.i64[1]);
+            if(!ok) {
+              if(kType==TAME) {
+                ::printf("\nWrong TAME point from: %s [dp=%d PID=%u thId=%u gpuId=%u]\n",p->clientInfo,i,
+                  head.processId,head.threadId,head.gpuId);
+              } else {
+                ::printf("\nWrong WILD point from: %s [dp=%d PID=%u thId=%u gpuId=%u]\n",p->clientInfo,i,
+                  head.processId,head.threadId,head.gpuId);
+              }
+              //::printf("X=%s\n",P.x.GetBase16().c_str());
+              //::printf("X=%08X%08X%08X%08X\n",dp[i].x.i32[3],dp[i].x.i32[2],dp[i].x.i32[1],dp[i].x.i32[0]);
+              //::printf("D=%08X%08X%08X%08X\n",dp[i].d.i32[3],dp[i].d.i32[2],dp[i].d.i32[1],dp[i].d.i32[0]);
+              ::printf("\nClosing connection with %s\n",p->clientInfo);
+              free(dp);
+              close_socket(p->clientSock);
+              return false;
+            }
+
           }
 #endif
 
           LOCK(ghMutex);
           DP_CACHE dc;
-          dc.nbDP = nbDP;
+          dc.nbDP = head.nbDP;
           dc.dp = dp;
           recvDP.push_back(dc);
           UNLOCK(ghMutex);
@@ -463,10 +506,17 @@ void Kangaroo::RunServer() {
   }
   SetDP(initDPSize);
 
-  if(sizeof(DP)!=40) {
+  if(sizeof(DP) != 40) {
     ::printf("Error: Invalid DP size struct\n");
     exit(-1);
   }
+
+  if(sizeof(DPHEADER) != 20) {
+    ::printf("Error: Invalid DPHEADER size struct\n");
+    exit(-1);
+  }
+
+  
 
   if(saveKangaroo) {
     ::printf("Waring: Server does not support -ws, ignoring\n");
@@ -718,7 +768,7 @@ void Kangaroo::WaitForServer() {
 }
 
 // Send DP to Server
-bool Kangaroo::SendToServer(std::vector<ITEM> &dps) {
+bool Kangaroo::SendToServer(std::vector<ITEM> &dps,uint32_t threadId,uint32_t gpuId) {
 
   int nbRead;
   int nbWrite;
@@ -752,8 +802,15 @@ bool Kangaroo::SendToServer(std::vector<ITEM> &dps) {
 
     char cmd = SERVER_SENDDP;
 
+    DPHEADER head;
+    head.header = SERVER_HEADER;
+    head.nbDP = nbDP;
+    head.processId = pid;
+    head.threadId = threadId;
+    head.gpuId = gpuId;
+
     PUTFREE("CMD",serverConn,&cmd,1,ntimeout,dp);
-    PUTFREE("nbDP",serverConn,&nbDP,sizeof(uint32_t),ntimeout,dp);
+    PUTFREE("DPHeader",serverConn,&head,sizeof(DPHEADER),ntimeout,dp);
     PUTFREE("DP",serverConn,dp,sizeof(DP)*nbDP,ntimeout,dp);
     GETFREE("Status",serverConn,&status,sizeof(uint32_t),ntimeout,dp)
 
@@ -810,12 +867,17 @@ bool Kangaroo::GetConfigFromServer() {
   GET("KeyY",serverConn,key.y.bits64,32,ntimeout);
   GET("DP",serverConn,&initDPSize,sizeof(int32_t),ntimeout);
 
-  if(version>=2) {
-    // Set kangaroo number
-    char cmd = SERVER_SETKNB;
-    PUT("CMD",serverConn,&cmd,1,ntimeout);
-    PUT("nbKangaroo",serverConn,&totalRW,sizeof(uint64_t),ntimeout);
+  if(version<3) {
+    isConnected = false;
+    closesocket(serverConn);
+    ::printf("Cannot connect to server: %s\nServer version must be >= 3\n",serverIp.c_str());
+    return false;
   }
+
+  // Set kangaroo number
+  cmd = SERVER_SETKNB;
+  PUT("CMD",serverConn,&cmd,1,ntimeout);
+  PUT("nbKangaroo",serverConn,&totalRW,sizeof(uint64_t),ntimeout);
 
   ::printf("Succesfully connected to server: %s (Version %d)\n",serverIp.c_str(),version);
 

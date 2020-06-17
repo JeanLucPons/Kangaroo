@@ -91,7 +91,7 @@ public:
   static void Convert(Int *x,Int *d,uint32_t type,uint64_t *h,int128_t *X,int128_t *D);
   static int MergeH(uint32_t h,FILE* f1,FILE* f2,FILE* fd,uint32_t *nbDP,uint32_t* duplicate,
                     Int* d1,uint32_t* k1,Int* d2,uint32_t* k2);
-  static void CalcCollision(int128_t d,Int* kDist,uint32_t* kType);
+  static void CalcDistAndType(int128_t d,Int* kDist,uint32_t* kType);
 
 private:
 
