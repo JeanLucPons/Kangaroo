@@ -55,6 +55,7 @@ static SOCKET serverSock = 0;
 #define SERVER_SETKNB    3
 #define SERVER_SAVEKANG  4
 #define SERVER_LOADKANG  5
+#define SERVER_RESETDEAD  'R'
 
 // Status
 #define SERVER_OK            0
@@ -309,6 +310,16 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     case SERVER_SETKNB: {
       GET("nbKangaroo",p->clientSock,&p->nbKangaroo,sizeof(uint64_t),ntimeout);
       totalRW += p->nbKangaroo;
+    } break;
+
+    // ----------------------------------------------------------------------------------------
+
+    case SERVER_RESETDEAD: {
+      char response[5];
+      collisionInSameHerd = 0;
+      GET("flush",p->clientSock,&response,2,ntimeout);
+      sprintf(response,"OK\n");
+      PUT("resp",p->clientSock,&response,3,ntimeout);
     } break;
 
     // ----------------------------------------------------------------------------------------
