@@ -589,14 +589,13 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
     return;
   }
 
-  if(_IsNegative(s)) {
+  // In very rare case |s|>2P 
+  while(_IsNegative(s))
     AddP(s);
-  }
-  else {
+  while(!_IsNegative(s))
     Sub1(s,_P);
-    if(_IsNegative(s))
-      AddP(s);
-  }
+  AddP(s);
+
 
   Load(R,s);
 
