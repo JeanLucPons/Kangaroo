@@ -19,7 +19,7 @@
 #define CONSTANTSH
 
 // Release number
-#define RELEASE "1.11iota"
+#define RELEASE "1.11delta"
 
 // Use symmetry
 //#define USE_SYMMETRY

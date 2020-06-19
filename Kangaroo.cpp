@@ -33,7 +33,7 @@ using namespace std;
 
 // ----------------------------------------------------------------------------
 
-Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,
+Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFile,string &iWorkFile,uint32_t savePeriod,bool saveKangaroo,bool saveKangarooByServer,
                    double maxStep,int wtimeout,int port,int ntimeout,string serverIp,string outputFile,bool splitWorkfile) {
 
   this->secp = secp;
@@ -45,7 +45,9 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->saveWorkPeriod = savePeriod;
   this->inputFile = iWorkFile;
   this->nbLoadedWalk = 0;
-  this->saveKangaroo = saveKangaroo;
+  this->clientMode = serverIp.length() > 0;
+  this->saveKangarooByServer = this->clientMode && saveKangarooByServer;
+  this->saveKangaroo = saveKangaroo || this->saveKangarooByServer;
   this->fRead = NULL;
   this->maxStep = maxStep;
   this->wtimeout = wtimeout;
@@ -54,7 +56,6 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->serverIp = serverIp;
   this->outputFile = outputFile;
   this->hostInfo = NULL;
-  this->clientMode = serverIp.length()>0;
   this->endOfSearch = false;
   this->saveRequest = false;
   this->connectedClient = 0;
@@ -988,6 +989,11 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
     if(nbLoadedWalk == 0) ::printf("Suggested DP: %d\n",suggestedDP);
     ::printf("Expected operations: 2^%.2f\n",log2(expectedNbOp));
     ::printf("Expected RAM: %.1fMB\n",expectedMem);
+
+  } else {
+
+    keyIdx = 0;
+    InitSearchKey();
 
   }
 

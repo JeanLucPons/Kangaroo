@@ -117,8 +117,9 @@ typedef struct {
 } DP_CACHE;
 
 // Work file type
-#define HEADW 0xFA6A8001  // Full work file
-#define HEADK 0xFA6A8002  // Kangaroo only file
+#define HEADW  0xFA6A8001  // Full work file
+#define HEADK  0xFA6A8002  // Kangaroo only file
+#define HEADKS 0xFA6A8003  // Compressed Kangaroo only file
 
 // Number of Hash entry per partition
 #define H_PER_PART (HASH_SIZE / MERGE_PART)
@@ -128,7 +129,7 @@ class Kangaroo {
 public:
 
   Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,std::string &workFile,std::string &iWorkFile,
-           uint32_t savePeriod,bool saveKangaroo,double maxStep,int wtimeout,int sport,int ntimeout,
+           uint32_t savePeriod,bool saveKangaroo,bool saveKangarooByServer,double maxStep,int wtimeout,int sport,int ntimeout,
            std::string serverIp,std::string outputFile,bool splitWorkfile);
   void Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize);
   void RunServer();
@@ -180,6 +181,7 @@ private:
   void SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread);
   void SaveServerWork();
   void FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d);
+  void FetchWalks(uint64_t nbWalk,std::vector<int128_t>& kangs,Int* x,Int* y,Int* d);
   void FectchKangaroos(TH_PARAM *threads);
   FILE *ReadHeader(std::string fileName,uint32_t *version,int type);
   bool  SaveHeader(std::string fileName,FILE* f,int type,uint64_t totalCount,double totalTime);
@@ -202,6 +204,8 @@ private:
   void InitSocket();
   void WaitForServer();
   int32_t GetServerStatus();
+  bool SendKangaroosToServer(std::string& fileName,std::vector<int128_t>& kangs);
+  bool GetKangaroosFromServer(std::string& fileName,std::vector<int128_t>& kangs);
 
 #ifdef WIN64
   HANDLE ghMutex;
@@ -271,6 +275,7 @@ private:
   int  saveWorkPeriod;
   bool saveRequest;
   bool saveKangaroo;
+  bool saveKangarooByServer;
   int wtimeout;
   int ntimeout;
   bool splitWorkfile;

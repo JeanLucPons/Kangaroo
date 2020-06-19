@@ -130,6 +130,9 @@ FILE *Kangaroo::ReadHeader(std::string fileName, uint32_t *version, int type) {
     if(head==HEADK) {
       fread(&nbLoadedWalk,sizeof(uint64_t),1,f);
       ::printf("ReadHeader: %s is a kangaroo only file [2^%.2f kangaroos]\n",fileName.c_str(),log2((double)nbLoadedWalk));
+    } if(head == HEADKS) {
+      fread(&nbLoadedWalk,sizeof(uint64_t),1,f);
+      ::printf("ReadHeader: %s is a compressed kangaroo only file [2^%.2f kangaroos]\n",fileName.c_str(),log2((double)nbLoadedWalk));
     } else if(head==HEADW) {
       ::printf("ReadHeader: %s is a work file, kangaroo only file expected\n",fileName.c_str());
     } else {
@@ -227,12 +230,80 @@ void Kangaroo::FetchWalks(uint64_t nbWalk,Int *x,Int *y,Int *d) {
 
 }
 
+void Kangaroo::FetchWalks(uint64_t nbWalk,std::vector<int128_t>& kangs,Int* x,Int* y,Int* d) {
+
+  uint64_t n = 0;
+
+  uint64_t avail = (nbWalk<kangs.size())?nbWalk:kangs.size();
+
+  if(avail > 0) {
+
+    vector<Int> dists;
+    vector<Point> Sp;
+    dists.reserve(avail);
+    Sp.reserve(avail);
+    Point Z;
+    Z.Clear();
+
+    for(n = 0; n < avail; n++) {
+
+      Int dist;
+      uint32_t type;
+      HashTable::CalcDistAndType(kangs[n],&dist,&type);
+      dists.push_back(dist);
+
+    }
+
+    vector<Point> P = secp->ComputePublicKeys(dists);
+
+    for(n = 0; n < avail; n++) {
+
+      if(n % 2 == TAME) {
+        Sp.push_back(Z);
+      }
+      else {
+        Sp.push_back(keyToSearch);
+      }
+
+    }
+
+    vector<Point> S = secp->AddDirect(Sp,P);
+
+    for(n = 0; n < avail; n++) {
+      x[n].Set(&S[n].x);
+      y[n].Set(&S[n].y);
+      d[n].Set(&dists[n]);
+      nbLoadedWalk--;
+    }
+
+    kangs.erase(kangs.begin(),kangs.begin() + avail);
+
+  }
+
+  if(avail < nbWalk) {
+    int64_t empty = nbWalk - avail;
+    // Fill empty kanagaroo
+    CreateHerd((int)empty,&(x[n]),&(y[n]),&(d[n]),TAME);
+  }
+
+}
+
 void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
 
-  // Fetch input kangarou (if any)
+  double sFetch = Timer::get_tick();
+
+  // From server
+  vector<int128_t> kangs;
+  if(saveKangarooByServer) {
+    ::printf("FectchKangaroosFromServer");
+    GetKangaroosFromServer(workFile,kangs);
+    ::printf("Done\n");
+    nbLoadedWalk = kangs.size();
+  }
+
+  // Fetch input kangaroo from file (if any)
   if(nbLoadedWalk>0) {
 
-    double sFetch = Timer::get_tick();
     uint64_t nbSaved = nbLoadedWalk;
     uint64_t created = 0;
 
@@ -241,7 +312,10 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
       threads[i].px = new Int[CPU_GRP_SIZE];
       threads[i].py = new Int[CPU_GRP_SIZE];
       threads[i].distance = new Int[CPU_GRP_SIZE];
-      FetchWalks(CPU_GRP_SIZE,threads[i].px,threads[i].py,threads[i].distance);
+      if(!saveKangarooByServer)
+        FetchWalks(CPU_GRP_SIZE,threads[i].px,threads[i].py,threads[i].distance);
+      else
+        FetchWalks(CPU_GRP_SIZE,kangs,threads[i].px,threads[i].py,threads[i].distance);
     }
 
 #ifdef WITHGPU
@@ -251,20 +325,32 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
       threads[id].px = new Int[n];
       threads[id].py = new Int[n];
       threads[id].distance = new Int[n];
-      FetchWalks(n,threads[id].px,threads[id].py,threads[id].distance);
+      uint64_t nbGrp = n / GPU_GRP_SIZE;
+      for(uint64_t g = 0; g < nbGrp; g++) {
+        if(!saveKangarooByServer)
+          FetchWalks(GPU_GRP_SIZE,
+            &(threads[id].px[g * GPU_GRP_SIZE]),
+            &(threads[id].py[g * GPU_GRP_SIZE]),
+            &(threads[id].distance[g * GPU_GRP_SIZE]));
+        else
+          FetchWalks(GPU_GRP_SIZE,kangs,
+            &(threads[id].px[g * GPU_GRP_SIZE]),
+            &(threads[id].py[g * GPU_GRP_SIZE]),
+            &(threads[id].distance[g * GPU_GRP_SIZE]));
+      }
     }
 #endif
 
     double eFetch = Timer::get_tick();
 
     if(nbLoadedWalk != 0) {
-      ::printf("LoadWork: Warning %.0f unhandled kangaroos !\n",(double)nbLoadedWalk);
+      ::printf("FectchKangaroos: Warning %.0f unhandled kangaroos !\n",(double)nbLoadedWalk);
     }
 
     if(nbSaved<totalRW)
       created = totalRW - nbSaved;
 
-    ::printf("LoadWork: [2^%.2f kangaroos loaded] [%.0f created] [%s]\n",log2((double)nbSaved),(double)created,GetTimeStr(eFetch - sFetch).c_str());
+    ::printf("FectchKangaroos: [2^%.2f kangaroos loaded] [%.0f created] [%s]\n",log2((double)nbSaved),(double)created,GetTimeStr(eFetch - sFetch).c_str());
 
   }
 
@@ -358,6 +444,9 @@ void Kangaroo::SaveServerWork() {
 
 void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,int nbThread) {
 
+  uint64_t totalWalk = 0;
+  uint64_t size;
+
   LOCK(saveMutex);
 
   double t0 = Timer::get_tick();
@@ -383,22 +472,51 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
     fileName = workFile + "_" + Timer::getTS();
 
   // Save
-  FILE *f = fopen(fileName.c_str(),"wb");
-  if(f == NULL) {
-    ::printf("\nSaveWork: Cannot open %s for writing\n",fileName.c_str());
-    ::printf("%s\n",::strerror(errno));
-    UNLOCK(saveMutex);
-    return;
+  FILE* f = NULL;
+  if(!saveKangarooByServer) {
+    f = fopen(fileName.c_str(),"wb");
+    if(f == NULL) {
+      ::printf("\nSaveWork: Cannot open %s for writing\n",fileName.c_str());
+      ::printf("%s\n",::strerror(errno));
+      UNLOCK(saveMutex);
+      return;
+    }
   }
 
   if (clientMode) {
-    SaveHeader(fileName,f,HEADK,totalCount,totalTime);
-    ::printf("\nSaveWork (Kangaroo): %s",fileName.c_str());
+
+    if(saveKangarooByServer) {
+
+      ::printf("\nSaveWork (Kangaroo->Server): %s",fileName.c_str());
+      vector<int128_t> kangs;
+      for(int i = 0; i < nbThread; i++)
+        totalWalk += threads[i].nbKangaroo;
+      kangs.reserve(totalWalk);
+
+      for(int i = 0; i < nbThread; i++) {
+        int128_t X;
+        int128_t D;
+        uint64_t h;
+        for(uint64_t n = 0; n < threads[i].nbKangaroo; n++) {
+          HashTable::Convert(&threads[i].px[n],&threads[i].distance[n],n%2,&h,&X,&D);
+          kangs.push_back(D);
+        }
+      }
+      SendKangaroosToServer(fileName,kangs);
+      size = kangs.size()*16 + 16;
+      goto end;
+
+    } else {
+      SaveHeader(fileName,f,HEADK,totalCount,totalTime);
+      ::printf("\nSaveWork (Kangaroo): %s",fileName.c_str());
+    }
+
   } else {
+
     SaveWork(fileName,f,HEADW,totalCount,totalTime);
+
   }
 
-  uint64_t totalWalk = 0;
 
   if(saveKangaroo) {
 
@@ -429,13 +547,14 @@ void Kangaroo::SaveWork(uint64_t totalCount,double totalTime,TH_PARAM *threads,i
 
   }
 
-  uint64_t size = FTell(f);
+  size = FTell(f);
   fclose(f);
 
   if(splitWorkfile)
     hashTable.Reset();
 
   // Unblock threads
+end:
   saveRequest = false;
   UNLOCK(saveMutex);
 

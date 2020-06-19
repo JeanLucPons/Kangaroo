@@ -45,6 +45,7 @@ void printUsage() {
   printf(" -i workfile: Specify file to load work from (current processed key only)\n");
   printf(" -wi workInterval: Periodic interval (in seconds) for saving work\n");
   printf(" -ws: Save kangaroos in the work file\n");
+  printf(" -wss: Save kangaroos via the server\n");
   printf(" -wsplit: Split work file of server and reset hashtable\n");
   printf(" -wm file1 file2 destfile: Merge work file\n");
   printf(" -wmdir dir destfile: Merge directory of work files\n");
@@ -148,6 +149,7 @@ static string checkWorkFile = "";
 static string iWorkFile = "";
 static uint32_t savePeriod = 60;
 static bool saveKangaroo = false;
+static bool saveKangarooByServer = false;
 static string merge1 = "";
 static string merge2 = "";
 static string mergeDest = "";
@@ -258,6 +260,9 @@ int main(int argc, char* argv[]) {
     } else if(strcmp(argv[a],"-ws") == 0) {
       a++;
       saveKangaroo = true;
+    } else if(strcmp(argv[a],"-wss") == 0) {
+      a++;
+      saveKangarooByServer = true;
     } else if(strcmp(argv[a],"-wsplit") == 0) {
       a++;
       splitWorkFile = true;
@@ -313,7 +318,7 @@ int main(int argc, char* argv[]) {
     exit(-1);
   }
 
-  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,
+  Kangaroo *v = new Kangaroo(secp,dp,gpuEnable,workFile,iWorkFile,savePeriod,saveKangaroo,saveKangarooByServer,
                              maxStep,wtimeout,port,ntimeout,serverIP,outputFile,splitWorkFile);
   if(checkFlag) {
     v->Check(gpuId,gridSize);  

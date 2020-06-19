@@ -46,11 +46,15 @@ static SOCKET serverSock = 0;
 
 #define SERVER_HEADER 0x67DEDDC1
 
+#define KANG_PER_BLOCK 2048
+
 // Commands
 #define SERVER_GETCONFIG 0
 #define SERVER_STATUS    1
 #define SERVER_SENDDP    2
 #define SERVER_SETKNB    3
+#define SERVER_SAVEKANG  4
+#define SERVER_LOADKANG  5
 
 // Status
 #define SERVER_OK            0
@@ -261,6 +265,11 @@ int32_t Kangaroo::GetServerStatus() {
 
 }
 
+#define CLIENT_ABORT() \
+::printf("\nClosing connection with %s\n",p->clientInfo); \
+close_socket(p->clientSock); \
+return false;
+
 // Server request handler
 bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
@@ -275,12 +284,12 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     // Wait for command (1h timeout)
     nbRead = Read(p->clientSock,(char *)(&cmdBuff),1,(int)(CLIENT_TIMEOUT*1000.0));
     if(nbRead<=0) {
-      ::printf("\nClosing connection with %s\n",p->clientInfo);
-      close_socket(p->clientSock);
-      return false;
+      CLIENT_ABORT();
     }
 
     switch(cmdBuff) {
+
+    // ----------------------------------------------------------------------------------------
 
     case SERVER_GETCONFIG: {
       ::printf("\nNew connection from %s\n",p->clientInfo);
@@ -295,9 +304,178 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
     } break;
 
+    // ----------------------------------------------------------------------------------------
+
     case SERVER_SETKNB: {
       GET("nbKangaroo",p->clientSock,&p->nbKangaroo,sizeof(uint64_t),ntimeout);
       totalRW += p->nbKangaroo;
+    } break;
+
+    // ----------------------------------------------------------------------------------------
+
+    case SERVER_LOADKANG: {
+
+      Int checkSum;
+      Int K;
+      uint64_t nbKangaroo = 0;
+      uint32_t strSize;
+      char fileName[256];
+      int128_t* KBuff;
+      uint32_t nbK;
+      uint32_t header = HEADKS;
+      uint32_t version = 0;
+
+      GET("fileNameLenght",p->clientSock,&strSize,sizeof(uint32_t),ntimeout);
+      if(strSize >= 256) {
+        ::printf("\nFileName too long (MAX=256) %s\n",p->clientInfo);
+        CLIENT_ABORT();
+      }
+
+      GET("fileName",p->clientSock,&fileName,strSize,ntimeout);
+      fileName[strSize] = 0;
+      FILE* f = fopen(fileName,"rb");
+      if(f == NULL) {
+        // No backup
+        ::printf("LoadKang: Cannot open %s for reading\n",fileName);
+        ::printf("%s\n",::strerror(errno));
+        PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
+        break;
+      }
+
+      if(::fread(&header,sizeof(uint32_t),1,f) != 1) {
+        ::printf("LoadKang: Cannot open %s for reading\n",fileName);
+        ::printf("%s\n",::strerror(errno));
+        PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
+        ::fclose(f);
+        break;
+      }
+
+      if(header!=HEADKS) {
+        ::printf("LoadKang: %s Not a compressed kangaroo file\n",fileName);
+        ::printf("%s\n",::strerror(errno));
+        PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
+        ::fclose(f);
+        break;
+      }
+
+      ::fread(&version,sizeof(uint32_t),1,f);
+      ::fread(&nbKangaroo,sizeof(uint64_t),1,f);
+
+      PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
+
+      checkSum.SetInt32(0);
+      KBuff = (int128_t*)malloc(KANG_PER_BLOCK * sizeof(int128_t));
+
+      while(nbKangaroo > 0) {
+
+        if(nbKangaroo > KANG_PER_BLOCK) {
+          nbK = KANG_PER_BLOCK;
+        }  else {
+          nbK = (uint32_t)nbKangaroo;
+        }
+
+        for(uint32_t k = 0; k < nbK; k++) {
+          ::fread(&KBuff[k],16,1,f);
+          // Checksum
+          K.SetInt32(0);
+          K.bits64[1] = KBuff[k].i64[1];
+          K.bits64[0] = KBuff[k].i64[0];
+          checkSum.Add(&K);
+        }
+
+        PUTFREE("packet",p->clientSock,KBuff,nbK * 16,ntimeout,KBuff);
+
+        nbKangaroo -= nbK;
+
+      }
+
+      free(KBuff);
+
+      PUT("checkSum",p->clientSock,checkSum.bits64,32,ntimeout);
+
+      ::fclose(f);
+
+      
+    } break;
+
+    // ----------------------------------------------------------------------------------------
+
+    case SERVER_SAVEKANG: {
+
+      Int checkSum;
+      Int K;
+      uint64_t nbKangaroo;
+      uint32_t fileNameSize;
+      char fileName[256];
+      int128_t *KBuff;
+      uint32_t nbK;
+      uint32_t header = HEADKS;
+      uint32_t version = 0;
+
+      GET("fileNameLenght",p->clientSock,&fileNameSize,sizeof(uint32_t),ntimeout);
+      if(fileNameSize >= 256) {
+        ::printf("\nFileName too long (MAX=256) %s\n",p->clientInfo);
+        CLIENT_ABORT();
+      }
+
+      GET("fileName",p->clientSock,&fileName,fileNameSize,ntimeout);
+      fileName[fileNameSize]=0;
+      GET("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
+
+      FILE* f = fopen(fileName,"wb");
+      if(f == NULL) {
+        ::printf("\nCannot open %s for writing\n",fileName);
+        ::printf("%s\n",::strerror(errno));
+        CLIENT_ABORT();
+      }
+
+      if(::fwrite(&header,sizeof(uint32_t),1,f) != 1) {
+        ::printf("\nCannot write to %s\n",fileName);
+        ::printf("%s\n",::strerror(errno));
+        ::fclose(f);
+        CLIENT_ABORT();
+      }
+
+      ::fwrite(&version,sizeof(uint32_t),1,f);
+      ::fwrite(&nbKangaroo,sizeof(uint64_t),1,f);
+
+      checkSum.SetInt32(0);
+
+      KBuff = (int128_t *)malloc(KANG_PER_BLOCK*sizeof(int128_t));
+
+      while(nbKangaroo>0) {
+
+        if(nbKangaroo> KANG_PER_BLOCK) {
+          nbK = KANG_PER_BLOCK;
+        } else {
+          nbK = (uint32_t)nbKangaroo;
+        }
+
+        GETFREE("packet",p->clientSock,KBuff,nbK * 16,ntimeout,KBuff);
+
+        for(uint32_t k = 0; k < nbK; k++) {
+          ::fwrite(&KBuff[k],16,1,f);
+          // Checksum
+          K.SetInt32(0);
+          K.bits64[1] = KBuff[k].i64[1];
+          K.bits64[0] = KBuff[k].i64[0];
+          checkSum.Add(&K);
+        }
+
+        nbKangaroo -= nbK;
+
+      }
+
+      free(KBuff);
+      ::fclose(f);
+
+      K.SetInt32(0);
+      GET("checksum",p->clientSock,K.bits64,32,ntimeout);
+
+      if(!K.IsEqual(&checkSum)) {
+        ::printf("\nWarning, Kangaroo backup wrong checksum %s\n",fileName);
+      }
+
     } break;
 
     case SERVER_STATUS: {
@@ -306,6 +484,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       PUT("Status",p->clientSock,&state,sizeof(int32_t),ntimeout);
 
     } break;
+
+    // ----------------------------------------------------------------------------------------
 
     case SERVER_SENDDP: {
 
@@ -316,18 +496,14 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       if(head.header != SERVER_HEADER) {
 
         ::printf("\nUnexpected DP header from %s\n",p->clientInfo);
-        ::printf("\nClosing connection with %s\n",p->clientInfo);
-        close_socket(p->clientSock);
-        return false;
+        CLIENT_ABORT();
 
       }
 
       if(head.nbDP == 0) {
 
         ::printf("\nUnexpected number of DP [%d] from %s\n",head.nbDP,p->clientInfo);
-        ::printf("\nClosing connection with %s\n",p->clientInfo);
-        close_socket(p->clientSock);
-        return false;
+        CLIENT_ABORT();
 
       } else {
 
@@ -342,10 +518,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
           ::printf("\nUnexpected DP size from %s [nbDP=%d,Got %d,Expected %d]\n",
             p->clientInfo,head.nbDP,nbRead,(int)(sizeof(DP)* head.nbDP));
-          ::printf("\nClosing connection with %s\n",p->clientInfo);
           free(dp);
-          close_socket(p->clientSock);
-          return false;
+          CLIENT_ABORT();
 
         } else {
 
@@ -358,10 +532,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
             if(h >= HASH_SIZE) {
               ::printf("\nInvalid data from: %s [dp=%d PID=%u thId=%u gpuId=%u]\n",p->clientInfo,i,
                                                             head.processId,head.threadId,head.gpuId);
-              ::printf("\nClosing connection with %s\n",p->clientInfo);
               free(dp);
-              close_socket(p->clientSock);
-              return false;
+              CLIENT_ABORT();
             }
 
             Int dist;
@@ -385,10 +557,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
               //::printf("X=%s\n",P.x.GetBase16().c_str());
               //::printf("X=%08X%08X%08X%08X\n",dp[i].x.i32[3],dp[i].x.i32[2],dp[i].x.i32[1],dp[i].x.i32[0]);
               //::printf("D=%08X%08X%08X%08X\n",dp[i].d.i32[3],dp[i].d.i32[2],dp[i].d.i32[1],dp[i].d.i32[0]);
-              ::printf("\nClosing connection with %s\n",p->clientInfo);
               free(dp);
-              close_socket(p->clientSock);
-              return false;
+              CLIENT_ABORT();
             }
 
           }
@@ -408,9 +578,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     } break;
 
     default:
-      ::printf("\nUnexpected command [%d] from %s, closing connection\n",cmdBuff,p->clientInfo);
-      close_socket(p->clientSock);
-      return false;
+      ::printf("\nUnexpected command [%d] from %s\n",cmdBuff,p->clientInfo);
+      CLIENT_ABORT();
 
     }
 
@@ -515,8 +684,6 @@ void Kangaroo::RunServer() {
     ::printf("Error: Invalid DPHEADER size struct\n");
     exit(-1);
   }
-
-  
 
   if(saveKangaroo) {
     ::printf("Waring: Server does not support -ws, ignoring\n");
@@ -767,6 +934,157 @@ void Kangaroo::WaitForServer() {
 
 }
 
+// Get Kangaroo from server
+bool Kangaroo::GetKangaroosFromServer(std::string& fileName,std::vector<int128_t>& kangs) {
+
+  int nbRead;
+  int nbWrite;
+  uint32_t fileNameSize = (uint32_t)fileName.length();
+  uint64_t nbKangaroo = 0;
+  uint32_t nbK;
+  int128_t* KBuff;
+  Int checkSum;
+
+  WaitForServer();
+
+  if(!endOfSearch) {
+
+    char cmd = SERVER_LOADKANG;
+
+    PUT("CMD",serverConn,&cmd,1,ntimeout);
+    PUT("fileNameLenght",serverConn,&fileNameSize,sizeof(uint32_t),ntimeout);
+    PUT("fileName",serverConn,fileName.c_str(),fileNameSize,ntimeout);
+    GET("nbKangaroo",serverConn,&nbKangaroo,sizeof(uint64_t),ntimeout);
+
+    if(nbKangaroo==0) {
+      return true;
+    }
+
+    uint64_t point = (nbKangaroo / KANG_PER_BLOCK) / 32;
+    uint64_t pointPrint = 0;
+
+    KBuff = (int128_t*)malloc(KANG_PER_BLOCK * sizeof(int128_t));
+    kangs.reserve(nbKangaroo);
+
+    checkSum.SetInt32(0);
+    while(nbKangaroo > 0) {
+
+      pointPrint++;
+      if(pointPrint > point) {
+        ::printf(".");
+        pointPrint = 0;
+      }
+
+      if(nbKangaroo > KANG_PER_BLOCK) {
+        nbK = KANG_PER_BLOCK;
+      } else {
+        nbK = (uint32_t)nbKangaroo;
+      }
+
+      GETFREE("packet",serverConn,KBuff,nbK * 16,ntimeout,KBuff);
+
+      for(uint32_t k = 0; k < nbK; k++) {
+        kangs.push_back(KBuff[k]);
+        // Checksum
+        Int K;
+        K.SetInt32(0);
+        K.bits64[1] = KBuff[k].i64[1];
+        K.bits64[0] = KBuff[k].i64[0];
+        checkSum.Add(&K);
+      }
+
+      nbKangaroo -= nbK;
+
+    }
+
+    free(KBuff);
+
+    Int K;
+    K.SetInt32(0);
+    GET("checksum",serverConn,K.bits64,32,ntimeout);
+
+    if(!K.IsEqual(&checkSum)) {
+      ::printf("\nWarning, Kangaroo backup wrong checksum %s\n",fileName.c_str());
+    }
+
+  }
+
+  return true;
+
+
+}
+
+// Send Kangaroo to Server
+bool Kangaroo::SendKangaroosToServer(std::string& fileName,std::vector<int128_t>& kangs) {
+
+  int nbWrite;
+  uint32_t fileNameSize = (uint32_t)fileName.length();
+  uint64_t nbKangaroo = kangs.size();
+  uint64_t pos;
+  uint32_t nbK;
+  int128_t *KBuff;
+  Int checkSum;
+
+  WaitForServer();
+
+  uint64_t point = (nbKangaroo/KANG_PER_BLOCK) / 16;
+  uint64_t pointPrint = 0;
+
+  if(!endOfSearch) {
+
+    char cmd = SERVER_SAVEKANG;
+
+    PUT("CMD",serverConn,&cmd,1,ntimeout);
+    PUT("fileNameLenght",serverConn,&fileNameSize,sizeof(uint32_t),ntimeout);
+    PUT("fileName",serverConn,fileName.c_str(),fileNameSize,ntimeout);
+    PUT("nbKangaroo",serverConn,&nbKangaroo,sizeof(uint64_t),ntimeout);
+
+    KBuff = (int128_t*)malloc(KANG_PER_BLOCK * sizeof(int128_t));
+
+    checkSum.SetInt32(0);
+    pos = 0;
+    while(nbKangaroo > 0) {
+
+      pointPrint++;
+      if(pointPrint > point) {
+        ::printf(".");
+        pointPrint = 0;
+      }
+
+      if(nbKangaroo> KANG_PER_BLOCK) {
+        nbK = KANG_PER_BLOCK;
+      } else {
+        nbK = (uint32_t)nbKangaroo;
+      }
+
+      for(uint32_t k = 0; k < nbK; k++) {
+        memcpy(&KBuff[k],&kangs[pos],16);
+        pos++;
+        // Checksum
+        Int K;
+        K.SetInt32(0);
+        K.bits64[1] = KBuff[k].i64[1];
+        K.bits64[0] = KBuff[k].i64[0];
+        checkSum.Add(&K);
+      }
+
+      PUTFREE("packet",serverConn,KBuff,nbK * 16,ntimeout,KBuff);
+
+      nbKangaroo -= nbK;
+
+    }
+
+    free(KBuff);
+
+    PUT("checksum",serverConn,checkSum.bits64,32,ntimeout);
+
+  }
+
+  return true;
+
+
+}
+
 // Send DP to Server
 bool Kangaroo::SendToServer(std::vector<ITEM> &dps,uint32_t threadId,uint32_t gpuId) {
 
@@ -869,7 +1187,7 @@ bool Kangaroo::GetConfigFromServer() {
 
   if(version<3) {
     isConnected = false;
-    closesocket(serverConn);
+    close_socket(serverConn);
     ::printf("Cannot connect to server: %s\nServer version must be >= 3\n",serverIp.c_str());
     return false;
   }

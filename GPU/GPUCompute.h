@@ -30,7 +30,9 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
   uint64_t px[GPU_GRP_SIZE][4];
   uint64_t py[GPU_GRP_SIZE][4];
   uint64_t dist[GPU_GRP_SIZE][4];
+#ifdef USE_SYMMETRY
   uint64_t lastJump[GPU_GRP_SIZE];
+#endif
 
   uint64_t dx[GPU_GRP_SIZE][4];
   uint64_t dy[4];
@@ -41,13 +43,19 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
   uint64_t jmp;
 
   __syncthreads();
+
+#ifdef USE_SYMMETRY
   LoadKangaroos(kangaroos,px,py,dist,lastJump);
+#else
+  LoadKangaroos(kangaroos,px,py,dist);
+#endif
 
   for(int run = 0; run < NB_RUN; run++) {
 
-    __syncthreads();
     // P1 = jumpPoint
     // P2 = kangaroo
+
+    __syncthreads();
 
     for(int g = 0; g < GPU_GRP_SIZE; g++) {
       jmp = px[g][0] % NB_JUMP;
@@ -109,6 +117,10 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
   }
 
   __syncthreads();
+#ifdef USE_SYMMETRY
   StoreKangaroos(kangaroos,px,py,dist,lastJump);
+#else
+  StoreKangaroos(kangaroos,px,py,dist);
+#endif
 
 }
