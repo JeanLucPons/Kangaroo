@@ -971,7 +971,10 @@ bool Kangaroo::GetKangaroosFromServer(std::string& fileName,std::vector<int128_t
     PUT("fileNameLenght",serverConn,&fileNameSize,sizeof(uint32_t),ntimeout);
     PUT("fileName",serverConn,fileName.c_str(),fileNameSize,ntimeout);
     GET("nbKangaroo",serverConn,&nbKangaroo,sizeof(uint64_t),ntimeout);
-
+    if(nbRead==0) {
+      ::printf("\nFailed to get %s from server\n",fileName.c_str());
+      return false;
+    }
     if(nbKangaroo==0) {
       return true;
     }
