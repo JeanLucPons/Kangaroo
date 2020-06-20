@@ -302,6 +302,8 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
     nbLoadedWalk = kangs.size();
   }
 
+  ::printf("Restoring");
+
   // Fetch input kangaroo from file (if any)
   if(nbLoadedWalk>0) {
 
@@ -321,26 +323,26 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
 
 #ifdef WITHGPU
     for(int i = 0; i < nbGPUThread; i++) {
+      ::printf(".");
       int id = nbCPUThread + i;
       uint64_t n = threads[id].nbKangaroo;
       threads[id].px = new Int[n];
       threads[id].py = new Int[n];
       threads[id].distance = new Int[n];
-      uint64_t nbGrp = n / GPU_GRP_SIZE;
-      for(uint64_t g = 0; g < nbGrp; g++) {
-        if(!saveKangarooByServer)
-          FetchWalks(GPU_GRP_SIZE,
-            &(threads[id].px[g * GPU_GRP_SIZE]),
-            &(threads[id].py[g * GPU_GRP_SIZE]),
-            &(threads[id].distance[g * GPU_GRP_SIZE]));
-        else
-          FetchWalks(GPU_GRP_SIZE,kangs,
-            &(threads[id].px[g * GPU_GRP_SIZE]),
-            &(threads[id].py[g * GPU_GRP_SIZE]),
-            &(threads[id].distance[g * GPU_GRP_SIZE]));
-      }
+      if(!saveKangarooByServer)
+          FetchWalks(n,
+            threads[id].px,
+            threads[id].py,
+            threads[id].distance);
+      else
+          FetchWalks(n,kangs,
+            threads[id].px,
+            threads[id].py,
+            threads[id].distance);
     }
 #endif
+
+    ::printf("Done\n");
 
     double eFetch = Timer::get_tick();
 
