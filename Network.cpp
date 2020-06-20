@@ -358,7 +358,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
         ::printf("%s\n",::strerror(errno));
         PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
         ::fclose(f);
-        break;
+        CLIENT_ABORT();
       }
 
       if(header!=HEADKS) {
@@ -366,7 +366,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
         ::printf("%s\n",::strerror(errno));
         PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
         ::fclose(f);
-        break;
+        CLIENT_ABORT();
       }
 
       ::fread(&version,sizeof(uint32_t),1,f);
@@ -435,7 +435,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       GET("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
 
       strcpy(fileNameTmp,fileName);
-      strcat(fileName,".tmp");
+      strcat(fileNameTmp,".tmp");
 
       FILE* f = fopen(fileNameTmp,"wb");
       if(f == NULL) {
