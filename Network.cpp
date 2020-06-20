@@ -539,7 +539,7 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
 
         } else {
 
-#define VALIDITY_POINT_CHECK
+//#define VALIDITY_POINT_CHECK
 #ifdef VALIDITY_POINT_CHECK
           // Check validity
           for(uint32_t i=0;i< head.nbDP;i++) {

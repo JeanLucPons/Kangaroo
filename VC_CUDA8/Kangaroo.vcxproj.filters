@@ -24,9 +24,6 @@
     <ClCompile Include="..\SECPK1\SECP256K1.cpp">
       <Filter>SECPK1</Filter>
     </ClCompile>
-    <ClCompile Include="..\GPU\GPUGenerate.cpp">
-      <Filter>GPU</Filter>
-    </ClCompile>
     <ClCompile Include="..\Check.cpp" />
     <ClCompile Include="..\Backup.cpp" />
     <ClCompile Include="..\Network.cpp" />
