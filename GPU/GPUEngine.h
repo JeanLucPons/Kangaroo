@@ -23,12 +23,12 @@
 #include "../SECPK1/SECP256k1.h"
 
 #ifdef USE_SYMMETRY
-#define KSIZE 16
+#define KSIZE 11
 #else
-#define KSIZE 12
+#define KSIZE 10
 #endif
 
-#define ITEM_SIZE   72
+#define ITEM_SIZE   56
 #define ITEM_SIZE32 (ITEM_SIZE/4)
 
 typedef struct {
@@ -48,10 +48,10 @@ public:
   void GetKangaroos(Int *px,Int *py,Int *d);
   void SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d);
   bool Launch(std::vector<ITEM> &hashFound,bool spinWait = false);
+  void SetWildOffset(Int *offset);
   int GetNbThread();
   int GetGroupSize();
   int GetMemory();
-  static void GenerateCode(Secp256K1 *secp);
   bool callKernelAndWait();
   bool callKernel();
 
@@ -64,7 +64,7 @@ public:
 
 private:
 
-
+  Int wildOffset;
   int nbThread;
   int nbThreadPerGroup;
   uint64_t *inputKangaroo;

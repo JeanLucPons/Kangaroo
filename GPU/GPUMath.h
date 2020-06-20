@@ -118,6 +118,12 @@ __device__ __constant__ uint64_t _O[] = { 0xBFD25E8CD0364141ULL,0xBAAEDCE6AF48A0
 
 // ---------------------------------------------------------------------------------------
 
+#define Add128(r,a) { \
+  UADDO1((r)[0], (a)[0]); \
+  UADD1((r)[1], (a)[1]);}
+
+// ---------------------------------------------------------------------------------------
+
 #define Neg(r) Sub2(r, _0, r)
 
 // ---------------------------------------------------------------------------------------
@@ -177,20 +183,16 @@ out[pos*ITEM_SIZE32 + 9] = ((uint32_t *)d)[0]; \
 out[pos*ITEM_SIZE32 + 10] = ((uint32_t *)d)[1]; \
 out[pos*ITEM_SIZE32 + 11] = ((uint32_t *)d)[2]; \
 out[pos*ITEM_SIZE32 + 12] = ((uint32_t *)d)[3]; \
-out[pos*ITEM_SIZE32 + 13] = ((uint32_t *)d)[4]; \
-out[pos*ITEM_SIZE32 + 14] = ((uint32_t *)d)[5]; \
-out[pos*ITEM_SIZE32 + 15] = ((uint32_t *)d)[6]; \
-out[pos*ITEM_SIZE32 + 16] = ((uint32_t *)d)[7]; \
-out[pos*ITEM_SIZE32 + 17] = ((uint32_t *)idx)[0]; \
-out[pos*ITEM_SIZE32 + 18] = ((uint32_t *)idx)[1]; \
+out[pos*ITEM_SIZE32 + 13] = ((uint32_t *)idx)[0]; \
+out[pos*ITEM_SIZE32 + 14] = ((uint32_t *)idx)[1]; \
 }
 
 // ---------------------------------------------------------------------------------------
 
 #ifdef USE_SYMMETRY
-__device__ void LoadKangaroos(uint64_t *a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][4],uint64_t *jumps) {
+__device__ void LoadKangaroos(uint64_t *a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][2],uint64_t *jumps) {
 #else
-__device__ void LoadKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][4]) {
+__device__ void LoadKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][2]) {
 #endif
 
   for(int g = 0; g<GPU_GRP_SIZE; g++) {
@@ -212,11 +214,9 @@ __device__ void LoadKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t
 
     d64[0] = (a)[IDX + 8 * blockDim.x + stride];
     d64[1] = (a)[IDX + 9 * blockDim.x + stride];
-    d64[2] = (a)[IDX + 10 * blockDim.x + stride];
-    d64[3] = (a)[IDX + 11 * blockDim.x + stride];
 
 #ifdef USE_SYMMETRY
-    jumps[g] = (a)[IDX + 12 * blockDim.x + stride];
+    jumps[g] = (a)[IDX + 10 * blockDim.x + stride];
 #endif
   }
 
@@ -225,9 +225,9 @@ __device__ void LoadKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t
 // ---------------------------------------------------------------------------------------
 
 #ifdef USE_SYMMETRY
-__device__ void StoreKangaroos(uint64_t *a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][4],uint64_t *jumps) {
+__device__ void StoreKangaroos(uint64_t *a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][2],uint64_t *jumps) {
 #else
-__device__ void StoreKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][4]) {
+__device__ void StoreKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][2]) {
 #endif
 
   for(int g = 0; g < GPU_GRP_SIZE; g++) {
@@ -248,11 +248,9 @@ __device__ void StoreKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_
 
     (a)[IDX + 8 * blockDim.x + stride] = d64[0];
     (a)[IDX + 9 * blockDim.x + stride] = d64[1];
-    (a)[IDX + 10 * blockDim.x + stride] = d64[2];
-    (a)[IDX + 11 * blockDim.x + stride] = d64[3];
 
 #ifdef USE_SYMMETRY
-    (a)[IDX + 12 * blockDim.x + stride] = jumps[g];
+    (a)[IDX + 10 * blockDim.x + stride] = jumps[g];
 #endif
   }
 
@@ -359,17 +357,42 @@ __device__ void ModNeg256Order(uint64_t *r) {
 __device__ void ModSub256(uint64_t *r,uint64_t *a,uint64_t *b) {
 
   uint64_t t;
+  uint64_t T[4];
   USUBO(r[0],a[0],b[0]);
   USUBC(r[1],a[1],b[1]);
   USUBC(r[2],a[2],b[2]);
   USUBC(r[3],a[3],b[3]);
   USUB(t,0ULL,0ULL);
-  if((int64_t)t < 0) {
-    UADDO1(r[0],_P[0]);
-    UADDC1(r[1],_P[1]);
-    UADDC1(r[2],_P[2]);
-    UADD1(r[3],_P[3]);
-  }
+  T[0] = _P[0] & t;
+  T[1] = _P[1] & t;
+  T[2] = _P[2] & t;
+  T[3] = _P[3] & t;
+  UADDO1(r[0],T[0]);
+  UADDC1(r[1],T[1]);
+  UADDC1(r[2],T[2]);
+  UADD1(r[3],T[3]);
+
+}
+
+// ---------------------------------------------------------------------------------------
+
+__device__ void ModSub256(uint64_t* r,uint64_t* b) {
+
+  uint64_t t;
+  uint64_t T[4];
+  USUBO(r[0],r[0],b[0]);
+  USUBC(r[1],r[1],b[1]);
+  USUBC(r[2],r[2],b[2]);
+  USUBC(r[3],r[3],b[3]);
+  USUB(t,0ULL,0ULL);
+  T[0] = _P[0] & t;
+  T[1] = _P[1] & t;
+  T[2] = _P[2] & t;
+  T[3] = _P[3] & t;
+  UADDO1(r[0],T[0]);
+  UADDC1(r[1],T[1]);
+  UADDC1(r[2],T[2]);
+  UADD1(r[3],T[3]);
 
 }
 
@@ -431,25 +454,6 @@ __device__ void ModAdd256(uint64_t *r,uint64_t *a,uint64_t *b) {
   USUB(c,t[4],0ULL);
   if((int64_t)c < 0) {
     Load256(r,t);
-  }
-
-}
-
-// ---------------------------------------------------------------------------------------
-
-__device__ void ModSub256(uint64_t *r,uint64_t *b) {
-
-  uint64_t t;
-  USUBO(r[0],r[0],b[0]);
-  USUBC(r[1],r[1],b[1]);
-  USUBC(r[2],r[2],b[2]);
-  USUBC(r[3],r[3],b[3]);
-  USUB(t,0ULL,0ULL);
-  if((int64_t)t < 0) {
-    UADDO1(r[0],_P[0]);
-    UADDC1(r[1],_P[1]);
-    UADDC1(r[2],_P[2]);
-    UADD1(r[3],_P[3]);
   }
 
 }

@@ -18,7 +18,7 @@
 // CUDA Kernel main function
 
 // Jump distance
-__device__ __constant__ uint64_t jD[NB_JUMP][4];
+__device__ __constant__ uint64_t jD[NB_JUMP][2];
 // jump points
 __device__ __constant__ uint64_t jPx[NB_JUMP][4];
 __device__ __constant__ uint64_t jPy[NB_JUMP][4];
@@ -29,7 +29,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
 
   uint64_t px[GPU_GRP_SIZE][4];
   uint64_t py[GPU_GRP_SIZE][4];
-  uint64_t dist[GPU_GRP_SIZE][4];
+  uint64_t dist[GPU_GRP_SIZE][2];
 #ifdef USE_SYMMETRY
   uint64_t lastJump[GPU_GRP_SIZE];
 #endif
@@ -70,9 +70,9 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
 
     _ModInvGrouped(dx);
 
-    for(int g = 0; g < GPU_GRP_SIZE; g++) {
+    __syncthreads();
 
-      __syncthreads();
+    for(int g = 0; g < GPU_GRP_SIZE; g++) {
 
 #ifdef USE_SYMMETRY
       jmp = lastJump[g];
@@ -94,7 +94,7 @@ __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t 
       Load256(px[g],rx);
       Load256(py[g],ry);
 
-      ModAdd256Order(dist[g],jD[jmp]);
+      Add128(dist[g],jD[jmp]);
 
 #ifdef USE_SYMMETRY
       if(ModPositive256(py[g]))
