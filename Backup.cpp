@@ -296,7 +296,8 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
   vector<int128_t> kangs;
   if(saveKangarooByServer) {
     ::printf("FectchKangaroosFromServer");
-    GetKangaroosFromServer(workFile,kangs);
+    if(!GetKangaroosFromServer(workFile,kangs))
+      ::exit(0);
     ::printf("Done\n");
     nbLoadedWalk = kangs.size();
   }

@@ -1023,6 +1023,7 @@ bool Kangaroo::GetKangaroosFromServer(std::string& fileName,std::vector<int128_t
 
     if(!K.IsEqual(&checkSum)) {
       ::printf("\nWarning, Kangaroo backup wrong checksum %s\n",fileName.c_str());
+      return false;
     }
 
   }
