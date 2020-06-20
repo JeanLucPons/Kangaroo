@@ -339,7 +339,7 @@ void GPUEngine::SetKangaroos(Int *px,Int *py,Int *d) {
         // Distance
         Int dOff;
         dOff.Set(&d[idx]);
-        dOff.ModAddK1order(&wildOffset);
+        if(idx % 2 == WILD) dOff.ModAddK1order(&wildOffset);
         inputKangarooPinned[g * strideSize + t + 8 * nbThreadPerGroup] = dOff.bits64[0];
         inputKangarooPinned[g * strideSize + t + 9 * nbThreadPerGroup] = dOff.bits64[1];
 
@@ -407,7 +407,7 @@ void GPUEngine::GetKangaroos(Int *px,Int *py,Int *d) {
         dOff.SetInt32(0);
         dOff.bits64[0] = inputKangarooPinned[g * strideSize + t + 8 * nbThreadPerGroup];
         dOff.bits64[1] = inputKangarooPinned[g * strideSize + t + 9 * nbThreadPerGroup];
-        dOff.ModAddK1order(&wildOffset);
+        if(idx % 2 == WILD) dOff.ModSubK1order(&wildOffset);
         d[idx].Set(&dOff);
 
         idx++;
@@ -456,7 +456,7 @@ void GPUEngine::SetKangaroo(uint64_t kIdx,Int *px,Int *py,Int *d) {
   // D
   Int dOff;
   dOff.Set(d);
-  dOff.ModAddK1order(&wildOffset);
+  if(kIdx % 2 == WILD) dOff.ModAddK1order(&wildOffset);
   inputKangarooPinned[0] = dOff.bits64[0];
   cudaMemcpy(inputKangaroo + (b * blockSize + g * strideSize + t + 8 * nbThreadPerGroup),inputKangarooPinned,8,cudaMemcpyHostToDevice);
   inputKangarooPinned[0] = dOff.bits64[1];
@@ -587,6 +587,8 @@ bool GPUEngine::Launch(std::vector<ITEM> &hashFound,bool spinWait) {
     uint32_t *itemPtr = outputItemPinned + (i*ITEM_SIZE32 + 1);
     ITEM it;
 
+    it.kIdx = *((uint64_t*)(itemPtr + 12));
+
     uint64_t *x = (uint64_t *)itemPtr;
     it.x.bits64[0] = x[0];
     it.x.bits64[1] = x[1];
@@ -600,9 +602,7 @@ bool GPUEngine::Launch(std::vector<ITEM> &hashFound,bool spinWait) {
     it.d.bits64[2] = 0;
     it.d.bits64[3] = 0;
     it.d.bits64[4] = 0;
-    it.d.ModSubK1order(&wildOffset);
-
-    it.kIdx = *((uint64_t *)(itemPtr+12));
+    if(it.kIdx % 2 == WILD) it.d.ModSubK1order(&wildOffset);
 
     hashFound.push_back(it);
   }
