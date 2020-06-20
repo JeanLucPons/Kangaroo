@@ -354,9 +354,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       }
 
       if(::fread(&header,sizeof(uint32_t),1,f) != 1) {
-        ::printf("LoadKang: Cannot open %s for reading\n",fileName);
+        ::printf("LoadKang: Cannot read from %s\n",fileName);
         ::printf("%s\n",::strerror(errno));
-        PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
         ::fclose(f);
         CLIENT_ABORT();
       }
@@ -364,7 +363,6 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
       if(header!=HEADKS) {
         ::printf("LoadKang: %s Not a compressed kangaroo file\n",fileName);
         ::printf("%s\n",::strerror(errno));
-        PUT("nbKangaroo",p->clientSock,&nbKangaroo,sizeof(uint64_t),ntimeout);
         ::fclose(f);
         CLIENT_ABORT();
       }
