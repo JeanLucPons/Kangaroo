@@ -973,7 +973,6 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
   InitRange();
   CreateJumpTable();
 
-
   ::printf("Number of kangaroos: 2^%.2f\n",log2((double)totalRW));
 
   if( !clientMode ) {
@@ -981,6 +980,7 @@ void Kangaroo::Run(int nbThread,std::vector<int> gpuId,std::vector<int> gridSize
     // Compute suggested distinguished bits number for less than 5% overhead (see README)
     double dpOverHead;
     int suggestedDP = (int)((double)rangePower / 2.0 - log2((double)totalRW));
+    if(suggestedDP<0) suggestedDP=0;
     ComputeExpected((double)suggestedDP,&expectedNbOp,&expectedMem,&dpOverHead);
     while(dpOverHead>1.05 && suggestedDP>0) {
       suggestedDP--;

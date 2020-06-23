@@ -325,6 +325,7 @@ int HashTable::compare(int128_t *i1,int128_t *i2) {
 
 std::string HashTable::GetSizeInfo() {
 
+  char *unit;
   uint64_t totalByte = sizeof(E);
   uint64_t usedByte = HASH_SIZE*2*sizeof(uint32_t);
 
@@ -334,11 +335,22 @@ std::string HashTable::GetSizeInfo() {
     usedByte += sizeof(ENTRY) * E[h].nbItem;
   }
 
+  unit = "MB";
   double totalMB = (double)totalByte / (1024.0*1024.0);
   double usedMB = (double)usedByte / (1024.0*1024.0);
+  if(totalMB > 1024) {
+    totalMB /= 1024;
+    usedMB /= 1024;
+    unit = "GB";
+  }
+  if(totalMB > 1024) {
+    totalMB /= 1024;
+    usedMB /= 1024;
+    unit = "TB";
+  }
 
   char ret[256];
-  sprintf(ret,"%.1f/%.1fMB",usedMB,totalMB);
+  sprintf(ret,"%.1f/%.1f%s",usedMB,totalMB,unit);
 
   return std::string(ret);
 

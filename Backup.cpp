@@ -302,10 +302,11 @@ void Kangaroo::FectchKangaroos(TH_PARAM *threads) {
     nbLoadedWalk = kangs.size();
   }
 
-  ::printf("Restoring");
 
   // Fetch input kangaroo from file (if any)
   if(nbLoadedWalk>0) {
+
+    ::printf("Restoring");
 
     uint64_t nbSaved = nbLoadedWalk;
     uint64_t created = 0;

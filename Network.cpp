@@ -285,6 +285,8 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     // Wait for command (1h timeout)
     nbRead = Read(p->clientSock,(char *)(&cmdBuff),1,(int)(CLIENT_TIMEOUT*1000.0));
     if(nbRead<=0) {
+      if(!endOfSearch)
+        ::printf("\nIDLE client timeout (%d s)",CLIENT_TIMEOUT);
       CLIENT_ABORT();
     }
 
@@ -896,6 +898,30 @@ void Kangaroo::WaitForServer() {
       Timer::SleepMillis(1000);
       // Try to reconnect
       isConnected = ConnectToServer(&serverConn);
+
+      if( isConnected ) {
+
+        // Resend kangaroo number
+        char cmd = SERVER_SETKNB;
+        nbWrite = Write(serverConn,&cmd,1,ntimeout);
+        if(nbWrite <= 0) {
+          if(nbWrite < 0)
+            ::printf("\nSendToServer(SetKNb): %s\n",lastError.c_str());
+          serverStatus = "Not OK";
+          close_socket(serverConn);
+          isConnected = false;
+        }
+        nbWrite = Write(serverConn,(char *)&totalRW,sizeof(uint64_t),ntimeout);
+        if(nbWrite <= 0) {
+          if(nbWrite < 0)
+            ::printf("\nSendToServer(SetKNb): %s\n",lastError.c_str());
+          serverStatus = "Not OK";
+          close_socket(serverConn);
+          isConnected = false;
+        }
+
+      }
+
     }
 
     // Wait for ready

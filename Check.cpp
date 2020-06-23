@@ -466,7 +466,17 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
   if(useGpu) {
 
     rangePower = 64;
+    rangeStart.SetBase16("5B3F38AF935A3640D158E871CE6E9666DB862636383386EE0000000000000000");
+    rangeEnd.SetBase16("5B3F38AF935A3640D158E871CE6E9666DB862636383386EEFFFFFFFFFFFFFFFF");
+    Int k1;
+    k1.SetBase16("5B3F38AF935A3640D158E871CE6E9666DB862636383386EE0000000000123000");
+    Point P = secp->ComputePublicKey(&k1);
     CreateJumpTable();
+    keysToSearch.clear();
+    keysToSearch.push_back(P);
+    keyIdx = 0;
+    InitRange();
+    InitSearchKey();
 
     ::printf("GPU allocate memory:");
     int x = gridSize[0];
@@ -501,7 +511,7 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
     CreateJumpTable();
 
     h.SetParams(dMask,jumpDistance,jumpPointx,jumpPointy);
-
+    h.SetWildOffset(&rangeWidthDiv2);
     h.SetKangaroos(cpuPx,cpuPy,cpuD);
 
     // Test single
