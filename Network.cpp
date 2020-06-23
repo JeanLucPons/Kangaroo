@@ -285,8 +285,6 @@ bool Kangaroo::HandleRequest(TH_PARAM *p) {
     // Wait for command (1h timeout)
     nbRead = Read(p->clientSock,(char *)(&cmdBuff),1,(int)(CLIENT_TIMEOUT*1000.0));
     if(nbRead<=0) {
-      if(!endOfSearch)
-        ::printf("\nIDLE client timeout (%d s)",CLIENT_TIMEOUT);
       CLIENT_ABORT();
     }
 
