@@ -1,9 +1,23 @@
 # Pollard's kangaroo for SECPK1
 
-A simple Pollard's kangaroo interval ECDLP solver for SECP256K1.\
+A Pollard's kangaroo interval ECDLP solver for SECP256K1 (based on VanitySearch engine).
+
+# Feature
+
+<ul>
+  <li>Fixed size arithmetic</li>
+  <li>Fast Modular Inversion (Delayed Right Shift 62 bits)</li>
+  <li>SecpK1 Fast modular multiplication (2 steps folding 512bits to 256bits using 64 bits digits)</li>
+  <li>Multi-GPU support</li>
+  <li>CUDA optimisation via inline PTX assembly</li>
+</ul>
+
+# Discussion Thread
+
 Discusion thread: https://bitcointalk.org/index.php?topic=5244940.0
 
-Usage:
+# Usage
+
 ```
 Kangaroo v2.1
 Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
