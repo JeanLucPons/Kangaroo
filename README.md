@@ -5,7 +5,7 @@ Discusion thread: https://bitcointalk.org/index.php?topic=5244940.0
 
 Usage:
 ```
-Kangaroo v1.9
+Kangaroo v2.1
 Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
          [-gpuId gpuId1[,gpuId2,...]] [-g g1x,g1y[,g2x,g2y,...]]
          inFile
@@ -19,11 +19,14 @@ Kangaroo [-v] [-t nbThread] [-d dpBit] [gpu] [-check]
  -i workfile: Specify file to load work from (current processed key only)
  -wi workInterval: Periodic interval (in seconds) for saving work
  -ws: Save kangaroos in the work file
+ -wss: Save kangaroos via the server
  -wsplit: Split work file of server and reset hashtable
  -wm file1 file2 destfile: Merge work file
  -wmdir dir destfile: Merge directory of work files
  -wt timeout: Save work timeout in millisec (default is 3000ms)
  -winfo file1: Work file info file
+ -wpartcreate name: Create empty partitioned work file (name is a directory)
+ -wcheck worfile: Check workfile integrity
  -m maxStep: number of operations before give up the search (maxStep*expected operation)
  -s: Start in server mode
  -c server_ip: Start in client mode and connect to server server_ip
@@ -162,6 +165,15 @@ SaveWork: save.work_27May20_063618...............done [48.8 MB] [00s] Wed May 27
 [Client 2][Kang 2^18.61][DP Count 2^19.98/2^23.05][Dead 0][01:41][33.5/66.8MB]
 Key# 0 [1S]Pub:  0x03BB113592002132E6EF387C3AEBC04667670D4CD40B2103C7D0EE4969E9FF56E4
        Priv: 0x5B3F38AF935A3640D158E871CE6E9666DB862636383386EE510F18CCC3BD72EB
+```
+
+Note on -wss option:
+
+The wss option allow to use the server to make kangaroo backups, the client send kangaroo (in compressed format) to the server. When a client restart with -wss option, it tries to download the backup. If the specified file is not found by the server, the client creates new kangaroos. There is no need to use -i option here. Make sure when restarting a new job with a different range or key, that the client does not download an old backup. Make sure that when a backup is downloaded, that no kangaroos are created or not handled by the client. This option is usefull if you cannot rely on client side to handle kangaoo backup.
+
+Send kangaroo to the server every 20 second and, when starting, try to download kang.
+```
+./kangaroo -w kang -wss -wi 20 -c pcjlpons
 ```
 
 # Distributed clients and central server(s)
@@ -319,38 +331,44 @@ Done: Total time 29s
 Puzzle [32BTC](https://www.blockchain.com/btc/tx/08389f34c98c606322740c0be6a7125d9860bb8d5cb182c02f98461e5fa6cd15), every 5 addresses, the public key is exposed and can be attacked with Kangaroo ECDLP solver.
 
 
-Puzzle #80: 79bits private key [2<sup>79</sup>,2<sup>80</sup>-1], [1BCf6rHUW6m3iH2ptsvnjgLruAiPQQepLe](https://www.blockchain.com/btc/address/1BCf6rHUW6m3iH2ptsvnjgLruAiPQQepLe)
+Puzzle #85: 84bits private key [2<sup>84</sup>,2<sup>85</sup>-1], [1Kh22PvXERd2xpTQk3ur6pPEqFeckCJfAr](https://www.blockchain.com/btc/address/1Kh22PvXERd2xpTQk3ur6pPEqFeckCJfAr)
 
 ```
-80000000000000000000
-FFFFFFFFFFFFFFFFFFFF
-037E1238F7B1CE757DF94FAA9A2EB261BF0AEB9F84DBF81212104E78931C2A19DC
+1000000000000000000000
+1FFFFFFFFFFFFFFFFFFFFF
+0329c4574a4fd8c810b7e42a4b398882b381bcd85e40c6883712912d167c83e73a
 ```
 
-On an i7-4770 with a GTX 1050 Ti (GPU only):
+On an Xeon E5-2690 V4 with 4xTesla V100 (GPU only):
 
 ```
-:\C++\Kangaroo\VC_CUDA10>x64\Release\Kangaroo.exe -d 17 -t 0 -gpu in79.txt
-Kangaroo v1.4
-Start:80000000000000000000
-Stop :FFFFFFFFFFFFFFFFFFFF
+Kangaroo v2.1
+Start:1000000000000000000000
+Stop :1FFFFFFFFFFFFFFFFFFFFF
 Keys :1
 Number of CPU thread: 0
-Range width: 2^79
-Jump Avg distance: 2^38.96
-Number of kangaroos: 2^18.58
-Suggested DP: 20
-Expected operations: 2^40.60
-Expected RAM: 496.9MB
-DP size: 17 [0xFFFF800000000000]
-GPU: GPU #0 GeForce GTX 1050 Ti (6x128 cores) Grid(12x256) (45.0 MB used)
+Range width: 2^84
+Jump Avg distance: 2^42.03
+Number of kangaroos: 2^23.32
+Suggested DP: 16
+Expected operations: 2^43.12
+Expected RAM: 6347.6MB
+DP size: 16 [0xFFFF000000000000]
+GPU: GPU #1 Tesla V100-PCIE-16GB (80x64 cores) Grid(160x128) (207.0 MB used)
+SolveKeyGPU Thread GPU#1: creating kangaroos...
+GPU: GPU #2 Tesla V100-PCIE-16GB (80x64 cores) Grid(160x128) (207.0 MB used)
+SolveKeyGPU Thread GPU#2: creating kangaroos...
+GPU: GPU #0 Tesla V100-PCIE-16GB (80x64 cores) Grid(160x128) (207.0 MB used)
 SolveKeyGPU Thread GPU#0: creating kangaroos...
-SolveKeyGPU Thread GPU#0: 2^18.58 kangaroos [2.0s]
-[159.53 MK/s][GPU 159.53 MK/s][Count 2^39.82][Dead 0][01:55:44 (Avg 02:54:02)][228.4/292.0MB]
-Key# 0 [1S]Pub:  0x037E1238F7B1CE757DF94FAA9A2EB261BF0AEB9F84DBF81212104E78931C2A19DC
-       Priv: 0xEA1A5C66DCC11B5AD180
-
-Done: Total time 01:55:48
+GPU: GPU #3 Tesla V100-PCIE-16GB (80x64 cores) Grid(160x128) (207.0 MB used)
+SolveKeyGPU Thread GPU#3: creating kangaroos...
+SolveKeyGPU Thread GPU#1: 2^21.32 kangaroos [12.3s]
+SolveKeyGPU Thread GPU#2: 2^21.32 kangaroos [12.3s]
+SolveKeyGPU Thread GPU#3: 2^21.32 kangaroos [12.3s]
+SolveKeyGPU Thread GPU#0: 2^21.32 kangaroos [12.4s]
+[7828.45 MK/s][GPU 7828.45 MK/s][Count 2^43.22][Dead 2][24:56 (Avg 20:24)][4.8/6.9GB]
+Key# 0 [1S]Pub:  0x0329C4574A4FD8C810B7E42A4B398882B381BCD85E40C6883712912D167C83E73A
+       Priv: 0x11720C4F018D51B8CEBBA8
 ```
 
 Next puzzles to solve:
@@ -379,7 +397,7 @@ FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 02CEB6CBBCDBDF5EF7150682150F4CE2C6F4807B349827DCDBDD1F2EFA885A2630
 ```
 
-Expected time: 2 months on 256 Tesla V100.
+Expected time: ~2 months on 256 Tesla V100.
 
 [Up to #160](https://raw.githubusercontent.com/JeanLucPons/Kangaroo/master/puzzle32.txt)
 
