@@ -78,7 +78,18 @@ ex
 The distinguished point (DP) method is an efficient method for storing random walks and detect collision between them. Instead of storing all points of all kangagroo's random walks, we store only points that have an x value starting with dpBit zero bits. When 2 kangaroos collide, they will then follow the same path because their jumps are a function of their x values. The collision will be then detected when the 2 kangaroos reach a distinguished point.\
 This has a drawback when you have a lot of kangaroos and looking for collision in a small range as the overhead is in the order of nbKangaroo.2<sup>dpBit</sup> until a collision is detected. If dpBit is too small a large number of point will enter in the central table, will decrease performance and quickly fill the RAM.
 **Powerfull GPUs with large number of cores won't be very efficient on small range, you can try to decrease the grid size in order to have less kangaroos but the GPU performance may not be optimal.**
-Yau can change manualy the DP mask size using the -d option, take in consideration that it will require about nbKangaroo.2<sup>dpBit</sup> more operations to complete.
+Yau can change manualy the DP mask size using the -d option, take in consideration that it will require more operations to complete. See table below:
+
+| nbKangaroo.2<sup>dpBit</sup>/sqrt(N) |  DP Overhead | Avg | 
+|--------------------------------------|:------------:|:---:|
+| 4.000 | cubicroot(1+4.000) = ~71.0% | 3.55 sqrt(N) |
+| 2.000 | cubicroot(1+2.000) = ~44.2% | 2.99 sqrt(N) |
+| 1.000 | cubicroot(1+1.000) = ~26.0% | 2.62 sqrt(N) |
+| 0.500 | cubicroot(1+0.500) = ~14.5% | 2.38 sqrt(N) |
+| 0.250 | cubicroot(1+0.250) = ~7.7% | 2.24 sqrt(N) |
+| 0.125 | cubicroot(1+0.125) = ~4.0% | 2.16 sqrt(N) |
+
+DP overhead according to the range size (N), DP mask size (dpBit) and number of kangaroos running in paralell (nbKangaroo).
 
 # How to deal with work files
 
