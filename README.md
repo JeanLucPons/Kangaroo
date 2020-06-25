@@ -92,7 +92,7 @@ Yau can change manualy the DP mask size using the -d option, take in considerati
 
 DP overhead according to the range size (N), DP mask size (dpBit) and number of kangaroos running in paralell (nbKangaroo).
 
-Note that restarting a client without having a kangaroo backup is like adding more kangaroos, when you merge workfile coming from different kangaroos, it is also like having more kangaroo.
+Note that restarting a client without having a kangaroo backup is like adding more kangaroos, when you merge workfiles coming from different kangaroos, it is also like having more kangaroos.
 
 # How to deal with work files
 
