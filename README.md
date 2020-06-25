@@ -1,7 +1,7 @@
 # Pollard's kangaroo for SECPK1
 
-A Pollard's kangaroo interval ECDLP solver for SECP256K1 (based on VanitySearch engine).
-**This program is limited to a 125bit range search.**
+A Pollard's kangaroo interval ECDLP solver for SECP256K1 (based on VanitySearch engine).\
+**This program is limited to a 125bit interval search.**
 
 # Feature
 
