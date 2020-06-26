@@ -283,6 +283,11 @@ while not found</br>
 (Tame,Wild) = Collision</br>
 k = k1 + Tame.dist - Wild.dist</br>
 
+
+Here is an illustration of what's happening. When 2 paths collide they form a shape similar to the lambda letter. This is why this method is also called lambda method.
+
+![Paths](DOC/paths.jpg)
+
 # Compilation
 
 ## Windows
