@@ -229,6 +229,11 @@ int Kangaroo::Read(SOCKET sock,char *buf,int bufsize,int timeout) { // Timeout i
     return -1;
   }
 
+  if(rd == 0) {
+    lastError = "Connection closed";
+    return -1;
+  }
+
   return total_read;
 
 }
