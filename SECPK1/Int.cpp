@@ -1275,7 +1275,7 @@ void Int::Check() {
 
   // ModInv -------------------------------------------------------------------------------------------
 
-  for (int i = 0; i < 1000 && ok; i++) {
+  for (int i = 0; i < 10000 && ok; i++) {
     a.Rand(BISIZE);
     b = a;
     a.ModInv();
@@ -1287,7 +1287,7 @@ void Int::Check() {
   }
 
   ok = true;
-  for (int i = 0; i < 100 && ok; i++) {
+  for (int i = 0; i < 10000 && ok; i++) {
 
     // Euler a^-1 = a^(p-2) mod p (p is prime)
     Int e(Int::GetFieldCharacteristic());
@@ -1311,14 +1311,16 @@ void Int::Check() {
   }
 
   t0 = Timer::get_tick();
+  a.Rand(BISIZE);
   for (int i = 0; i < 100000; i++) {
-    a.Rand(BISIZE);
+    a.AddOne();
     a.ModInv();
   }
   t1 = Timer::get_tick();
 
   printf("ModInv() Results OK : ");
   Timer::printResult("Inv", 100000, 0, t1 - t0);
+  double movInvCost = (t1-t0);
 
   // IntGroup -----------------------------------------------------------------------------------
 
@@ -1371,10 +1373,12 @@ void Int::Check() {
     }
   }
 
+  a.Rand(BISIZE);
+  b.Rand(BISIZE);
   t0 = Timer::get_tick();
   for (int i = 0; i < 1000000; i++) {
-    a.Rand(BISIZE);
-    b.Rand(BISIZE);
+    a.AddOne();
+    b.AddOne();
     c.ModMulK1(&a, &b);
   }
   t1 = Timer::get_tick();
@@ -1396,16 +1400,22 @@ void Int::Check() {
     }
   }
 
+  a.Rand(BISIZE);
+  b.Rand(BISIZE);
   t0 = Timer::get_tick();
   for (int i = 0; i < 1000000; i++) {
-    a.Rand(BISIZE);
-    b.Rand(BISIZE);
+    a.AddOne();
+    b.AddOne();
     c.ModSquareK1(&b);
   }
   t1 = Timer::get_tick();
 
   printf("ModSquareK1() Results OK : ");
-  Timer::printResult("Mult", 1000000, 0, t1 - t0);
+  Timer::printResult("Sqr", 1000000, 0, t1 - t0);
+
+  // modInvCost is for 100000 iterations
+  double cost = movInvCost*10.0 / (t1-t0);
+  printf("ModInv() Cost : %.1f S\n",cost);
 
   // ModMulK1 order -----------------------------------------------------------------------------
   // InitK1() is done by secpK1
