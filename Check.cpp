@@ -413,6 +413,8 @@ void Kangaroo::CheckWorkFile(int nbCore,std::string& fileName) {
 
 void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
 
+  Int::Check();
+
   initDPSize = 8;
   SetDP(initDPSize);
 
@@ -454,11 +456,13 @@ void Kangaroo::Check(std::vector<int> gpuId,std::vector<int> gridSize) {
     ::printf("%s\n",pts2[i].toString().c_str());
   }
 
+  /*
   // Check jump table
   for(int i=0;i<128;i++) {
     rangePower = i;
     CreateJumpTable();  
   }
+  */
 
 #ifdef WITHGPU
 

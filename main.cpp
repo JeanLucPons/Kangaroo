@@ -170,9 +170,6 @@ int main(int argc, char* argv[]) {
   Timer::Init();
   rseed(Timer::getSeed32());
 
-  Int::Check();
-  exit(0);
-
   // Init SecpK1
   Secp256K1 *secp = new Secp256K1();
   secp->Init();
