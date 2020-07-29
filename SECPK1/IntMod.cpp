@@ -107,6 +107,14 @@ void Int::ModNeg() {
 
 // ------------------------------------------------
 
+#ifdef WIN32
+static inline int __builtin_ctzll(unsigned long long x) {
+  unsigned long ret;
+  _BitScanForward64(&ret,x);
+  return (int)ret;
+}
+#endif
+
 void Int::ModInv() {
 
   // Compute modular inverse of this mop _P
@@ -118,7 +126,7 @@ void Int::ModInv() {
   //#define BXCD 1              // ~167 kOps/s
   //#define MONTGOMERY 1        // ~200 kOps/s
   //#define PENK 1              // ~179 kOps/s
-  #define DRS62 1             // ~365 kOps/s
+  #define DRS62 1               // ~541 kOps/s
 
   Int u(&_P);
   Int v(this);
@@ -159,53 +167,6 @@ void Int::ModInv() {
   } else {
     Set(&s);  /* inv = u1     */
   }
-
-#endif
-
-#ifdef BXCD
-
-#define SWAP_SUB(x,y) x.Sub(&y);y.Add(&x)
-
-  // Binary XCD loop
-
-  while (!u.IsZero()) {
-
-    if (u.IsEven()) {
-
-      u.ShiftR(1);
-      if (r.IsOdd())
-        r.Add(&_P);
-      r.ShiftR(1);
-
-    } else {
-
-      SWAP_SUB(u, v);
-      SWAP_SUB(r, s);
-
-    }
-
-  }
-
-  // v ends with -1 ou 1
-  if (!v.IsOne()) {
-    // v = -1
-    s.Neg();
-    s.Add(&_P);
-    v.Neg();
-  }
-
-  if (!v.IsOne()) {
-    CLEAR();
-    return;
-  }
-
-  if (s.IsNegative())
-    s.Add(&_P);
-
-  if (s.IsGreaterOrEqual(&_P))
-    s.Sub(&_P);
-
-  Set(&s);
 
 #endif
 
@@ -381,9 +342,7 @@ void Int::ModInv() {
 
   // Delayed right shift 62bits
 
-  #define SWAP_ADD(x,y) x+=y;y-=x;
-  #define SWAP_SUB(x,y) x-=y;y+=x;
-  #define IS_EVEN(x) ((x&1)==0)
+  #define SWAP_SUB(tmp,x,y) tmp = x; x = y; y = -tmp;
 
   Int r0_P;
   Int s0_P;
@@ -396,50 +355,62 @@ void Int::ModInv() {
   Int vu_r;
   Int vv_s;
 
-  int64_t bitCount;
+  int bitCount;
   int64_t uu, uv, vu, vv;
   int64_t v0, u0;
   int64_t nb0;
+  int iCount = 0;
+  int bound = 0;
+  int16_t eta = -1;
 
-  while (!u.IsZero()) {
+  while (!v.IsZero()) {
 
     // u' = (uu*u + uv*v) >> bitCount
     // v' = (vu*u + vv*v) >> bitCount
     // Do not maintain a matrix for r and s, the number of 
     // 'added P' can be easily calculated
-    uu = 1; uv = 0;
-    vu = 0; vv = 1;
 
     u0 = (int64_t)u.bits64[0];
     v0 = (int64_t)v.bits64[0];
-    bitCount = 0;
 
-    // Slightly optimized Binary XCD loop on native signed integers
-    // Stop at 62 bits to avoid uv matrix overfow and loss of sign bit
-    while (true) {
+    uu = -1; uv = 0;
+    vu =  0; vv = -1;
+    
+    int64_t m,w,x,y,z;
+    bitCount = 62;
 
-      while (IS_EVEN(u0) && bitCount<62) {
+    // divstep62 var time implementation 
+    // (see https://github.com/bitcoin-core/secp256k1/pull/767)
+    while(true) {
 
-        bitCount++;
-        u0 >>= 1;
-        vu <<= 1;
-        vv <<= 1;
+        // Use a sentinel bit to count zeros only up to bitCount
+        int zeros = __builtin_ctzll(v0 | (UINT64_MAX << bitCount));
 
-      }
+        v0 >>= zeros;
+        uu <<= zeros;
+        uv <<= zeros;
+        eta -= zeros;
+        bitCount -= zeros;
 
-      if (bitCount == 62)
-        break;
+        if(bitCount <= 0)
+          break;
 
-      nb0 = (v0 + u0) & 0x3;
-      if (nb0 == 0) {
-        SWAP_ADD(uv, vv);
-        SWAP_ADD(uu, vu);
-        SWAP_ADD(u0, v0);
-      } else {
-        SWAP_SUB(uv, vv);
-        SWAP_SUB(uu, vu);
-        SWAP_SUB(u0, v0);
-      }
+        if((int16_t)eta < 0) {
+          eta = -eta;
+          SWAP_SUB(x,u0,v0);
+          SWAP_SUB(y,uu,vu);
+          SWAP_SUB(z,uv,vv);
+        }
+
+        // Handle up to 3 divsteps at once, subject to eta and bitCount
+        int limit = (eta + 1) > bitCount ? bitCount : (eta + 1);
+        m = (UINT64_MAX >> (64 - limit)) & 7U;
+
+        // Note that f * f == 1 mod 8, for any f
+        w = (-u0 * v0) & m;
+        v0 += u0 * w;
+        vu += uu * w;
+        vv += uv * w;
 
     }
 
@@ -479,32 +450,31 @@ void Int::ModInv() {
 
     // Right shift all variables by 62bits
     shiftR(62, u.bits64);
-	shiftR(62, v.bits64);
-	shiftR(62, r.bits64);
-	shiftR(62, s.bits64);
+	  shiftR(62, v.bits64);
+	  shiftR(62, r.bits64);
+	  shiftR(62, s.bits64);
 
   }
 
-  // v ends with -1 or 1
-  if (v.IsNegative()) {
-    // V = -1
-    v.Neg();
-    s.Neg();
-    s.Add(&_P);
+  // u ends with -1 or 1
+  if (u.IsNegative()) {
+    // u = -1
+    u.Neg();
+    r.Neg();
   }
-  if (!v.IsOne()) {
+  if (!u.IsOne()) {
     // No inverse
     CLEAR();
     return;
   }
 
-  // In very rare case |s|>2P
-  while (s.IsNegative())
-    s.Add(&_P);
-  while(s.IsGreaterOrEqual(&_P))
-    s.Sub(&_P);
-
-  Set(&s);
+  while(r.IsNegative()) {
+    r.Add(&_P);
+  }
+  while(r.IsGreaterOrEqual(&_P)) {
+    r.Sub(&_P);
+  }
+  Set(&r);
 
 #endif
 
