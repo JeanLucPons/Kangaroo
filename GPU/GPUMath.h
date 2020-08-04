@@ -476,7 +476,7 @@ __device__ bool ModPositive256(uint64_t *r) {
 // ---------------------------------------------------------------------------------------
 #define SWAP_ADD(x,y) x+=y;y-=x;
 #define SWAP_SUB(x,y) x-=y;y+=x;
-#define IS_EVEN(x) ((x&1LL)==0)
+#define SWAP_NEG(tmp,x,y) tmp = x; x = y; y = -tmp;
 #define MSK62 0x3FFFFFFFFFFFFFFF
 
 __device__ __noinline__ void _ModInv(uint64_t *R) {
@@ -489,7 +489,7 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
   int64_t  uu,uv,vu,vv;
   int64_t  v0,u0;
   uint64_t r0,s0;
-  int64_t  nb0;
+  uint64_t  eta = (uint64_t)-1;
 
   uint64_t u[NBBLOCK];
   uint64_t v[NBBLOCK];
@@ -507,7 +507,7 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
 
   // Delayed right shift 62bits
 
-  while(!_IsZero(u)) {
+  while(!_IsZero(v)) {
 
     // u' = (uu*u + uv*v) >> bitCount
     // v' = (vu*u + vv*v) >> bitCount
@@ -516,39 +516,121 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
     uu = 1; uv = 0;
     vu = 0; vv = 1;
 
-    bitCount = 0LL;
     u0 = (int64_t)u[0];
     v0 = (int64_t)v[0];
 
-    // Slightly optimized Binary XCD loop on native signed integers
-    // Stop at 62 bits to avoid uv matrix overfow and loss of sign bit
+#if 0
+
+    // Former divstep62 (using __builtin_ctzll)
+    // Do not use eta, u and v have an exponential decay in worst case 
+    // but with low probability to reach this worst case complexity
+    // Avg: 514 Kinv/s
+
+    bitCount = 62;
+    int64_t nb0;
+
     while(true) {
 
-      while(IS_EVEN(u0) && (bitCount < 62)) {
+      int zeros = __ffsll(v0 | (UINT64_MAX << bitCount)) - 1;
+      v0 >>= zeros;
+      uu <<= zeros;
+      uv <<= zeros;
+      bitCount -= zeros;
 
-        bitCount++;
-        u0 >>= 1;
-        vu <<= 1;
-        vv <<= 1;
-
-      }
-
-      if(bitCount == 62)
+      if(bitCount <= 0)
         break;
 
       nb0 = (v0 + u0) & 0x3;
       if(nb0 == 0) {
-        SWAP_ADD(uv,vv);
-        SWAP_ADD(uu,vu);
-        SWAP_ADD(u0,v0);
+        SWAP_ADD(vv,uv);
+        SWAP_ADD(vu,uu);
+        SWAP_ADD(v0,u0);
       }
       else {
-        SWAP_SUB(uv,vv);
-        SWAP_SUB(uu,vu);
-        SWAP_SUB(u0,v0);
+        SWAP_SUB(vv,uv);
+        SWAP_SUB(vu,uu);
+        SWAP_SUB(v0,u0);
       }
 
     }
+
+
+#endif
+
+#if 1
+
+    int64_t m,w,x,y,z;
+    bitCount = 62;
+
+    // divstep62 var time implementation by Peter Dettman
+    // (see https://github.com/bitcoin-core/secp256k1/pull/767)
+    // Avg: 541 Kinv/s
+
+    while(true) {
+
+      // Use a sentinel bit to count zeros only up to bitCount
+      int zeros = __ffsll(v0 | (UINT64_MAX << bitCount)) - 1;
+
+      v0 >>= zeros;
+      uu <<= zeros;
+      uv <<= zeros;
+      eta -= zeros;
+      bitCount -= zeros;
+
+      if(bitCount <= 0)
+        break;
+
+      if((int16_t)eta < 0) {
+        eta = -eta;
+        SWAP_NEG(x,u0,v0);
+        SWAP_NEG(y,uu,vu);
+        SWAP_NEG(z,uv,vv);
+      }
+
+      // Handle up to 3 divsteps at once, subject to eta and bitCount
+      int limit = (eta + 1) > bitCount ? bitCount : (eta + 1);
+      m = (UINT64_MAX >> (64 - limit)) & 7U;
+
+      // Note that f * f == 1 mod 8, for any f
+      w = (-u0 * v0) & m;
+      v0 += u0 * w;
+      vu += uu * w;
+      vv += uv * w;
+
+    }
+
+#endif
+
+#if 0
+
+    // divstep62 constant time implementation by Peter Dettman
+    // Avg: 381 Kinv/s
+
+    uint64_t c1,c2,x,y,z;
+
+    for(bitCount = 0; bitCount < 62; bitCount++) {
+
+      c1 = -(v0 & (eta >> 63));
+
+      x = (u0 ^ v0) & c1;
+      u0 ^= x; v0 ^= x; v0 ^= c1; v0 -= c1;
+
+      y = (uu ^ vu) & c1;
+      uu ^= y; vu ^= y; vu ^= c1; vu -= c1;
+
+      z = (uv ^ vv) & c1;
+      uv ^= z; vv ^= z; vv ^= c1; vv -= c1;
+
+      eta = (eta ^ c1) - c1 - 1;
+
+      c2 = -(v0 & 1);
+
+      v0 += (u0 & c2); v0 >>= 1;
+      vu += (uu & c2); uu <<= 1;
+      vv += (uv & c2); uv <<= 1;
+    }
+
+#endif
 
     // Now update BigInt variables
 
@@ -588,28 +670,25 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
 
   }
 
-  // v ends with -1 or 1
-  if(_IsNegative(v)) {
-    // V = -1
-    Sub2(s,_P,s);
-    Neg(v);
+  // u ends with -1 or 1
+  if(_IsNegative(u)) {
+    Neg(u);
+    Neg(r);
   }
 
-  if(!_IsOne(v)) {
+  if(!_IsOne(u)) {
     // No inverse
     Load(R,_0);
     return;
   }
 
-  // In very rare case |s|>2P 
-  while(_IsNegative(s))
-    AddP(s);
-  while(!_IsNegative(s))
-    Sub1(s,_P);
-  AddP(s);
+  while(_IsNegative(r))
+    AddP(r);
+  while(!_IsNegative(r))
+    Sub1(r,_P);
+  AddP(r);
 
-
-  Load(R,s);
+  Load(R,r);
 
 }
 

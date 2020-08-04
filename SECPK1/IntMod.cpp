@@ -342,7 +342,9 @@ void Int::ModInv() {
 
   // Delayed right shift 62bits
 
-  #define SWAP_SUB(tmp,x,y) tmp = x; x = y; y = -tmp;
+  #define SWAP_NEG(tmp,x,y) tmp = x; x = y; y = -tmp;
+  #define SWAP_ADD(x,y) x+=y;y-=x;
+  #define SWAP_SUB(x,y) x-=y;y+=x;
 
   Int r0_P;
   Int s0_P;
@@ -358,10 +360,9 @@ void Int::ModInv() {
   int bitCount;
   int64_t uu, uv, vu, vv;
   int64_t v0, u0;
-  int64_t nb0;
-  int iCount = 0;
-  int bound = 0;
-  int16_t eta = -1;
+  uint64_t eta = (uint64_t )-1;
+
+  //printf("ModInv(%s)\n",GetBase16().c_str());
 
   while (!v.IsZero()) {
 
@@ -370,17 +371,58 @@ void Int::ModInv() {
     // Do not maintain a matrix for r and s, the number of 
     // 'added P' can be easily calculated
 
-    u0 = (int64_t)u.bits64[0];
-    v0 = (int64_t)v.bits64[0];
+    u0 = (int64_t)u.bits64[0] & MSK62;
+    v0 = (int64_t)v.bits64[0] & MSK62;
 
     uu = -1; uv = 0;
     vu =  0; vv = -1;
+
+#if 0
+
+    // Former divstep62 (using __builtin_ctzll)
+    // Do not use eta, u and v have an exponential decay in worst case 
+    // but with low probability to reach this worst case complexity
+    // Avg: 514 Kinv/s
+
+    bitCount = 62;
+    int64_t nb0;
+
+    while(true) {
+
+      int zeros = __builtin_ctzll(v0 | (UINT64_MAX << bitCount));
+      v0 >>= zeros;
+      uu <<= zeros;
+      uv <<= zeros;
+      bitCount -= zeros;
+
+      if(bitCount <= 0)
+        break;
+
+      nb0 = (v0 + u0) & 0x3;
+      if(nb0 == 0) {
+        SWAP_ADD(vv,uv);
+        SWAP_ADD(vu,uu);
+        SWAP_ADD(v0,u0);
+      } else {
+        SWAP_SUB(vv,uv);
+        SWAP_SUB(vu,uu);
+        SWAP_SUB(v0,u0);
+      }
+
+    }
+
+
+#endif
     
+#if 1
+
     int64_t m,w,x,y,z;
     bitCount = 62;
 
-    // divstep62 var time implementation 
+    // divstep62 var time implementation by Peter Dettman
     // (see https://github.com/bitcoin-core/secp256k1/pull/767)
+    // Avg: 541 Kinv/s
+
     while(true) {
 
         // Use a sentinel bit to count zeros only up to bitCount
@@ -395,11 +437,11 @@ void Int::ModInv() {
         if(bitCount <= 0)
           break;
 
-        if((int16_t)eta < 0) {
+        if((int64_t)eta < 0) {
           eta = -eta;
-          SWAP_SUB(x,u0,v0);
-          SWAP_SUB(y,uu,vu);
-          SWAP_SUB(z,uv,vv);
+          SWAP_NEG(x,u0,v0);
+          SWAP_NEG(y,uu,vu);
+          SWAP_NEG(z,uv,vv);
         }
 
         // Handle up to 3 divsteps at once, subject to eta and bitCount
@@ -413,6 +455,39 @@ void Int::ModInv() {
         vv += uv * w;
 
     }
+
+#endif
+
+#if 0
+
+    // divstep62 constant time implementation by Peter Dettman
+    // Avg: 381 Kinv/s
+
+    uint64_t c1,c2,x,y,z;
+
+    for(bitCount = 0; bitCount < 62; bitCount++) {
+
+      c1 = -(v0 & (eta >> 63));
+
+      x = (u0 ^ v0) & c1;
+      u0 ^= x; v0 ^= x; v0 ^= c1; v0 -= c1;
+
+      y = (uu ^ vu) & c1;
+      uu ^= y; vu ^= y; vu ^= c1; vu -= c1;
+
+      z = (uv ^ vv) & c1;
+      uv ^= z; vv ^= z; vv ^= c1; vv -= c1;
+
+      eta = (eta ^ c1) - c1 - 1;
+
+      c2 = -(v0 & 1);
+
+      v0 += (u0 & c2); v0 >>= 1;
+      vu += (uu & c2); uu <<= 1;
+      vv += (uv & c2); uv <<= 1;
+    }
+    
+#endif
 
     // Now update BigInt variables
 
@@ -450,12 +525,12 @@ void Int::ModInv() {
 
     // Right shift all variables by 62bits
     shiftR(62, u.bits64);
-	  shiftR(62, v.bits64);
-	  shiftR(62, r.bits64);
-	  shiftR(62, s.bits64);
+    shiftR(62, v.bits64);
+    shiftR(62, r.bits64);
+    shiftR(62, s.bits64);
 
   }
-
+  
   // u ends with -1 or 1
   if (u.IsNegative()) {
     // u = -1
