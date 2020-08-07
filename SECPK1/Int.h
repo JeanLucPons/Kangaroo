@@ -61,6 +61,7 @@ public:
   void Mult(Int *a,uint64_t b);
   void IMult(Int *a, int64_t b);
   void Mult(Int *a,Int *b);
+  void IMultAdd(Int* a,int64_t aa,Int* b,int64_t bb);
   void Div(Int *a,Int *mod = NULL);
   void MultModN(Int *a, Int *b, Int *n);
   void Neg();
@@ -199,7 +200,7 @@ private:
   int  GetLowestBit();
   void CLEAR();
   void CLEARFF();
-
+  static void MatrixVecMul(Int *u,Int *v,int64_t _11,int64_t _12,int64_t _21,int64_t _22);
 
 };
 

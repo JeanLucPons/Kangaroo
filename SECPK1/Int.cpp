@@ -431,7 +431,7 @@ bool Int::IsOdd() {
 
 void Int::Neg() {
 
-	volatile unsigned char c=0;
+	unsigned char c=0;
 	c = _subborrow_u64(c, 0, bits64[0], bits64 + 0);
 	c = _subborrow_u64(c, 0, bits64[1], bits64 + 1);
 	c = _subborrow_u64(c, 0, bits64[2], bits64 + 2);
@@ -592,14 +592,46 @@ void Int::Mult(uint64_t a) {
 
 void Int::IMult(Int *a, int64_t b) {
   
-  Set(a);
-
   // Make b positive
   if (b < 0LL) {
-	Neg();
-	b = -b;
+
+    unsigned char c = 0;
+    c = _subborrow_u64(c,0,a->bits64[0],bits64 + 0);
+    c = _subborrow_u64(c,0,a->bits64[1],bits64 + 1);
+    c = _subborrow_u64(c,0,a->bits64[2],bits64 + 2);
+    c = _subborrow_u64(c,0,a->bits64[3],bits64 + 3);
+    c = _subborrow_u64(c,0,a->bits64[4],bits64 + 4);
+#if NB64BLOCK > 5
+    c = _subborrow_u64(c,0,a->bits64[5],bits64 + 5);
+    c = _subborrow_u64(c,0,a->bits64[6],bits64 + 6);
+    c = _subborrow_u64(c,0,a->bits64[7],bits64 + 7);
+    c = _subborrow_u64(c,0,a->bits64[8],bits64 + 8);
+#endif
+
+  	b = -b;
+
+  } else {
+
+    Set(a);
+
   }
+
   imm_mul(bits64, b, bits64);
+
+}
+
+// ------------------------------------------------
+
+void Int::MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t _22) {
+
+  Int t1,t2,t3,t4;
+
+  t1.IMult(u,_11);
+  t2.IMult(v,_12);
+  t3.IMult(u,_21);
+  t4.IMult(v,_22);
+  u->Add(&t1,&t2);
+  v->Add(&t3,&t4);
 
 }
 
@@ -1275,15 +1307,28 @@ void Int::Check() {
 
   // ModInv -------------------------------------------------------------------------------------------
 
-  for (int i = 0; i < 10000 && ok; i++) {
+  for (int64_t i = 0; i < 100000 && ok; i++) {
+
     a.Rand(BISIZE);
+    a.bits64[0] &= 0xFFF0000000000000;
+    a.bits64[1] &= 0xFFF0000000000000;
+    a.bits64[2] = 0;
+    a.bits64[3] = 0;
+
     b = a;
     a.ModInv();
+    c = a;
     a.ModMul(&b);
     if (!a.IsOne()) {
-      printf("ModInv() Results Wrong [%d] %s\n",i, a.GetBase16().c_str());
-	  ok = false;
+      printf("ModInv() Results Wrong %s\n", b.GetBase16().c_str());
+	    ok = false;
     }
+    c.ModInv();
+    if(!c.IsEqual(&b)) {
+      printf("ModInv() Results Wrong %s\n", a.GetBase16().c_str());
+      ok = false;
+    }
+
   }
 
   ok = true;
@@ -1312,14 +1357,14 @@ void Int::Check() {
 
   t0 = Timer::get_tick();
   a.Rand(BISIZE);
-  for (int i = 0; i < 100000; i++) {
+  for (int i = 0; i < 200000; i++) {
     a.AddOne();
     a.ModInv();
   }
   t1 = Timer::get_tick();
 
   printf("ModInv() Results OK : ");
-  Timer::printResult("Inv", 100000, 0, t1 - t0);
+  Timer::printResult("Inv", 200000, 0, t1 - t0);
   double movInvCost = (t1-t0);
 
   // IntGroup -----------------------------------------------------------------------------------
@@ -1413,8 +1458,8 @@ void Int::Check() {
   printf("ModSquareK1() Results OK : ");
   Timer::printResult("Sqr", 1000000, 0, t1 - t0);
 
-  // modInvCost is for 100000 iterations
-  double cost = movInvCost*10.0 / (t1-t0);
+  // modInvCost is for 200000 iterations
+  double cost = movInvCost*5.0 / (t1-t0);
   printf("ModInv() Cost : %.1f S\n",cost);
 
   // ModMulK1 order -----------------------------------------------------------------------------

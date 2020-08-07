@@ -126,7 +126,7 @@ void Int::ModInv() {
   //#define BXCD 1              // ~167 kOps/s
   //#define MONTGOMERY 1        // ~200 kOps/s
   //#define PENK 1              // ~179 kOps/s
-  #define DRS62 1               // ~541 kOps/s
+  #define DRS62 1               // ~621 kOps/s
 
   Int u(&_P);
   Int v(this);
@@ -348,19 +348,11 @@ void Int::ModInv() {
 
   Int r0_P;
   Int s0_P;
-  Int uu_u;
-  Int uv_v;
-  Int vu_u;
-  Int vv_v;
-  Int uu_r;
-  Int uv_s;
-  Int vu_r;
-  Int vv_s;
 
   int bitCount;
   int64_t uu, uv, vu, vv;
   int64_t v0, u0;
-  uint64_t eta = (uint64_t )-1;
+  int64_t eta = -1;
 
   //printf("ModInv(%s)\n",GetBase16().c_str());
 
@@ -371,18 +363,18 @@ void Int::ModInv() {
     // Do not maintain a matrix for r and s, the number of 
     // 'added P' can be easily calculated
 
-    u0 = (int64_t)u.bits64[0] & MSK62;
-    v0 = (int64_t)v.bits64[0] & MSK62;
+    u0 = (int64_t)u.bits64[0];
+    v0 = (int64_t)v.bits64[0];
 
-    uu = -1; uv = 0;
-    vu =  0; vv = -1;
+    uu =  1; uv = 0;
+    vu =  0; vv = 1;
 
 #if 0
 
     // Former divstep62 (using __builtin_ctzll)
     // Do not use eta, u and v have an exponential decay in worst case 
     // but with low probability to reach this worst case complexity
-    // Avg: 514 Kinv/s
+    // Avg: 581 Kinv/s
 
     bitCount = 62;
     int64_t nb0;
@@ -421,7 +413,7 @@ void Int::ModInv() {
 
     // divstep62 var time implementation by Peter Dettman
     // (see https://github.com/bitcoin-core/secp256k1/pull/767)
-    // Avg: 541 Kinv/s
+    // Avg: 621 Kinv/s
 
     while(true) {
 
@@ -437,7 +429,7 @@ void Int::ModInv() {
         if(bitCount <= 0)
           break;
 
-        if((int64_t)eta < 0) {
+        if(eta < 0) {
           eta = -eta;
           SWAP_NEG(x,u0,v0);
           SWAP_NEG(y,uu,vu);
@@ -461,13 +453,13 @@ void Int::ModInv() {
 #if 0
 
     // divstep62 constant time implementation by Peter Dettman
-    // Avg: 381 Kinv/s
+    // Avg: 405 Kinv/s
 
     uint64_t c1,c2,x,y,z;
 
     for(bitCount = 0; bitCount < 62; bitCount++) {
 
-      c1 = -(v0 & (eta >> 63));
+      c1 = -(v0 & ((uint64_t)eta >> 63));
 
       x = (u0 ^ v0) & c1;
       u0 ^= x; v0 ^= x; v0 ^= c1; v0 -= c1;
@@ -491,36 +483,15 @@ void Int::ModInv() {
 
     // Now update BigInt variables
 
-    uu_u.IMult(&u,uu);
-    uv_v.IMult(&v,uv);
-
-    vu_u.IMult(&u,vu);
-    vv_v.IMult(&v,vv);
-
-    uu_r.IMult(&r,uu);
-    uv_s.IMult(&s,uv);
-
-    vu_r.IMult(&r,vu);
-    vv_s.IMult(&s,vv);
+    MatrixVecMul(&u,&v,uu,uv,vu,vv);
+    MatrixVecMul(&r,&s,uu,uv,vu,vv);
 
     // Compute multiple of P to add to s and r to make them multiple of 2^62
-    uint64_t r0 = ((uu_r.bits64[0] + uv_s.bits64[0]) * MM64) & MSK62;
-    uint64_t s0 = ((vu_r.bits64[0] + vv_s.bits64[0]) * MM64) & MSK62;
+    uint64_t r0 = (r.bits64[0] * MM64) & MSK62;
+    uint64_t s0 = (s.bits64[0] * MM64) & MSK62;
     r0_P.Mult(&_P,r0);
     s0_P.Mult(&_P,s0);
-
-    // u = (uu*u + uv*v)
-    u.Add(&uu_u,&uv_v);
-
-    // v = (vu*u + vv*v)
-    v.Add(&vu_u,&vv_v);
-
-    // r = (uu*r + uv*s + r0*P)
-    r.Add(&uu_r,&uv_s);
     r.Add(&r0_P);
-
-    // s = (vu*r + vv*s + s0*P)
-    s.Add(&vu_r,&vv_s);
     s.Add(&s0_P);
 
     // Right shift all variables by 62bits
@@ -543,12 +514,10 @@ void Int::ModInv() {
     return;
   }
 
-  while(r.IsNegative()) {
+  while(r.IsNegative())
     r.Add(&_P);
-  }
-  while(r.IsGreaterOrEqual(&_P)) {
+  while(r.IsGreaterOrEqual(&_P))
     r.Sub(&_P);
-  }
   Set(&r);
 
 #endif
