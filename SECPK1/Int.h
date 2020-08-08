@@ -200,7 +200,6 @@ private:
   int  GetLowestBit();
   void CLEAR();
   void CLEARFF();
-  static void MatrixVecMul(Int *u,Int *v,int64_t _11,int64_t _12,int64_t _21,int64_t _22);
 
 };
 

@@ -622,21 +622,6 @@ void Int::IMult(Int *a, int64_t b) {
 
 // ------------------------------------------------
 
-void Int::MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t _22) {
-
-  Int t1,t2,t3,t4;
-
-  t1.IMult(u,_11);
-  t2.IMult(v,_12);
-  t3.IMult(u,_21);
-  t4.IMult(v,_22);
-  u->Add(&t1,&t2);
-  v->Add(&t3,&t4);
-
-}
-
-// ------------------------------------------------
-
 void Int::Mult(Int *a, uint64_t b) {
 
   imm_mul(a->bits64, b, bits64);
@@ -1310,10 +1295,6 @@ void Int::Check() {
   for (int64_t i = 0; i < 100000 && ok; i++) {
 
     a.Rand(BISIZE);
-    a.bits64[0] &= 0xFFF0000000000000;
-    a.bits64[1] &= 0xFFF0000000000000;
-    a.bits64[2] = 0;
-    a.bits64[3] = 0;
 
     b = a;
     a.ModInv();
