@@ -41,6 +41,25 @@ __global__ void comp_kangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *f
 
 // ---------------------------------------------------------------------------------------
 
+#ifdef GPU_CHECK
+__global__ void check_gpu() {
+
+  uint64_t mask = 0x1;
+
+  for(int i=0;i<63;i++) {
+    float f = (float)(mask);
+    int zeros = (*(uint32_t*)(&f) >> 23) - 127;
+    if(zeros!=i) {
+      printf("Warning, trailing zero count wrong for %d, recompile with -DNOFASTCTZ\n",zeros);  
+    }
+    mask = mask << 1;
+  }
+
+}
+#endif
+
+// ---------------------------------------------------------------------------------------
+
 using namespace std;
 
 int _ConvertSMVer2Cores(int major,int minor) {
@@ -182,6 +201,10 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
   lostWarning = false;
   initialised = true;
   wildOffset.SetInt32(0);
+
+#ifdef GPU_CHECK
+  check_gpu<<<1,1>>>();
+#endif
 
 }
 

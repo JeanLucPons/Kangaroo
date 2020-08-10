@@ -17,12 +17,6 @@
 
 // CUDA Kernel main function
 
-// Jump distance
-__device__ __constant__ uint64_t jD[NB_JUMP][2];
-// jump points
-__device__ __constant__ uint64_t jPx[NB_JUMP][4];
-__device__ __constant__ uint64_t jPy[NB_JUMP][4];
-
 // -----------------------------------------------------------------------------------------
 
 __device__ void ComputeKangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *out,uint64_t dpMask) {

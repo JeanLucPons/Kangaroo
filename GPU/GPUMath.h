@@ -46,19 +46,21 @@
 #define MADDC(r,a,b,c) asm volatile ("madc.hi.cc.u64 %0, %1, %2, %3;" : "=l"(r) : "l"(a), "l"(b), "l"(c) : "memory" );
 #define MADD(r,a,b,c) asm volatile ("madc.hi.u64 %0, %1, %2, %3;" : "=l"(r) : "l"(a), "l"(b), "l"(c));
 
-__device__ __constant__ uint64_t _0[] = { 0ULL,0ULL,0ULL,0ULL,0ULL };
-__device__ __constant__ uint64_t _1[] = { 1ULL,0ULL,0ULL,0ULL,0ULL };
+// Jump distance
+__device__ __constant__ uint64_t jD[NB_JUMP][2];
+// jump points
+__device__ __constant__ uint64_t jPx[NB_JUMP][4];
+__device__ __constant__ uint64_t jPy[NB_JUMP][4];
 
-// Field constant (SECPK1)
-__device__ __constant__ uint64_t _P[] = { 0xFFFFFFFEFFFFFC2F,0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,0ULL };
-__device__ __constant__ uint64_t _16P[] = { 0xFFFFFFEFFFFFC2F0,0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,0xFFFFFFFFFFFFFFFF,0xFULL };
-__device__ __constant__ uint64_t MM64 = 0xD838091DD2253531; // 64bits lsb negative inverse of P (mod 2^64)
-
+#ifdef USE_SYMMETRY
 __device__ __constant__ uint64_t _O[] = { 0xBFD25E8CD0364141ULL,0xBAAEDCE6AF48A03BULL,0xFFFFFFFFFFFFFFFEULL,0xFFFFFFFFFFFFFFFFULL };
-
+#endif
 
 
 #define HSIZE (GRP_SIZE / 2 - 1)
+
+// 64bits lsb negative inverse of P (mod 2^64)
+#define MM64 0xD838091DD2253531ULL
 
 // ---------------------------------------------------------------------------------------
 
@@ -93,18 +95,20 @@ __device__ __constant__ uint64_t _O[] = { 0xBFD25E8CD0364141ULL,0xBAAEDCE6AF48A0
 // ---------------------------------------------------------------------------------------
 
 #define AddP(r) { \
-  UADDO1(r[0], _P[0]); \
-  UADDC1(r[1], _P[1]); \
-  UADDC1(r[2], _P[2]); \
-  UADDC1(r[3], _P[3]); \
-  UADD1(r[4], _P[4]);}
+  UADDO1(r[0], 0xFFFFFFFEFFFFFC2FULL); \
+  UADDC1(r[1], 0xFFFFFFFFFFFFFFFFULL); \
+  UADDC1(r[2], 0xFFFFFFFFFFFFFFFFULL); \
+  UADDC1(r[3], 0xFFFFFFFFFFFFFFFFULL); \
+  UADD1(r[4], 0ULL);}
 
-#define Add16P(r) { \
-  UADDO1(r[0], _16P[0]); \
-  UADDC1(r[1], _16P[1]); \
-  UADDC1(r[2], _16P[2]); \
-  UADDC1(r[3], _16P[3]); \
-  UADD1(r[4], _16P[4]);}
+// ---------------------------------------------------------------------------------------
+
+#define SubP(r) { \
+  USUBO1(r[0], 0xFFFFFFFEFFFFFC2FULL); \
+  USUBC1(r[1], 0xFFFFFFFFFFFFFFFFULL); \
+  USUBC1(r[2], 0xFFFFFFFFFFFFFFFFULL); \
+  USUBC1(r[3], 0xFFFFFFFFFFFFFFFFULL); \
+  USUB1(r[4], 0ULL);}
 
 // ---------------------------------------------------------------------------------------
 
@@ -132,7 +136,12 @@ __device__ __constant__ uint64_t _O[] = { 0xBFD25E8CD0364141ULL,0xBAAEDCE6AF48A0
 
 // ---------------------------------------------------------------------------------------
 
-#define Neg(r) Sub2(r, _0, r)
+#define Neg(r) {\
+USUBO(r[0],0ULL,r[0]); \
+USUBC(r[1],0ULL,r[1]); \
+USUBC(r[2],0ULL,r[2]); \
+USUBC(r[3],0ULL,r[3]); \
+USUB(r[4],0ULL,r[4]); }
 
 // ---------------------------------------------------------------------------------------
 
@@ -170,12 +179,12 @@ __device__ __constant__ uint64_t _O[] = { 0xBFD25E8CD0364141ULL,0xBAAEDCE6AF48A0
 
 // ---------------------------------------------------------------------------------------
 
-#define LoadI64(r, a) {\
+#define _LoadI64(r, a) {\
   (r)[0] = a; \
   (r)[1] = a>>63; \
   (r)[2] = (r)[1]; \
-  (r)[3] = (r)[2]; \
-  (r)[4] = (r)[3];}
+  (r)[3] = (r)[1]; \
+  (r)[4] = (r)[1];}
 
 // ---------------------------------------------------------------------------------------
 
@@ -332,10 +341,10 @@ __device__ void ModNeg256(uint64_t *r,uint64_t *a) {
   USUBC(t[1],0ULL,a[1]);
   USUBC(t[2],0ULL,a[2]);
   USUBC(t[3],0ULL,a[3]);
-  UADDO(r[0],t[0],_P[0]);
-  UADDC(r[1],t[1],_P[1]);
-  UADDC(r[2],t[2],_P[2]);
-  UADD(r[3],t[3],_P[3]);
+  UADDO(r[0],t[0],0xFFFFFFFEFFFFFC2FULL);
+  UADDC(r[1],t[1],0xFFFFFFFFFFFFFFFFULL);
+  UADDC(r[2],t[2],0xFFFFFFFFFFFFFFFFULL);
+  UADD(r[3],t[3],0xFFFFFFFFFFFFFFFFULL);
 
 }
 
@@ -348,10 +357,10 @@ __device__ void ModNeg256(uint64_t *r) {
   USUBC(t[1],0ULL,r[1]);
   USUBC(t[2],0ULL,r[2]);
   USUBC(t[3],0ULL,r[3]);
-  UADDO(r[0],t[0],_P[0]);
-  UADDC(r[1],t[1],_P[1]);
-  UADDC(r[2],t[2],_P[2]);
-  UADD(r[3],t[3],_P[3]);
+  UADDO(r[0],t[0],0xFFFFFFFEFFFFFC2FULL);
+  UADDC(r[1],t[1],0xFFFFFFFFFFFFFFFFULL);
+  UADDC(r[2],t[2],0xFFFFFFFFFFFFFFFFULL);
+  UADD(r[3],t[3],0xFFFFFFFFFFFFFFFFULL);
 
 }
 
@@ -366,10 +375,10 @@ __device__ void ModSub256(uint64_t *r,uint64_t *a,uint64_t *b) {
   USUBC(r[2],a[2],b[2]);
   USUBC(r[3],a[3],b[3]);
   USUB(t,0ULL,0ULL);
-  T[0] = _P[0] & t;
-  T[1] = _P[1] & t;
-  T[2] = _P[2] & t;
-  T[3] = _P[3] & t;
+  T[0] = 0xFFFFFFFEFFFFFC2FULL & t;
+  T[1] = 0xFFFFFFFFFFFFFFFFULL & t;
+  T[2] = 0xFFFFFFFFFFFFFFFFULL & t;
+  T[3] = 0xFFFFFFFFFFFFFFFFULL & t;
   UADDO1(r[0],T[0]);
   UADDC1(r[1],T[1]);
   UADDC1(r[2],T[2]);
@@ -388,10 +397,10 @@ __device__ void ModSub256(uint64_t* r,uint64_t* b) {
   USUBC(r[2],r[2],b[2]);
   USUBC(r[3],r[3],b[3]);
   USUB(t,0ULL,0ULL);
-  T[0] = _P[0] & t;
-  T[1] = _P[1] & t;
-  T[2] = _P[2] & t;
-  T[3] = _P[3] & t;
+  T[0] = 0xFFFFFFFEFFFFFC2FULL & t;
+  T[1] = 0xFFFFFFFFFFFFFFFFULL & t;
+  T[2] = 0xFFFFFFFFFFFFFFFFULL & t;
+  T[3] = 0xFFFFFFFFFFFFFFFFULL & t;
   UADDO1(r[0],T[0]);
   UADDC1(r[1],T[1]);
   UADDC1(r[2],T[2]);
@@ -455,8 +464,8 @@ __device__ void _DivStep62(int64_t u0,int64_t v0,
   // Do not use eta, u and v have an exponential decay in worst case 
   // but with low probability to reach this worst case complexity
 
+  int64_t  nb0;
   bitCount = 62;
-  int64_t nb0;
 
   while(true) {
     
@@ -510,12 +519,15 @@ __device__ void _DivStep62(int64_t u0,int64_t v0,
   while(true) {
 
     // Use a sentinel bit to count zeros only up to bitCount
-    // int zeros = __ffsll(v0 | (UINT64_MAX << bitCount)) - 1;
-
-    // zeros = log2(z & -z) seems faster than __ffsll()
     z = v0 | (UINT64_MAX << bitCount);
+
+#ifdef NOFASTCTZ
+    int zeros = __ffsll(z) - 1;
+#else
+    // zeros = log2(z & -z) is faster than __ffsll()
     float f = (float)(z & -z);
     int zeros = (*(uint32_t*)(&f) >> 23) - 127;
+#endif
 
     v0 >>= zeros;
     *uu <<= zeros;
@@ -533,53 +545,10 @@ __device__ void _DivStep62(int64_t u0,int64_t v0,
       SWAP_NEG(z,*uv,*vv);
     }
 
-    /*
-    int64_t m,w;
-    // Handle up to 3 divsteps at once, subject to eta and bitCount
-    int limit = (*eta + 1) > bitCount ? bitCount : (*eta + 1);
-    m = (UINT64_MAX >> (64 - limit)) & 7U;
-
-    // Note that f * f == 1 mod 8, for any f
-    w = (-u0 * v0) & m;
-    v0 += u0 * w;
-    *vu += *uu * w;
-    *vv += *uv * w;
-    */
-
     v0 += u0;
-    *vu += *uu;
     *vv += *uv;
+    *vu += *uu;
 
-  }
-
-#endif
-
-#if 0
-
-  // divstep62 constant time implementation by Peter Dettman
-
-  uint64_t c1,c2,x,y,z;
-
-  for(bitCount = 0; bitCount < 62; bitCount++) {
-
-    c1 = -(v0 & ((uint64_t)eta >> 63));
-
-    x = (u0 ^ v0) & c1;
-    u0 ^= x; v0 ^= x; v0 ^= c1; v0 -= c1;
-
-    y = (uu ^ vu) & c1;
-    uu ^= y; vu ^= y; vu ^= c1; vu -= c1;
-
-    z = (uv ^ vv) & c1;
-    uv ^= z; vv ^= z; vv ^= c1; vv -= c1;
-
-    eta = (eta ^ c1) - c1 - 1;
-
-    c2 = -(v0 & 1);
-
-    v0 += (u0 & c2); v0 >>= 1;
-    vu += (uu & c2); uu <<= 1;
-    vv += (uv & c2); uv <<= 1;
   }
 
 #endif
@@ -589,7 +558,7 @@ __device__ void _DivStep62(int64_t u0,int64_t v0,
 
 __device__ __noinline__ void _ModInv(uint64_t *R) {
 
-  // Compute modular inverse of R mop _P (using 320bits signed integer)
+  // Compute modular inverse of R mop P (using 320bits signed integer)
   // 0 < this < P  , P must be odd
   // Return 0 if no inverse
 
@@ -606,7 +575,11 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
   uint64_t t3[NBBLOCK];
   uint64_t t4[NBBLOCK];
 
-  Load(u,_P);
+  u[0] = 0xFFFFFFFEFFFFFC2F;
+  u[1] = 0xFFFFFFFFFFFFFFFF;
+  u[2] = 0xFFFFFFFFFFFFFFFF;
+  u[3] = 0xFFFFFFFFFFFFFFFF;
+  u[4] = 0;
   Load(v,R);
 
   // Delayed right shift 62bits
@@ -622,18 +595,17 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
 
   // Now update BigInt variables
 
+  // u = (uu*u + uv*v)
+  // v = (vu*u + vv*v)
   IMult(t1,u,uu);
   IMult(t2,v,uv);
   IMult(t3,u,vu);
   IMult(t4,v,vv);
-
-  // u = (uu*u + uv*v)
   Add2(u,t1,t2);
-  // v = (vu*u + vv*v)
   Add2(v,t3,t4);
 
-  LoadI64(t2,uv);
-  LoadI64(t4,vv);
+  _LoadI64(t2,uv);
+  _LoadI64(t4,vv);
 
   // Compute multiple of P to add to s and r to make them multiple of 2^62
   r0 = (t2[0] * MM64) & MSK62;
@@ -660,14 +632,13 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
 
     // Now update BigInt variables
 
+    // u = (uu*u + uv*v)
+    // v = (vu*u + vv*v)
     IMult(t1,u,uu);
     IMult(t2,v,uv);
     IMult(t3,u,vu);
     IMult(t4,v,vv);
-
-    // u = (uu*u + uv*v)
     Add2(u,t1,t2);
-    // v = (vu*u + vv*v)
     Add2(v,t3,t4);
 
     // Right shift (u,v) by 62bits
@@ -724,14 +695,18 @@ __device__ __noinline__ void _ModInv(uint64_t *R) {
 
   if(!_IsOne(u)) {
     // No inverse
-    Load(R,_0);
+    R[0] = 0ULL;
+    R[1] = 0ULL;
+    R[2] = 0ULL;
+    R[3] = 0ULL;
+    R[4] = 0ULL;
     return;
   }
 
   while(_IsNegative(r))
     AddP(r);
   while(!_IsNegative(r))
-    Sub1(r,_P);
+    SubP(r);
   AddP(r);
 
   Load(R,r);

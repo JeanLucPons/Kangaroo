@@ -232,9 +232,26 @@ static uint64_t inline __shiftleft128(uint64_t a, uint64_t b,unsigned char n) {
 #define _subborrow_u64(a,b,c,d) __builtin_ia32_sbb_u64(a,b,c,(long long unsigned int*)d);
 #define _addcarry_u64(a,b,c,d) __builtin_ia32_addcarryx_u64(a,b,c,(long long unsigned int*)d);
 #define _byteswap_uint64 __builtin_bswap64
+
 #else
+
 #include <intrin.h>
+
+static inline int __builtin_ctzll(unsigned long long x) {
+  unsigned long ret;
+  _BitScanForward64(&ret,x);
+  return (int)ret;
+}
+
 #endif
+
+
+#define LoadI64(i,i64)    \
+i.bits64[0] = i64;        \
+i.bits64[1] = i64 >> 63;  \
+i.bits64[2] = i.bits64[1];\
+i.bits64[3] = i.bits64[1];\
+i.bits64[4] = i.bits64[1];
 
 static void inline imm_mul(uint64_t *x, uint64_t y, uint64_t *dst) {
 

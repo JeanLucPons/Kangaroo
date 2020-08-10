@@ -107,14 +107,6 @@ void Int::ModNeg() {
 
 // ------------------------------------------------
 
-#ifdef WIN32
-static inline int __builtin_ctzll(unsigned long long x) {
-  unsigned long ret;
-  _BitScanForward64(&ret,x);
-  return (int)ret;
-}
-#endif
-
 inline void DivStep62(int64_t u0,int64_t v0,
   int64_t* eta,
   int64_t* uu,int64_t* uv,
@@ -176,7 +168,7 @@ inline void DivStep62(int64_t u0,int64_t v0,
 
   // divstep62 var time implementation by Peter Dettman
   // (see https://github.com/bitcoin-core/secp256k1/pull/767)
-  // Avg: 621 Kinv/s
+  // Avg: 640 Kinv/s
 
   while(true) {
 
@@ -263,19 +255,18 @@ void Int::ModInv() {
   // Return 0 if no inverse
 
   // 256bit 
-  //#define XCD 1               // ~62  kOps/s
-  //#define BXCD 1              // ~167 kOps/s
-  //#define MONTGOMERY 1        // ~200 kOps/s
-  //#define PENK 1              // ~179 kOps/s
-  #define DRS62 1               // ~621 kOps/s
+  //#define XCD 1               // ~80  kOps/s
+  //#define MONTGOMERY 1        // ~246 kOps/s
+  //#define PENK 1              // ~215 kOps/s
+  #define DRS62 1               // ~640 kOps/s
 
   Int u(&_P);
   Int v(this);
-  Int r((int64_t)0);
-  Int s((int64_t)1);
 
 #ifdef XCD
 
+  Int r((int64_t)0);
+  Int s((int64_t)1);
   Int q, t1, t2, w;
 
   // Classic XCD 
@@ -313,6 +304,8 @@ void Int::ModInv() {
 
 #ifdef PENK
 
+  Int r((int64_t)0);
+  Int s((int64_t)1);
   Int x;
   Int n2(&_P);
   int k = 0;
@@ -432,6 +425,8 @@ void Int::ModInv() {
 
 #ifdef MONTGOMERY
 
+  Int r((int64_t)0);
+  Int s((int64_t)1);
   Int x;
   int k = 0;
 
@@ -482,6 +477,8 @@ void Int::ModInv() {
 #ifdef DRS62
 
   // Delayed right shift 62bits
+  Int r;
+  Int s;
   Int r0_P;
   Int s0_P;
   Int t1,t2,t3,t4;
@@ -491,6 +488,34 @@ void Int::ModInv() {
 
   //printf("ModInv(%s)\n",GetBase16().c_str());
 
+
+  //----------------------- First step (r,s) = (1,0)
+  uu = 1; uv = 0;
+  vu = 0; vv = 1;
+
+  DivStep62(u.bits64[0],v.bits64[0],&eta,&uu,&uv,&vu,&vv);
+
+  // Now update BigInt variables
+
+  MatrixVecMul(u,v,uu,uv,vu,vv);
+  LoadI64(t2,uv);
+  LoadI64(t4,vv);
+
+  // Compute multiple of P to add to s and r to make them multiple of 2^62
+  uint64_t r0 = (t2.bits64[0] * MM64) & MSK62;
+  uint64_t s0 = (t4.bits64[0] * MM64) & MSK62;
+  r0_P.Mult(&_P,r0);
+  s0_P.Mult(&_P,s0);
+  r.Add(&t2,&r0_P);
+  s.Add(&t4,&s0_P);
+
+  // Right shift all variables by 62bits
+  shiftR(62,u.bits64);
+  shiftR(62,v.bits64);
+  shiftR(62,r.bits64);
+  shiftR(62,s.bits64);
+
+  //----------------------- DivStep loop
   while (!v.IsZero()) {
 
     uu =  1; uv = 0;
