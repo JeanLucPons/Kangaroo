@@ -61,6 +61,7 @@ void printUsage() {
   printf(" -o fileName: output result to fileName\n");
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
+  printf(" -stride: Use sparse range with a given stride\n");
   printf(" inFile: intput configuration file\n");
   exit(0);
 
@@ -163,6 +164,7 @@ static bool serverMode = false;
 static string serverIP = "";
 static string outputFile = "";
 static bool splitWorkFile = false;
+static string stride = "";
 
 int main(int argc, char* argv[]) {
 
@@ -298,6 +300,10 @@ int main(int argc, char* argv[]) {
     } else if(strcmp(argv[a],"-check") == 0) {
       checkFlag = true;
       a++;
+    } else if(strcmp(argv[a],"-stride") == 0) {
+      CHECKARG("-stride",1);
+      stride = string(argv[a]);
+      a++;
     } else if(a == argc - 1) {
       configFile = string(argv[a]);
       a++;
@@ -347,6 +353,9 @@ int main(int argc, char* argv[]) {
         ::printf("No input file to process\n");
         exit(-1);
       }
+    }
+    if (stride.length()>0){
+	  v->SetStride(stride);
     }
     if(serverMode)
       v->RunServer();
