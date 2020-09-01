@@ -216,14 +216,22 @@ static uint64_t inline _umul128(uint64_t a, uint64_t b, uint64_t *h) {
   uint64_t rhi;
   uint64_t rlo;
   __asm__( "mulq  %[b];" :"=d"(rhi),"=a"(rlo) :"1"(a),[b]"rm"(b));
-    *h = rhi;
-    return rlo;
+  *h = rhi;
+  return rlo;
+}
+
+static int64_t inline _mul128(int64_t a, int64_t b, int64_t *h) {
+  uint64_t rhi;
+  uint64_t rlo;
+  __asm__( "imulq  %[b];" :"=d"(rhi),"=a"(rlo) :"1"(a),[b]"rm"(b));
+  *h = rhi;
+  return rlo;  
 }
 
 static uint64_t inline __shiftright128(uint64_t a, uint64_t b,unsigned char n) {
   uint64_t c;
   __asm__ ("movq %1,%0;shrdq %3,%2,%0;" : "=D"(c) : "r"(a),"r"(b),"c"(n));
-  return  c;
+  return c; 
 }
 
 
@@ -347,9 +355,13 @@ static void inline shiftR(unsigned char n,uint64_t* d,uint64_t h) {
   d[5] = __shiftright128(d[5],d[6],n);
   d[6] = __shiftright128(d[6],d[7],n);
   d[7] = __shiftright128(d[7],d[8],n);
-  d[8] = __shiftright128(d[8],h,n);
+#endif
+
+#ifndef WIN64
+  // fixme
+  d[NB64BLOCK-1] = (d[NB64BLOCK-1]>>n) | (h<<(64-n));
 #else
-  d[4] = __shiftright128(d[4],h,n);
+  d[NB64BLOCK-1] = __shiftright128(d[NB64BLOCK-1],h,n);
 #endif
 
 }

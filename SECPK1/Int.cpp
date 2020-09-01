@@ -1503,12 +1503,12 @@ void Int::Check() {
   }
 
   a.Set(Int::GetFieldCharacteristic());
-  for(int64_t i = 0; i < 1000000 && ok; i++) {
+  for(int64_t i = 0; i < 100000 && ok; i++) {
     a.SubOne();
     ok = CheckInv(&a);
   }
   a.Set(&_ONE);
-  for(int64_t i = 0; i < 1000000 && ok; i++) {
+  for(int64_t i = 0; i < 100000 && ok; i++) {
     ok = CheckInv(&a);
     a.AddOne();
   }
@@ -1520,12 +1520,12 @@ void Int::Check() {
 
   totalCount = 0;
 
-  for(int64_t i = 0; i <= 1000000 && ok; i++) {
+  for(int64_t i = 0; i <= 100000 && ok; i++) {
     a.Rand(BISIZE);
     ok = CheckInv(&a);
   }
 
-  printf("Avg = %.2f\n",(double)totalCount/2000000.0);
+  printf("Avg = %.2f\n",(double)totalCount/200000.0);
 
   t0 = Timer::get_tick();
   a.Rand(BISIZE);
