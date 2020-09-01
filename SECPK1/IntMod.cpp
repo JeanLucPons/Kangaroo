@@ -107,7 +107,26 @@ void Int::ModNeg() {
 
 // ------------------------------------------------
 
-inline void DivStep62(int64_t u0,int64_t v0,
+// INV256[x] = x^-1 (mod 256)
+int64_t INV256[] = {
+    -0LL,-1LL,-0LL,-235LL,-0LL,-141LL,-0LL,-183LL,-0LL,-57LL,-0LL,-227LL,-0LL,-133LL,-0LL,-239LL,
+    -0LL,-241LL,-0LL,-91LL,-0LL,-253LL,-0LL,-167LL,-0LL,-41LL,-0LL,-83LL,-0LL,-245LL,-0LL,-223LL,
+    -0LL,-225LL,-0LL,-203LL,-0LL,-109LL,-0LL,-151LL,-0LL,-25LL,-0LL,-195LL,-0LL,-101LL,-0LL,-207LL,
+    -0LL,-209LL,-0LL,-59LL,-0LL,-221LL,-0LL,-135LL,-0LL,-9LL,-0LL,-51LL,-0LL,-213LL,-0LL,-191LL,
+    -0LL,-193LL,-0LL,-171LL,-0LL,-77LL,-0LL,-119LL,-0LL,-249LL,-0LL,-163LL,-0LL,-69LL,-0LL,-175LL,
+    -0LL,-177LL,-0LL,-27LL,-0LL,-189LL,-0LL,-103LL,-0LL,-233LL,-0LL,-19LL,-0LL,-181LL,-0LL,-159LL,
+    -0LL,-161LL,-0LL,-139LL,-0LL,-45LL,-0LL,-87LL,-0LL,-217LL,-0LL,-131LL,-0LL,-37LL,-0LL,-143LL,
+    -0LL,-145LL,-0LL,-251LL,-0LL,-157LL,-0LL,-71LL,-0LL,-201LL,-0LL,-243LL,-0LL,-149LL,-0LL,-127LL,
+    -0LL,-129LL,-0LL,-107LL,-0LL,-13LL,-0LL,-55LL,-0LL,-185LL,-0LL,-99LL,-0LL,-5LL,-0LL,-111LL,
+    -0LL,-113LL,-0LL,-219LL,-0LL,-125LL,-0LL,-39LL,-0LL,-169LL,-0LL,-211LL,-0LL,-117LL,-0LL,-95LL,
+    -0LL,-97LL,-0LL,-75LL,-0LL,-237LL,-0LL,-23LL,-0LL,-153LL,-0LL,-67LL,-0LL,-229LL,-0LL,-79LL,
+    -0LL,-81LL,-0LL,-187LL,-0LL,-93LL,-0LL,-7LL,-0LL,-137LL,-0LL,-179LL,-0LL,-85LL,-0LL,-63LL,
+    -0LL,-65LL,-0LL,-43LL,-0LL,-205LL,-0LL,-247LL,-0LL,-121LL,-0LL,-35LL,-0LL,-197LL,-0LL,-47LL,
+    -0LL,-49LL,-0LL,-155LL,-0LL,-61LL,-0LL,-231LL,-0LL,-105LL,-0LL,-147LL,-0LL,-53LL,-0LL,-31LL,
+    -0LL,-33LL,-0LL,-11LL,-0LL,-173LL,-0LL,-215LL,-0LL,-89LL,-0LL,-3LL,-0LL,-165LL,-0LL,-15LL,
+    -0LL,-17LL,-0LL,-123LL,-0LL,-29LL,-0LL,-199LL,-0LL,-73LL,-0LL,-115LL,-0LL,-21LL,-0LL,-255LL, };
+
+inline void DivStep62(Int *u,Int *v,
   int64_t* eta,
   int64_t* uu,int64_t* uv,
   int64_t* vu,int64_t* vv) {
@@ -116,8 +135,11 @@ inline void DivStep62(int64_t u0,int64_t v0,
   // v' = (vu*u + vv*v) >> bitCount
   // Do not maintain a matrix for r and s, the number of 
   // 'added P' can be easily calculated
+  // Performance are measured on a I5-8500 for P=2^256 - 0x1000003D1
 
   int bitCount;
+  uint64_t u0 = u->bits64[0];
+  uint64_t v0 = v->bits64[0];
 
 #if 0
 
@@ -125,9 +147,7 @@ inline void DivStep62(int64_t u0,int64_t v0,
   #define SWAP_SUB(x,y) x-=y;y+=x;
 
   // Former divstep62 (using __builtin_ctzll)
-  // Do not use eta, u and v have an exponential decay in worst case 
-  // but with low probability to reach this worst case complexity
-  // Avg: 581 Kinv/s
+  // Avg: 581 Kinv/s, Avg number of divstep: 9.83
 
   bitCount = 62;
   int64_t nb0;
@@ -161,14 +181,101 @@ inline void DivStep62(int64_t u0,int64_t v0,
 
 #if 1
 
+  #define SWAP(tmp,x,y) tmp = x; x = y; y = tmp;
+
+  // divstep62 var time implementation (Thomas Pornin's method)
+  // (see https://github.com/pornin/bingcd)
+  // Avg 653 Kinv/s, Avg number of divstep: 6.13
+
+  uint64_t s;
+  uint64_t m3;
+  uint64_t m2;
+  uint64_t m1;
+  uint64_t uh;
+  uint64_t vh;
+  int64_t y,z;
+  uint64_t w,x;
+  unsigned char c = 0;
+
+  // Extract 64 MSB of u and v
+  m3 = u->bits64[3] | v->bits64[3];
+  m2 = u->bits64[2] | v->bits64[2];
+  m1 = u->bits64[1] | v->bits64[1];
+  if(m3) {
+    s = __builtin_clzll(m3);
+    if(s==0) {
+      uh = u->bits64[3];
+      vh = v->bits64[3];
+    } else {
+      uh = (u->bits64[3] << s) | (u->bits64[2] >> (64 - s));
+      vh = (v->bits64[3] << s) | (v->bits64[2] >> (64 - s));
+    }
+  } else if(m2) {
+    s = __builtin_clzll(m2);
+    if(s == 0) {
+      uh = u->bits64[2];
+      vh = v->bits64[2];
+    } else {
+      uh = (u->bits64[2] << s) | (u->bits64[1] >> (64 - s));
+      vh = (v->bits64[2] << s) | (v->bits64[1] >> (64 - s));
+    }
+  } else if(m1) {
+    s = __builtin_clzll(m1);
+    if(s == 0) {
+      uh = u->bits64[1];
+      vh = v->bits64[1];
+    } else {
+      uh = (u->bits64[1] << s) | (u->bits64[0] >> (64 - s));
+      vh = (v->bits64[1] << s) | (v->bits64[0] >> (64 - s));
+    }
+  } else {
+    uh = u->bits64[0];
+    vh = v->bits64[0];
+  }
+
+  bitCount = 62;
+
+  while(true) {
+
+    // Use a sentinel bit to count zeros only up to bitCount
+    int zeros = __builtin_ctzll(v0 | (UINT64_MAX << bitCount));
+    vh >>= zeros;
+    v0 >>= zeros;
+    *uu <<= zeros;
+    *uv <<= zeros;
+    bitCount -= zeros;
+
+    if(bitCount <= 0) {
+      break;
+    }
+
+    if(vh < uh) {
+      SWAP(w,uh,vh);
+      SWAP(x,u0,v0);
+      SWAP(y,*uu,*vu);
+      SWAP(z,*uv,*vv);
+    }
+
+    vh -= uh;
+    v0 -= u0;
+    *vu -= *uu;
+    *vv -= *uv;
+
+  }
+
+#endif
+
+#if 0
+
   #define SWAP_NEG(tmp,x,y) tmp = x; x = y; y = -tmp;
 
   int64_t m,w,x,y,z;
   bitCount = 62;
+  int64_t limit;
 
-  // divstep62 var time implementation by Peter Dettman
+  // divstep62 var time implementation by Peter Dettman (based on Bernstein/Yang paper)
   // (see https://github.com/bitcoin-core/secp256k1/pull/767)
-  // Avg: 640 Kinv/s
+  // Avg: 640 Kinv/s, Avg number of divstep: 9.00
 
   while(true) {
 
@@ -181,8 +288,9 @@ inline void DivStep62(int64_t u0,int64_t v0,
     *eta -= zeros;
     bitCount -= zeros;
 
-    if(bitCount <= 0)
+    if(bitCount <= 0) {
       break;
+    }
 
     if(*eta < 0) {
       *eta = -*eta;
@@ -191,12 +299,13 @@ inline void DivStep62(int64_t u0,int64_t v0,
       SWAP_NEG(z,*uv,*vv);
     }
 
-    // Handle up to 3 divsteps at once, subject to eta and bitCount
-    int limit = (*eta + 1) > bitCount ? bitCount : (int)(*eta + 1);
-    m = (UINT64_MAX >> (64 - limit)) & 7U;
+    // Handle up to 6 divstep at once
+    limit = (*eta + 1) > bitCount ? bitCount : (*eta + 1);
+    m = (UINT64_MAX >> (64 - limit)) & 63U;
+    //w = (u0 * v0 * (u0 * u0 - 2)) & m; // w = v0 * -u0^-1 mod 2^6  (1 Newton step => 6bit)
+    w = (v0 * INV256[u0 & 63U]) & m;
 
-    // Note that f * f == 1 mod 8, for any f
-    w = (-u0 * v0) & m;
+
     v0 += u0 * w;
     *vu += *uu * w;
     *vv += *uv * w;
@@ -207,9 +316,9 @@ inline void DivStep62(int64_t u0,int64_t v0,
 
 #if 0
 
-  // divstep62 constant time implementation by Peter Dettman
-  // Avg: 405 Kinv/s
-
+  // divstep62 constant time implementation by Peter Dettman (based on Bernstein/Yang paper)
+  // (see https://github.com/bitcoin-core/secp256k1/pull/767)
+  // Avg: 405 Kinv/s, Avg number of divstep: 9.00
   uint64_t c1,c2,x,y,z;
 
   for(bitCount = 0; bitCount < 62; bitCount++) {
@@ -238,15 +347,9 @@ inline void DivStep62(int64_t u0,int64_t v0,
 
 }
 
-#define MatrixVecMul(u,v,_11,_12,_21,_22) \
-  t1.IMult(&u,_11); \
-  t2.IMult(&v,_12); \
-  t3.IMult(&u,_21); \
-  t4.IMult(&v,_22); \
-  u.Add(&t1,&t2); \
-  v.Add(&t3,&t4);
-
 // ------------------------------------------------
+
+uint64_t totalCount;
 
 void Int::ModInv() {
 
@@ -477,79 +580,73 @@ void Int::ModInv() {
 #ifdef DRS62
 
   // Delayed right shift 62bits
-  Int r;
-  Int s;
+  Int r((int64_t)0);
+  Int s((int64_t)1);
   Int r0_P;
   Int s0_P;
-  Int t1,t2,t3,t4;
 
-  int64_t uu, uv, vu, vv;
-  int64_t eta = -1;
+  int64_t  uu, uv, vu, vv;
+  int64_t  eta = -1;
+  uint64_t carryS,carryR;
 
   //printf("ModInv(%s)\n",GetBase16().c_str());
 
-
-  //----------------------- First step (r,s) = (1,0)
-  uu = 1; uv = 0;
-  vu = 0; vv = 1;
-
-  DivStep62(u.bits64[0],v.bits64[0],&eta,&uu,&uv,&vu,&vv);
-
-  // Now update BigInt variables
-
-  MatrixVecMul(u,v,uu,uv,vu,vv);
-  LoadI64(t2,uv);
-  LoadI64(t4,vv);
-
-  // Compute multiple of P to add to s and r to make them multiple of 2^62
-  uint64_t r0 = (t2.bits64[0] * MM64) & MSK62;
-  uint64_t s0 = (t4.bits64[0] * MM64) & MSK62;
-  r0_P.Mult(&_P,r0);
-  s0_P.Mult(&_P,s0);
-  r.Add(&t2,&r0_P);
-  s.Add(&t4,&s0_P);
-
-  // Right shift all variables by 62bits
-  shiftR(62,u.bits64);
-  shiftR(62,v.bits64);
-  shiftR(62,r.bits64);
-  shiftR(62,s.bits64);
-
-  //----------------------- DivStep loop
   while (!v.IsZero()) {
 
     uu =  1; uv = 0;
     vu =  0; vv = 1;
 
-    DivStep62(u.bits64[0],v.bits64[0],&eta,&uu,&uv,&vu,&vv);
+    DivStep62(&u,&v,&eta,&uu,&uv,&vu,&vv);
 
     // Now update BigInt variables
 
-    MatrixVecMul(u,v,uu,uv,vu,vv);
-    MatrixVecMul(r,s,uu,uv,vu,vv);
+    MatrixVecMul(&u,&v,uu,uv,vu,vv);
+
+#if 1
+    // Make u,v positive
+    // Required only for Pornin's method
+    if(u.IsNegative()) {
+      u.Neg();
+      uu = -uu;
+      uv = -uv;
+    }
+    if(v.IsNegative()) {
+      v.Neg();
+      vu = -vu;
+      vv = -vv;
+    }
+#endif
+
+    MatrixVecMul(&r,&s,uu,uv,vu,vv,&carryR,&carryS);
 
     // Compute multiple of P to add to s and r to make them multiple of 2^62
     uint64_t r0 = (r.bits64[0] * MM64) & MSK62;
     uint64_t s0 = (s.bits64[0] * MM64) & MSK62;
     r0_P.Mult(&_P,r0);
     s0_P.Mult(&_P,s0);
-    r.Add(&r0_P);
-    s.Add(&s0_P);
+    carryR = r.AddCh(&r0_P,carryR);
+    carryS = s.AddCh(&s0_P,carryS);
 
     // Right shift all variables by 62bits
     shiftR(62, u.bits64);
     shiftR(62, v.bits64);
-    shiftR(62, r.bits64);
-    shiftR(62, s.bits64);
+    shiftR(62, r.bits64, carryR);
+    shiftR(62, s.bits64, carryS);
+
+    //printf("U=%s\n",u.GetBase16().c_str());
+    //printf("V=%s\n",v.GetBase16().c_str());
+    //printf("R=%s\n",r.GetBase16().c_str());
+    //printf("S=%s\n",s.GetBase16().c_str());
+    totalCount++;
 
   }
   
-  // u ends with -1 or 1
-  if (u.IsNegative()) {
-    // u = -1
+  // u ends with +/-1
+  if(u.IsNegative()) {
     u.Neg();
     r.Neg();
   }
+
   if (!u.IsOne()) {
     // No inverse
     CLEAR();
@@ -560,6 +657,7 @@ void Int::ModInv() {
     r.Add(&_P);
   while(r.IsGreaterOrEqual(&_P))
     r.Sub(&_P);
+
   Set(&r);
 
 #endif
@@ -788,47 +886,6 @@ void Int::SetupField(Int *n, Int *R, Int *R2, Int *R3, Int *R4) {
 
   if (R4)
     R4->Set(&_R4);
-
-}
-// ------------------------------------------------
-
-uint64_t Int::AddC(Int *a) {
-
-  unsigned char c = 0;
-  c = _addcarry_u64(c, bits64[0], a->bits64[0], bits64 + 0);
-  c = _addcarry_u64(c, bits64[1], a->bits64[1], bits64 + 1);
-  c = _addcarry_u64(c, bits64[2], a->bits64[2], bits64 + 2);
-  c = _addcarry_u64(c, bits64[3], a->bits64[3], bits64 + 3);
-  c = _addcarry_u64(c, bits64[4], a->bits64[4], bits64 + 4);
-#if NB64BLOCK > 5
-  c = _addcarry_u64(c, bits64[5], a->bits64[5], bits64 + 5);
-  c = _addcarry_u64(c, bits64[6], a->bits64[6], bits64 + 6);
-  c = _addcarry_u64(c, bits64[7], a->bits64[7], bits64 + 7);
-  c = _addcarry_u64(c, bits64[8], a->bits64[8], bits64 + 8);
-#endif
-
-  return c;
-
-}
-
-// ------------------------------------------------
-
-void Int::AddAndShift(Int *a, Int *b, uint64_t cH) {
-
-  unsigned char c = 0;
-  c = _addcarry_u64(c, b->bits64[0], a->bits64[0], bits64 + 0);
-  c = _addcarry_u64(c, b->bits64[1], a->bits64[1], bits64 + 0);
-  c = _addcarry_u64(c, b->bits64[2], a->bits64[2], bits64 + 1);
-  c = _addcarry_u64(c, b->bits64[3], a->bits64[3], bits64 + 2);
-  c = _addcarry_u64(c, b->bits64[4], a->bits64[4], bits64 + 3);
-#if NB64BLOCK > 5
-  c = _addcarry_u64(c, b->bits64[5], a->bits64[5], bits64 + 4);
-  c = _addcarry_u64(c, b->bits64[6], a->bits64[6], bits64 + 5);
-  c = _addcarry_u64(c, b->bits64[7], a->bits64[7], bits64 + 6);
-  c = _addcarry_u64(c, b->bits64[8], a->bits64[8], bits64 + 7);
-#endif
-
-  bits64[NB64BLOCK-1] = c + cH;
 
 }
 

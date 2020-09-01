@@ -155,6 +155,116 @@ void Int::Add(Int *a,Int *b) {
 
 // ------------------------------------------------
 
+uint64_t Int::AddCh(Int* a,uint64_t ca,Int* b,uint64_t cb) {
+
+  uint64_t carry;
+  unsigned char c = 0;
+  c = _addcarry_u64(c,a->bits64[0],b->bits64[0],bits64 + 0);
+  c = _addcarry_u64(c,a->bits64[1],b->bits64[1],bits64 + 1);
+  c = _addcarry_u64(c,a->bits64[2],b->bits64[2],bits64 + 2);
+  c = _addcarry_u64(c,a->bits64[3],b->bits64[3],bits64 + 3);
+  c = _addcarry_u64(c,a->bits64[4],b->bits64[4],bits64 + 4);
+#if NB64BLOCK > 5
+  c = _addcarry_u64(c,a->bits64[5],b->bits64[5],bits64 + 5);
+  c = _addcarry_u64(c,a->bits64[6],b->bits64[6],bits64 + 6);
+  c = _addcarry_u64(c,a->bits64[7],b->bits64[7],bits64 + 7);
+  c = _addcarry_u64(c,a->bits64[8],b->bits64[8],bits64 + 8);
+#endif
+  _addcarry_u64(c,ca,cb,&carry);
+  return carry;
+
+}
+
+uint64_t Int::AddCh(Int* a,uint64_t ca) {
+
+  uint64_t carry;
+  unsigned char c = 0;
+  c = _addcarry_u64(c,bits64[0],a->bits64[0],bits64 + 0);
+  c = _addcarry_u64(c,bits64[1],a->bits64[1],bits64 + 1);
+  c = _addcarry_u64(c,bits64[2],a->bits64[2],bits64 + 2);
+  c = _addcarry_u64(c,bits64[3],a->bits64[3],bits64 + 3);
+  c = _addcarry_u64(c,bits64[4],a->bits64[4],bits64 + 4);
+#if NB64BLOCK > 5
+  c = _addcarry_u64(c,bits64[5],a->bits64[5],bits64 + 5);
+  c = _addcarry_u64(c,bits64[6],a->bits64[6],bits64 + 6);
+  c = _addcarry_u64(c,bits64[7],a->bits64[7],bits64 + 7);
+  c = _addcarry_u64(c,bits64[8],a->bits64[8],bits64 + 8);
+#endif
+  _addcarry_u64(c,ca,0,&carry);
+  return carry;
+
+}
+// ------------------------------------------------
+
+uint64_t Int::AddC(Int* a) {
+
+  unsigned char c = 0;
+  c = _addcarry_u64(c,bits64[0],a->bits64[0],bits64 + 0);
+  c = _addcarry_u64(c,bits64[1],a->bits64[1],bits64 + 1);
+  c = _addcarry_u64(c,bits64[2],a->bits64[2],bits64 + 2);
+  c = _addcarry_u64(c,bits64[3],a->bits64[3],bits64 + 3);
+  c = _addcarry_u64(c,bits64[4],a->bits64[4],bits64 + 4);
+#if NB64BLOCK > 5
+  c = _addcarry_u64(c,bits64[5],a->bits64[5],bits64 + 5);
+  c = _addcarry_u64(c,bits64[6],a->bits64[6],bits64 + 6);
+  c = _addcarry_u64(c,bits64[7],a->bits64[7],bits64 + 7);
+  c = _addcarry_u64(c,bits64[8],a->bits64[8],bits64 + 8);
+#endif
+
+  return c;
+
+}
+
+// ------------------------------------------------
+
+void Int::AddAndShift(Int* a,Int* b,uint64_t cH) {
+
+  unsigned char c = 0;
+  c = _addcarry_u64(c,b->bits64[0],a->bits64[0],bits64 + 0);
+  c = _addcarry_u64(c,b->bits64[1],a->bits64[1],bits64 + 0);
+  c = _addcarry_u64(c,b->bits64[2],a->bits64[2],bits64 + 1);
+  c = _addcarry_u64(c,b->bits64[3],a->bits64[3],bits64 + 2);
+  c = _addcarry_u64(c,b->bits64[4],a->bits64[4],bits64 + 3);
+#if NB64BLOCK > 5
+  c = _addcarry_u64(c,b->bits64[5],a->bits64[5],bits64 + 4);
+  c = _addcarry_u64(c,b->bits64[6],a->bits64[6],bits64 + 5);
+  c = _addcarry_u64(c,b->bits64[7],a->bits64[7],bits64 + 6);
+  c = _addcarry_u64(c,b->bits64[8],a->bits64[8],bits64 + 7);
+#endif
+
+  bits64[NB64BLOCK - 1] = c + cH;
+
+}
+
+// ------------------------------------------------
+
+void Int::MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t _22,uint64_t* cu,uint64_t* cv) {
+
+  Int t1,t2,t3,t4;
+  uint64_t c1,c2,c3,c4;
+  c1 = t1.IMult(u,_11);
+  c2 = t2.IMult(v,_12);
+  c3 = t3.IMult(u,_21);
+  c4 = t4.IMult(v,_22);
+  *cu = u->AddCh(&t1,c1,&t2,c2);
+  *cv = v->AddCh(&t3,c3,&t4,c4);
+
+}
+
+void Int::MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t _22) {
+
+  Int t1,t2,t3,t4;
+  t1.IMult(u,_11);
+  t2.IMult(v,_12);
+  t3.IMult(u,_21);
+  t4.IMult(v,_22);
+  u->Add(&t1,&t2);
+  v->Add(&t3,&t4);
+
+}
+
+// ------------------------------------------------
+
 bool Int::IsGreater(Int *a) {
 
   int i;
@@ -569,7 +679,9 @@ void Int::Mult(Int *a) {
 
 // ------------------------------------------------
 
-void Int::IMult(int64_t a) {
+uint64_t Int::IMult(int64_t a) {
+
+  uint64_t carry;
 
 	// Make a positive
 	if (a < 0LL) {
@@ -577,21 +689,26 @@ void Int::IMult(int64_t a) {
 		Neg();
 	}
 
-	imm_mul(bits64, a, bits64);
+	imm_imul(bits64, a, bits64, &carry);
+  return carry;
 
 }
 
 // ------------------------------------------------
 
-void Int::Mult(uint64_t a) {
+uint64_t Int::Mult(uint64_t a) {
 
-	imm_mul(bits64, a, bits64);
+  uint64_t carry;
+  imm_mul(bits64, a, bits64, &carry);
+  return carry;
 
 }
 // ------------------------------------------------
 
-void Int::IMult(Int *a, int64_t b) {
+uint64_t Int::IMult(Int *a, int64_t b) {
   
+  uint64_t carry;
+
   // Make b positive
   if (b < 0LL) {
 
@@ -616,15 +733,18 @@ void Int::IMult(Int *a, int64_t b) {
 
   }
 
-  imm_mul(bits64, b, bits64);
+  imm_imul(bits64, b, bits64, &carry);
+  return carry;
 
 }
 
 // ------------------------------------------------
 
-void Int::Mult(Int *a, uint64_t b) {
+uint64_t Int::Mult(Int *a, uint64_t b) {
 
-  imm_mul(a->bits64, b, bits64);
+  uint64_t carry;
+  imm_mul(a->bits64, b, bits64, &carry);
+  return carry;
 
 }
 
@@ -656,8 +776,10 @@ void Int::Mult(Int *a,Int *b) {
 
 // ------------------------------------------------
 
-void Int::Mult(Int *a,uint32_t b) {
-  imm_mul(a->bits64, (uint64_t)b, bits64);
+uint64_t Int::Mult(Int *a,uint32_t b) {
+  uint64_t carry;
+  imm_mul(a->bits64, (uint64_t)b, bits64, &carry);
+  return carry;
 }
 
 // ------------------------------------------------
@@ -1194,8 +1316,55 @@ bool Int::IsProbablePrime() {
 
 }
 
+extern int64_t iCountMax;
+extern int64_t iCountTotal;
+extern int64_t iCountHist[12];
 
 // ------------------------------------------------
+
+bool Int::CheckInv(Int* a) {
+
+  Int b(a);
+  Int c;
+  bool ok = true;
+
+  b.ModInv();
+  c = b;
+  b.ModMul(a);
+  if(!b.IsOne()) {
+
+    Int e(Int::GetFieldCharacteristic());
+    e.Sub(2ULL);
+    Int g(a);
+    g.ModExp(&e);
+
+    printf("ModInv() Results Wrong for %s\n",a->GetBase16().c_str());
+    printf(" Got: %s\n",c.GetBase16().c_str());
+    printf(" Exp: %s\n",g.GetBase16().c_str());
+    ok = false;
+
+  }
+
+  if(ok) {
+    b = c;
+    c.ModInv();
+    if(!c.IsEqual(a)) {
+
+      Int e(Int::GetFieldCharacteristic());
+      e.Sub(2ULL);
+      Int g(&b);
+      g.ModExp(&e);
+
+      printf("ModInv() Results Wrong for %s\n",b.GetBase16().c_str());
+      ok = false;
+    }
+  }
+
+  return ok;
+
+}
+
+extern uint64_t totalCount;
 
 void Int::Check() {
 
@@ -1289,28 +1458,10 @@ void Int::Check() {
   // SecpK1 prime
   b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
   Int::SetupField(&b);
+  printf("R1=%s\n",Int::GetR()->GetBase16().c_str());
+  printf("R2=%s\n",Int::GetR2()->GetBase16().c_str());
 
   // ModInv -------------------------------------------------------------------------------------------
-
-  for (int64_t i = 0; i < 100000 && ok; i++) {
-
-    a.Rand(BISIZE);
-
-    b = a;
-    a.ModInv();
-    c = a;
-    a.ModMul(&b);
-    if (!a.IsOne()) {
-      printf("ModInv() Results Wrong %s\n", b.GetBase16().c_str());
-	    ok = false;
-    }
-    c.ModInv();
-    if(!c.IsEqual(&b)) {
-      printf("ModInv() Results Wrong %s\n", a.GetBase16().c_str());
-      ok = false;
-    }
-
-  }
 
   ok = true;
   for (int i = 0; i < 10000 && ok; i++) {
@@ -1335,6 +1486,46 @@ void Int::Check() {
   } else {
     printf("ModInv()/ModExp() Results OK\n");
   }
+
+  a.SetInt32(0);
+  a.ModInv();
+  if(!a.IsZero()) {
+    printf("ModInv(0) does not return 0!\n");
+  }
+
+  a.Set(&_ONE);
+  for(int64_t i=0;i<255 && ok;i++) {
+    ok = CheckInv(&a);
+    b = a;
+    b.ModNeg();
+    ok = CheckInv(&b);
+    a.ShiftL(1);
+  }
+
+  a.Set(Int::GetFieldCharacteristic());
+  for(int64_t i = 0; i < 1000000 && ok; i++) {
+    a.SubOne();
+    ok = CheckInv(&a);
+  }
+  a.Set(&_ONE);
+  for(int64_t i = 0; i < 1000000 && ok; i++) {
+    ok = CheckInv(&a);
+    a.AddOne();
+  }
+
+  if(ok)
+    printf("ModInv() Edge cases Results OK\n");
+  else
+    printf("ModInv() Edge cases Results Wrong\n");
+
+  totalCount = 0;
+
+  for(int64_t i = 0; i <= 1000000 && ok; i++) {
+    a.Rand(BISIZE);
+    ok = CheckInv(&a);
+  }
+
+  printf("Avg = %.2f\n",(double)totalCount/2000000.0);
 
   t0 = Timer::get_tick();
   a.Rand(BISIZE);

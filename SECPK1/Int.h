@@ -56,12 +56,11 @@ public:
   void Sub(Int *a, Int *b);
   void SubOne();
   void Mult(Int *a);
-  void Mult(uint64_t a);
-  void IMult(int64_t a);
-  void Mult(Int *a,uint64_t b);
-  void IMult(Int *a, int64_t b);
+  uint64_t Mult(uint64_t a);
+  uint64_t IMult(int64_t a);
+  uint64_t Mult(Int *a,uint64_t b);
+  uint64_t IMult(Int *a, int64_t b);
   void Mult(Int *a,Int *b);
-  void IMultAdd(Int* a,int64_t aa,Int* b,int64_t bb);
   void Div(Int *a,Int *mod = NULL);
   void MultModN(Int *a, Int *b, Int *n);
   void Neg();
@@ -175,8 +174,9 @@ public:
   std::string GetBlockStr();
   std::string GetC64Str(int nbDigit);
 
-  // Check function
+  // Check functions
   static void Check();
+  static bool CheckInv(Int *a);
 
 
   /*
@@ -193,10 +193,14 @@ public:
 
 private:
 
+  void MatrixVecMul(Int *u,Int *v,int64_t _11,int64_t _12,int64_t _21,int64_t _22,uint64_t *cu,uint64_t* cv);
+  void MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t _22);
+  uint64_t AddCh(Int *a,uint64_t ca,Int* b,uint64_t cb);
+  uint64_t AddCh(Int* a,uint64_t ca);
+  uint64_t AddC(Int* a);
+  void AddAndShift(Int* a,Int* b,uint64_t cH);
   void ShiftL32BitAndSub(Int *a,int n);
-  uint64_t AddC(Int *a);
-  void AddAndShift(Int *a, Int *b,uint64_t cH);
-  void Mult(Int *a, uint32_t b);
+  uint64_t Mult(Int *a, uint32_t b);
   int  GetLowestBit();
   void CLEAR();
   void CLEARFF();
@@ -243,6 +247,12 @@ static inline int __builtin_ctzll(unsigned long long x) {
   return (int)ret;
 }
 
+static inline int __builtin_clzll(unsigned long long x) {
+  unsigned long ret;
+  _BitScanReverse64(&ret,x);
+  return (int)ret;
+}
+
 #endif
 
 
@@ -253,7 +263,7 @@ i.bits64[2] = i.bits64[1];\
 i.bits64[3] = i.bits64[1];\
 i.bits64[4] = i.bits64[1];
 
-static void inline imm_mul(uint64_t *x, uint64_t y, uint64_t *dst) {
+static void inline imm_mul(uint64_t *x, uint64_t y, uint64_t *dst,uint64_t *carryH) {
 
   unsigned char c = 0;
   uint64_t h, carry;
@@ -268,6 +278,26 @@ static void inline imm_mul(uint64_t *x, uint64_t y, uint64_t *dst) {
   c = _addcarry_u64(c, _umul128(x[7], y, &h), carry, dst + 7); carry = h;
   c = _addcarry_u64(c, _umul128(x[8], y, &h), carry, dst + 8); carry = h;
 #endif
+  *carryH = carry;
+
+}
+
+static void inline imm_imul(uint64_t* x,uint64_t y,uint64_t* dst,uint64_t* carryH) {
+
+  unsigned char c = 0;
+  uint64_t h,carry;
+  dst[0] = _umul128(x[0],y,&h); carry = h;
+  c = _addcarry_u64(c,_umul128(x[1],y,&h),carry,dst + 1); carry = h;
+  c = _addcarry_u64(c,_umul128(x[2],y,&h),carry,dst + 2); carry = h;
+  c = _addcarry_u64(c,_umul128(x[3],y,&h),carry,dst + 3); carry = h;
+  c = _addcarry_u64(c,_mul128(x[4],y,(int64_t*)&h),carry,dst + 4); carry = h;
+#if NB64BLOCK > 5
+  c = _addcarry_u64(c,_umul128(x[5],y,&h),carry,dst + 5); carry = h;
+  c = _addcarry_u64(c,_umul128(x[6],y,&h),carry,dst + 6); carry = h;
+  c = _addcarry_u64(c,_umul128(x[7],y,&h),carry,dst + 7); carry = h;
+  c = _addcarry_u64(c,_umul128(x[8],y,&h),carry,dst + 8); carry = h;
+#endif
+  * carryH = carry;
 
 }
 
@@ -303,6 +333,24 @@ static void inline shiftR(unsigned char n, uint64_t *d) {
   d[7] = __shiftright128(d[7], d[8], n);
 #endif
   d[NB64BLOCK-1] = ((int64_t)d[NB64BLOCK-1]) >> n;
+
+}
+
+static void inline shiftR(unsigned char n,uint64_t* d,uint64_t h) {
+
+  d[0] = __shiftright128(d[0],d[1],n);
+  d[1] = __shiftright128(d[1],d[2],n);
+  d[2] = __shiftright128(d[2],d[3],n);
+  d[3] = __shiftright128(d[3],d[4],n);
+#if NB64BLOCK > 5
+  d[4] = __shiftright128(d[4],d[5],n);
+  d[5] = __shiftright128(d[5],d[6],n);
+  d[6] = __shiftright128(d[6],d[7],n);
+  d[7] = __shiftright128(d[7],d[8],n);
+  d[8] = __shiftright128(d[8],h,n);
+#else
+  d[4] = __shiftright128(d[4],h,n);
+#endif
 
 }
 
