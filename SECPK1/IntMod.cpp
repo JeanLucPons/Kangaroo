@@ -147,7 +147,7 @@ inline void DivStep62(Int *u,Int *v,
   #define SWAP_SUB(x,y) x-=y;y+=x;
 
   // Former divstep62 (using __builtin_ctzll)
-  // Avg: 581 Kinv/s, Avg number of divstep: 9.83
+  // Avg: 581 Kinv/s, Avg number of divstep62: 9.83
 
   bitCount = 62;
   int64_t nb0;
@@ -185,7 +185,7 @@ inline void DivStep62(Int *u,Int *v,
 
   // divstep62 var time implementation (Thomas Pornin's method)
   // (see https://github.com/pornin/bingcd)
-  // Avg 653 Kinv/s, Avg number of divstep: 6.13
+  // Avg 653 Kinv/s, Avg number of divstep62: 6.13
 
   uint64_t s;
   uint64_t m3;
@@ -207,8 +207,8 @@ inline void DivStep62(Int *u,Int *v,
       uh = u->bits64[3];
       vh = v->bits64[3];
     } else {
-      uh = (u->bits64[3] << s) | (u->bits64[2] >> (64 - s));
-      vh = (v->bits64[3] << s) | (v->bits64[2] >> (64 - s));
+      uh = __shiftleft128(u->bits64[2],u->bits64[3],(uint8_t)s);
+      vh = __shiftleft128(v->bits64[2],v->bits64[3],(uint8_t)s);
     }
   } else if(m2) {
     s = __builtin_clzll(m2);
@@ -216,8 +216,8 @@ inline void DivStep62(Int *u,Int *v,
       uh = u->bits64[2];
       vh = v->bits64[2];
     } else {
-      uh = (u->bits64[2] << s) | (u->bits64[1] >> (64 - s));
-      vh = (v->bits64[2] << s) | (v->bits64[1] >> (64 - s));
+      uh = __shiftleft128(u->bits64[1],u->bits64[2],(uint8_t)s);
+      vh = __shiftleft128(v->bits64[1],v->bits64[2],(uint8_t)s);
     }
   } else if(m1) {
     s = __builtin_clzll(m1);
@@ -225,8 +225,8 @@ inline void DivStep62(Int *u,Int *v,
       uh = u->bits64[1];
       vh = v->bits64[1];
     } else {
-      uh = (u->bits64[1] << s) | (u->bits64[0] >> (64 - s));
-      vh = (v->bits64[1] << s) | (v->bits64[0] >> (64 - s));
+      uh = __shiftleft128(u->bits64[0],u->bits64[1],(uint8_t)s);
+      vh = __shiftleft128(v->bits64[0],v->bits64[1],(uint8_t)s);
     }
   } else {
     uh = u->bits64[0];
@@ -275,7 +275,7 @@ inline void DivStep62(Int *u,Int *v,
 
   // divstep62 var time implementation by Peter Dettman (based on Bernstein/Yang paper)
   // (see https://github.com/bitcoin-core/secp256k1/pull/767)
-  // Avg: 640 Kinv/s, Avg number of divstep: 9.00
+  // Avg: 640 Kinv/s, Avg number of divstep62: 9.00
 
   while(true) {
 
@@ -318,7 +318,7 @@ inline void DivStep62(Int *u,Int *v,
 
   // divstep62 constant time implementation by Peter Dettman (based on Bernstein/Yang paper)
   // (see https://github.com/bitcoin-core/secp256k1/pull/767)
-  // Avg: 405 Kinv/s, Avg number of divstep: 9.00
+  // Avg: 405 Kinv/s, Avg number of divstep62: 9.00
   uint64_t c1,c2,x,y,z;
 
   for(bitCount = 0; bitCount < 62; bitCount++) {
