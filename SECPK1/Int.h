@@ -228,18 +228,10 @@ static int64_t inline _mul128(int64_t a, int64_t b, int64_t *h) {
   return rlo;  
 }
 
-static uint64_t inline __shiftright128(uint64_t a, uint64_t b,unsigned char n) {
-  uint64_t c;
-  __asm__ ("movq %1,%0;shrdq %3,%2,%0;" : "=D"(c) : "r"(a),"r"(b),"c"(n));
-  return c; 
-}
 
+#define __shiftright128(a,b,n) ((a)>>(n))|((b)<<(64-(n)))
+#define __shiftleft128(a,b,n) ((b)<<(n))|((a)>>(64-(n)))
 
-static uint64_t inline __shiftleft128(uint64_t a, uint64_t b,unsigned char n) {
-  uint64_t c;
-  __asm__ ("movq %1,%0;shldq %3,%2,%0;" : "=D"(c) : "r"(b),"r"(a),"c"(n));
-  return  c;
-}
 
 #define _subborrow_u64(a,b,c,d) __builtin_ia32_sbb_u64(a,b,c,(long long unsigned int*)d);
 #define _addcarry_u64(a,b,c,d) __builtin_ia32_addcarryx_u64(a,b,c,(long long unsigned int*)d);
@@ -357,12 +349,7 @@ static void inline shiftR(unsigned char n,uint64_t* d,uint64_t h) {
   d[7] = __shiftright128(d[7],d[8],n);
 #endif
 
-#ifndef WIN64
-  // fixme
-  d[NB64BLOCK-1] = (d[NB64BLOCK-1]>>n) | (h<<(64-n));
-#else
   d[NB64BLOCK-1] = __shiftright128(d[NB64BLOCK-1],h,n);
-#endif
 
 }
 

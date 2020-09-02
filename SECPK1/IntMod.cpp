@@ -199,7 +199,6 @@ inline void DivStep62(Int *u,Int *v,
   // Extract 64 MSB of u and v
   // u and v must be positive
 
-#if BISIZE==512
   pos = NB64BLOCK - 2;
   while(pos>=1 && (u->bits64[pos] | v->bits64[pos])==0) pos--;
   if(pos==0) {
@@ -215,48 +214,6 @@ inline void DivStep62(Int *u,Int *v,
       vh = __shiftleft128(v->bits64[pos-1],v->bits64[pos],(uint8_t)s);
     }
   }
-#else
-  uint64_t m3 = u->bits64[3] | v->bits64[3];
-  uint64_t m2 = u->bits64[2] | v->bits64[2];
-  uint64_t m1 = u->bits64[1] | v->bits64[1];
-  if(m3) {
-    s = __builtin_clzll(m3);
-    if(s == 0) {
-      uh = u->bits64[3];
-      vh = v->bits64[3];
-    }
-    else {
-      uh = __shiftleft128(u->bits64[2],u->bits64[3],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[2],v->bits64[3],(uint8_t)s);
-    }
-  }
-  else if(m2) {
-    s = __builtin_clzll(m2);
-    if(s == 0) {
-      uh = u->bits64[2];
-      vh = v->bits64[2];
-    }
-    else {
-      uh = __shiftleft128(u->bits64[1],u->bits64[2],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[1],v->bits64[2],(uint8_t)s);
-    }
-  }
-  else if(m1) {
-    s = __builtin_clzll(m1);
-    if(s == 0) {
-      uh = u->bits64[1];
-      vh = v->bits64[1];
-    }
-    else {
-      uh = __shiftleft128(u->bits64[0],u->bits64[1],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[0],v->bits64[1],(uint8_t)s);
-    }
-  }
-  else {
-    uh = u->bits64[0];
-    vh = v->bits64[0];
-  }
-#endif
 
   bitCount = 62;
 

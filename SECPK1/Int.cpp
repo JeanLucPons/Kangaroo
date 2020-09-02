@@ -641,6 +641,9 @@ void Int::ShiftR64Bit() {
 // ---------------------------------D---------------
 
 void Int::ShiftR(uint32_t n) {
+
+  if(n==0)
+    return;
     
   if( n<64 ) {
     shiftR((unsigned char)n, bits64);
