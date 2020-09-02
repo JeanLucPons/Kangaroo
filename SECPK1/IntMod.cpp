@@ -135,7 +135,7 @@ inline void DivStep62(Int *u,Int *v,
   // v' = (vu*u + vv*v) >> bitCount
   // Do not maintain a matrix for r and s, the number of 
   // 'added P' can be easily calculated
-  // Performance are measured on a I5-8500 for P=2^256 - 0x1000003D1
+  // Performance are measured on a I5-8500 for P=2^256 - 0x1000003D1 (VS2019 compilation)
 
   int bitCount;
   uint64_t u0 = u->bits64[0];
@@ -186,11 +186,10 @@ inline void DivStep62(Int *u,Int *v,
   // divstep62 var time implementation (Thomas Pornin's method)
   // (see https://github.com/pornin/bingcd)
   // Avg 653 Kinv/s, Avg number of divstep62: 6.13
+  // "Make u,v positive" in the macro loop must be enabled
 
-  uint64_t s;
-  uint64_t m3;
-  uint64_t m2;
-  uint64_t m1;
+  int s;
+  int pos;
   uint64_t uh;
   uint64_t vh;
   int64_t y,z;
@@ -198,39 +197,21 @@ inline void DivStep62(Int *u,Int *v,
   unsigned char c = 0;
 
   // Extract 64 MSB of u and v
-  m3 = u->bits64[3] | v->bits64[3];
-  m2 = u->bits64[2] | v->bits64[2];
-  m1 = u->bits64[1] | v->bits64[1];
-  if(m3) {
-    s = __builtin_clzll(m3);
-    if(s==0) {
-      uh = u->bits64[3];
-      vh = v->bits64[3];
-    } else {
-      uh = __shiftleft128(u->bits64[2],u->bits64[3],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[2],v->bits64[3],(uint8_t)s);
-    }
-  } else if(m2) {
-    s = __builtin_clzll(m2);
-    if(s == 0) {
-      uh = u->bits64[2];
-      vh = v->bits64[2];
-    } else {
-      uh = __shiftleft128(u->bits64[1],u->bits64[2],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[1],v->bits64[2],(uint8_t)s);
-    }
-  } else if(m1) {
-    s = __builtin_clzll(m1);
-    if(s == 0) {
-      uh = u->bits64[1];
-      vh = v->bits64[1];
-    } else {
-      uh = __shiftleft128(u->bits64[0],u->bits64[1],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[0],v->bits64[1],(uint8_t)s);
-    }
-  } else {
+  // u and v must be positive
+  pos = NB64BLOCK - 2;
+  while(pos>=1 && (u->bits64[pos] | v->bits64[pos])==0) pos--;
+  if(pos==0) {
     uh = u->bits64[0];
     vh = v->bits64[0];
+  } else {
+    s = __builtin_clzll(u->bits64[pos] | v->bits64[pos]);
+    if(s == 0) {
+      uh = u->bits64[pos];
+      vh = v->bits64[pos];
+    } else {
+      uh = __shiftleft128(u->bits64[pos-1],u->bits64[pos],(uint8_t)s);
+      vh = __shiftleft128(v->bits64[pos-1],v->bits64[pos],(uint8_t)s);
+    }
   }
 
   bitCount = 62;
