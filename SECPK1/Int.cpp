@@ -641,7 +641,7 @@ void Int::ShiftR64Bit() {
 
 }
 
-// ------------------------------------------------
+// ---------------------------------D---------------
 
 void Int::ShiftR(uint32_t n) {
 
@@ -1460,7 +1460,8 @@ void Int::Check() {
   printf("R2=%s\n",Int::GetR2()->GetBase16().c_str());
 
   // Check work only for prime close to a power of 2
-  int pSize = Int::GetFieldCharacteristic()->GetBitLength() - 1;
+  int pSize = Int::GetFieldCharacteristic()->GetBitLength();
+  printf("Field characteristic size: %dbits\n",pSize);
 
   // ModInv -------------------------------------------------------------------------------------------
 
@@ -1495,7 +1496,7 @@ void Int::Check() {
   }
 
   a.Set(&_ONE);
-  for(int64_t i=0;i<pSize && ok;i++) {
+  for(int64_t i=0;i<pSize-1 && ok;i++) {
     ok = CheckInv(&a);
     b = a;
     b.ModNeg();
@@ -1528,8 +1529,8 @@ void Int::Check() {
 
   printf("Avg = %.2f\n",(double)totalCount/200000.0);
 
-  a.Rand(BISIZE);
-  b.Rand(BISIZE-64);
+  a.Rand(pSize);
+  b.Rand(pSize-64);
   t0 = Timer::get_tick();
   uint64_t c0 = __rdtsc();
   for (int i = 0; i < 200000; i++) {
