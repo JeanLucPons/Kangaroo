@@ -179,7 +179,7 @@ inline void DivStep62(Int *u,Int *v,
 
 #endif
 
-#if 1
+#if 0
 
   #define SWAP(tmp,x,y) tmp = x; x = y; y = tmp;
 
@@ -247,7 +247,7 @@ inline void DivStep62(Int *u,Int *v,
 
 #endif
 
-#if 0
+#if 1
 
   #define SWAP_NEG(tmp,x,y) tmp = x; x = y; y = -tmp;
 
@@ -336,22 +336,21 @@ uint64_t totalCount;
 void Int::ModInv() {
 
   // Compute modular inverse of this mop _P
-  // 0 < this < P  , P must be odd
+  // 0 <= this < _P  , _P must be odd
   // Return 0 if no inverse
 
   // 256bit 
-  //#define XCD 1               // ~80  kOps/s
+  //#define XCD 1               // ~97  kOps/s
   //#define MONTGOMERY 1        // ~246 kOps/s
-  //#define PENK 1              // ~215 kOps/s
   #define DRS62 1               // ~640 kOps/s
 
   Int u(&_P);
   Int v(this);
+  Int r((int64_t)0);
+  Int s((int64_t)1);
 
 #ifdef XCD
 
-  Int r((int64_t)0);
-  Int s((int64_t)1);
   Int q, t1, t2, w;
 
   // Classic XCD 
@@ -387,133 +386,14 @@ void Int::ModInv() {
 
 #endif
 
-#ifdef PENK
-
-  Int r((int64_t)0);
-  Int s((int64_t)1);
-  Int x;
-  Int n2(&_P);
-  int k = 0;
-  int T;
-  int Q = _P.bits[0] & 3;
-  shiftL(1,n2.bits64);
-
-  // Penk's Algorithm (With DRS2 optimisation)
-
-  while (v.IsEven()) {
-
-    shiftR(1,v.bits64);
-    if (s.IsEven())
-      shiftR(1, s.bits64);
-    else if (s.IsGreater(&_P)) {
-      s.Sub(&_P);
-      shiftR(1, s.bits64);
-    } else {
-      s.Add(&_P);
-      shiftR(1, s.bits64);
-    }
-
-  }
-
-  while (true) {
-
-    if (u.IsGreater(&v)) {
-
-      if ((u.bits[0] & 2) == (v.bits[0] & 2)) {
-        u.Sub(&v);
-        r.Sub(&s);
-      } else {
-        u.Add(&v);
-        r.Add(&s);
-      }
-      shiftR(2,u.bits64);
-      T = r.bits[0] & 3;
-      if (T == 0) {
-        shiftR(2,r.bits64);
-      } else if (T == 2) {
-        r.Add(&n2);
-        shiftR(2, r.bits64);
-      } else if (T == Q) {
-        r.Sub(&_P);
-        shiftR(2, r.bits64);
-      } else {
-        r.Add(&_P);
-        shiftR(2, r.bits64);
-      }
-      while (u.IsEven()) {
-        shiftR(1,u.bits64);
-        if (r.IsEven()) {
-          shiftR(1, r.bits64);
-        } else if (r.IsGreater(&_P)) {
-          r.Sub(&_P);
-          shiftR(1, r.bits64);
-        } else {
-          r.Add(&_P);
-          shiftR(1, r.bits64);
-        }
-      }
-
-    } else {
-
-      if ((u.bits[0] & 2) == (v.bits[0] & 2)) {
-        v.Sub(&u);
-        s.Sub(&r);
-      } else {
-        v.Add(&u);
-        s.Add(&r);
-      }
-
-      if (v.IsZero())
-        break;
-
-      shiftR(2, v.bits64);
-      T = s.bits[0] & 3;
-      if (T == 0) {
-        shiftR(2,s.bits64);
-      } else if (T == 2) {
-        s.Add(&n2);
-        shiftR(2, s.bits64);
-      } else if (T == Q) {
-        s.Sub(&_P);
-        shiftR(2, s.bits64);
-      } else {
-        s.Add(&_P);
-        shiftR(2, s.bits64);
-      }
-
-      while (v.IsEven()) {
-        shiftR(1, v.bits64);
-        if (s.IsEven()) {
-          shiftR(1, s.bits64);
-        } else if (s.IsGreater(&_P)) {
-          s.Sub(&_P);
-          shiftR(1, s.bits64);
-        } else {
-          s.Add(&_P);
-          shiftR(1, s.bits64);
-        }
-      }
-
-    }
-
-  }
-
-  if (u.IsGreater(&_ONE)) {
-    CLEAR();
-    return;
-  }
-  if (r.IsNegative())
-    r.Add(&_P);
-  Set(&r);
-
-#endif
-
 #ifdef MONTGOMERY
 
-  Int r((int64_t)0);
-  Int s((int64_t)1);
   Int x;
   int k = 0;
+  if(v.IsZero()) {
+    Set(&v);
+    return;
+  }
 
   // Montgomery method
   while (v.IsStrictPositive()) {
@@ -562,8 +442,6 @@ void Int::ModInv() {
 #ifdef DRS62
 
   // Delayed right shift 62bits
-  Int r((int64_t)0);
-  Int s((int64_t)1);
   Int r0_P;
   Int s0_P;
 
@@ -584,7 +462,7 @@ void Int::ModInv() {
 
     MatrixVecMul(&u,&v,uu,uv,vu,vv);
 
-#if 1
+#if 0
     // Make u,v positive
     // Required only for Pornin's method
     if(u.IsNegative()) {

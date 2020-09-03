@@ -143,8 +143,9 @@ public:
   uint32_t ModPositiveK1();
 
   // Size
-  int GetSize();
-  int GetBitLength();
+  int GetSize();       // Number of significant 32bit limbs
+  int GetSize64();     // Number of significant 64bit limbs
+  int GetBitLength();  // Number of significant bits
 
   // Setter
   void SetInt32(uint32_t value);
@@ -199,7 +200,7 @@ private:
   uint64_t AddCh(Int* a,uint64_t ca);
   uint64_t AddC(Int* a);
   void AddAndShift(Int* a,Int* b,uint64_t cH);
-  void ShiftL32BitAndSub(Int *a,int n);
+  void ShiftL64BitAndSub(Int *a,int n);
   uint64_t Mult(Int *a, uint32_t b);
   int  GetLowestBit();
   void CLEAR();
@@ -250,6 +251,12 @@ static inline int __builtin_ctzll(unsigned long long x) {
 static inline int __builtin_clzll(unsigned long long x) {
   unsigned long ret;
   _BitScanReverse64(&ret,x);
+  return (int)ret;
+}
+
+static inline int __builtin_clzl(unsigned long x) {
+  unsigned long ret;
+  _BitScanReverse(&ret,x);
   return (int)ret;
 }
 
@@ -367,6 +374,12 @@ static void inline shiftL(unsigned char n, uint64_t *d) {
   d[1] = __shiftleft128(d[0], d[1], n);
   d[0] = d[0] << n;
 
+}
+
+static inline int isStrictGreater128(uint64_t h1,uint64_t l1,uint64_t h2,uint64_t l2) {
+  if(h1>h2) return 1;
+  if(h1==h2) return l1>l2;
+  return 0;
 }
 
 #endif // BIGINTH

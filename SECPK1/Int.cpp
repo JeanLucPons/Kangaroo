@@ -580,15 +580,15 @@ void Int::ShiftL64Bit() {
 
 // ------------------------------------------------
 
-void Int::ShiftL32BitAndSub(Int *a,int n) {
+void Int::ShiftL64BitAndSub(Int *a,int n) {
 
   Int b;
-  int i=NB32BLOCK-1;
+  int i=NB64BLOCK-1;
 
   for(;i>=n;i--)
-    b.bits[i] = ~a->bits[i-n];
+    b.bits64[i] = ~a->bits64[i-n];
   for(;i>=0;i--)
-    b.bits[i] = 0xFFFFFFFF;
+    b.bits64[i] = 0xFFFFFFFFFFFFFFFFULL;
 
   Add(&b);
   AddOne();
@@ -598,9 +598,12 @@ void Int::ShiftL32BitAndSub(Int *a,int n) {
 // ------------------------------------------------
 
 void Int::ShiftL(uint32_t n) {
+
+  if(n==0)
+    return;
     
   if( n<64 ) {
-	shiftL((unsigned char)n, bits64);
+	  shiftL((unsigned char)n, bits64);
   } else {
     uint32_t nb64 = n/64;
     uint32_t nb   = n%64;
@@ -803,30 +806,16 @@ double Int::ToDouble() {
 
 // ------------------------------------------------
 
-static uint32_t bitLength(uint32_t dw) {
-  
-  uint32_t mask = 0x80000000;
-  uint32_t b=0;
-  while(b<32 && (mask & dw)==0) {
-    b++;
-    mask >>= 1;
-  }
-  return b;
-
-}
-
-// ------------------------------------------------
-
 int Int::GetBitLength() {
 
   Int t(this);
   if(IsNegative())
 	  t.Neg();
 
-  int i=NB32BLOCK-1;
-  while(i>=0 && t.bits[i]==0) i--;
+  int i=NB64BLOCK-1;
+  while(i>=0 && t.bits64[i]==0) i--;
   if(i<0) return 0;
-  return (32-bitLength(t.bits[i])) + i*32;
+  return (64-__builtin_clzll(t.bits64[i])) + i*64;
 
 }
 
@@ -837,6 +826,16 @@ int Int::GetSize() {
   int i=NB32BLOCK-1;
   while(i>0 && bits[i]==0) i--;
   return i+1;
+
+}
+
+// ------------------------------------------------
+
+int Int::GetSize64() {
+
+  int i = NB64BLOCK - 1;
+  while(i > 0 && bits64[i] == 0) i--;
+  return i + 1;
 
 }
 
@@ -950,40 +949,35 @@ void Int::Div(Int *a,Int *mod) {
   CLEAR();
 
   // Size
-  uint32_t dSize = d.GetSize();
-  uint32_t tSize = rem.GetSize();
+  uint32_t dSize = d.GetSize64();
+  uint32_t tSize = rem.GetSize64();
   uint32_t qSize = tSize - dSize + 1;
 
-  // D1 normalize the divisor
-  uint32_t shift = bitLength(d.bits[dSize-1]);
-  if (shift > 0) {
-    d.ShiftL(shift);
-    rem.ShiftL(shift);
-  }
+  // D1 normalize the divisor (d!=0)
+  uint32_t shift = __builtin_clzll(d.bits64[dSize-1]);
+  d.ShiftL(shift);
+  rem.ShiftL(shift);
 
-  uint32_t  _dh    = d.bits[dSize-1];
-  uint64_t  dhLong = _dh;
-  uint32_t  _dl    = (dSize>1)?d.bits[dSize-2]:0;
+  uint64_t  _dh    = d.bits64[dSize-1];
+  uint64_t  _dl    = (dSize>1)?d.bits64[dSize-2]:0;
   int sb = tSize-1;
         
   // D2 Initialize j
   for(int j=0; j<(int)qSize; j++) {
 
     // D3 Estimate qhat
-    uint32_t qhat = 0;
-    uint32_t qrem = 0;
+    uint64_t qhat = 0;
+    uint64_t qrem = 0;
     int skipCorrection = false;
-    uint32_t nh = rem.bits[sb-j+1];
-    uint32_t nm = rem.bits[sb-j];
+    uint64_t nh = rem.bits64[sb-j+1];
+    uint64_t nm = rem.bits64[sb-j];
 
     if (nh == _dh) {
       qhat = ~0;
       qrem = nh + nm;
       skipCorrection = qrem < nh;
     } else {
-      uint64_t nChunk = ((uint64_t)nh << 32) | (uint64_t)nm;
-      qhat = (uint32_t) (nChunk / dhLong);
-      qrem = (uint32_t) (nChunk % dhLong);
+      qhat = _udiv128(nh,nm,_dh,&qrem);
     }
 
     if (qhat == 0)
@@ -992,17 +986,16 @@ void Int::Div(Int *a,Int *mod) {
     if (!skipCorrection) { 
 
       // Correct qhat
-      uint64_t nl = (uint64_t)rem.bits[sb-j-1];
-      uint64_t rs = ((uint64_t)qrem << 32) | nl;
-      uint64_t estProduct = (uint64_t)_dl * (uint64_t)(qhat);
+      uint64_t nl = rem.bits64[sb-j-1];
 
-      if (estProduct>rs) {
+      uint64_t estProH;
+      uint64_t estProL = _umul128(_dl,qhat,&estProH);
+      if( isStrictGreater128(estProH,estProL,qrem,nl) ) {
         qhat--;
-        qrem = (uint32_t)(qrem + (uint32_t)dhLong);
-        if ((uint64_t)qrem >= dhLong) {
-          estProduct = (uint64_t)_dl * (uint64_t)(qhat);
-          rs = ((uint64_t)qrem << 32) | nl;
-          if(estProduct>rs)
+        qrem += _dh;
+        if (qrem >= _dh) {
+          estProL = _umul128(_dl,qhat,&estProH);
+          if(isStrictGreater128(estProH,estProL,qrem,nl))
             qhat--;
         }
       }
@@ -1011,14 +1004,14 @@ void Int::Div(Int *a,Int *mod) {
 
     // D4 Multiply and subtract    
     dq.Mult(&d,qhat);
-    rem.ShiftL32BitAndSub(&dq,qSize-j-1);
+    rem.ShiftL64BitAndSub(&dq,qSize-j-1);
     if( rem.IsNegative() ) {
       // Overflow
       rem.Add(&d);
       qhat--;
     }
 
-    bits[qSize-j-1] = qhat;
+    bits64[qSize-j-1] = qhat;
 
  }
 
@@ -1377,7 +1370,7 @@ void Int::Check() {
   int   i;
   bool ok;
 
-  Int a, b, c, d, e, R;
+  Int a, b, c, d, e, f, R;
 
   a.SetBase10("4743256844168384767987");
   b.SetBase10("1679314142928575978367");
@@ -1436,16 +1429,17 @@ void Int::Check() {
     t1 = Timer::get_tick();
     tTotal += (t1 - t0);
 
+    f.Set(&a);
     a.Mult(&e);
     a.Add(&c);
     if (!a.IsEqual(&d)) {
-	  ok = false;
-      printf("Div() Results Wrong \nN: %s\nD: %s\nQ: %s\nR: %s\n", 
+	    ok = false;
+      printf("Div() Results Wrong \nN: %s\nD: %s\nQ: %s\nR: %s\nCheck: %s\n", 
         d.GetBase16().c_str(),
         b.GetBase16().c_str(),
-        a.GetBase16().c_str(),
-        c.GetBase16().c_str()
-        
+        f.GetBase16().c_str(),
+        c.GetBase16().c_str(),
+        a.GetBase16().c_str()
       );
       return;
     }
@@ -1459,10 +1453,14 @@ void Int::Check() {
 
   // Modular arithmetic -------------------------------------------------------------------------------
   // SecpK1 prime
-  b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+  //b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+  b.SetBase16("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED");
   Int::SetupField(&b);
   printf("R1=%s\n",Int::GetR()->GetBase16().c_str());
   printf("R2=%s\n",Int::GetR2()->GetBase16().c_str());
+
+  // Check work only for prime close to a power of 2
+  int pSize = Int::GetFieldCharacteristic()->GetBitLength() - 1;
 
   // ModInv -------------------------------------------------------------------------------------------
 
@@ -1472,7 +1470,7 @@ void Int::Check() {
     // Euler a^-1 = a^(p-2) mod p (p is prime)
     Int e(Int::GetFieldCharacteristic());
     e.Sub(2ULL);
-    a.Rand(BISIZE);
+    a.Rand(pSize);
     b = a;
     b.ModExp(&e);
 
@@ -1497,7 +1495,7 @@ void Int::Check() {
   }
 
   a.Set(&_ONE);
-  for(int64_t i=0;i<255 && ok;i++) {
+  for(int64_t i=0;i<pSize && ok;i++) {
     ok = CheckInv(&a);
     b = a;
     b.ModNeg();
@@ -1524,160 +1522,167 @@ void Int::Check() {
   totalCount = 0;
 
   for(int64_t i = 0; i <= 100000 && ok; i++) {
-    a.Rand(BISIZE);
+    a.Rand(pSize);
     ok = CheckInv(&a);
   }
 
   printf("Avg = %.2f\n",(double)totalCount/200000.0);
 
-  t0 = Timer::get_tick();
   a.Rand(BISIZE);
+  b.Rand(BISIZE-64);
+  t0 = Timer::get_tick();
+  uint64_t c0 = __rdtsc();
   for (int i = 0; i < 200000; i++) {
-    a.AddOne();
+    a.Add(&b);
     a.ModInv();
   }
+  uint64_t c1 = __rdtsc();
   t1 = Timer::get_tick();
 
   printf("ModInv() Results OK : ");
   Timer::printResult("Inv", 200000, 0, t1 - t0);
+  printf("ModInv() cycles : %.2f\n",(double)(c1-c0)/200000.0);
   double movInvCost = (t1-t0);
 
-  // IntGroup -----------------------------------------------------------------------------------
+  // Check of the Secp256K1 specific part
+  b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+  if( Int::GetFieldCharacteristic()->IsEqual(&b) ) {
 
-  Int m[256];
-  Int chk[256];
-  IntGroup g(256);
+    // IntGroup -----------------------------------------------------------------------------------
+    Int m[256];
+    Int chk[256];
+    IntGroup g(256);
 
-  g.Set(m);
-  for (int i = 0; i < 256; i++) {
-    m[i].Rand(256);
-    chk[i].Set(m + i);
-    chk[i].ModInv();
-  }
-  g.ModInv();
-  ok = true;
-  for (int i = 0; i < 256; i++) {
-    if (!m[i].IsEqual(chk + i)) {
-      ok = false;
-      printf("IntGroup.ModInv() Wrong !\n");
-      printf("[%d] %s\n", i, m[i].GetBase16().c_str());
-      printf("[%d] %s\n", i, chk[i].GetBase16().c_str());
-      return;
-    }
-  }
-
-  t0 = Timer::get_tick();
-  for (int j = 0; j < 1000; j++) {
-    for (int i = 0; i < 256; i++) {
-      m[i].Rand(256);
+    g.Set(m);
+    for(int i = 0; i < 256; i++) {
+      m[i].Rand(pSize);
+      chk[i].Set(m + i);
+      chk[i].ModInv();
     }
     g.ModInv();
-  }
-  t1 = Timer::get_tick();
+    ok = true;
+    for(int i = 0; i < 256; i++) {
+      if(!m[i].IsEqual(chk + i)) {
+        ok = false;
+        printf("IntGroup.ModInv() Wrong !\n");
+        printf("[%d] %s\n",i,m[i].GetBase16().c_str());
+        printf("[%d] %s\n",i,chk[i].GetBase16().c_str());
+        return;
+      }
+    }
 
-  printf("IntGroup.ModInv() Results OK : ");
-  Timer::printResult("Inv", 1000 * 256, 0, t1 - t0);
+    t0 = Timer::get_tick();
+    for(int j = 0; j < 1000; j++) {
+      for(int i = 0; i < 256; i++) {
+        m[i].Rand(pSize);
+      }
+      g.ModInv();
+    }
+    t1 = Timer::get_tick();
 
-  // ModMulK1 ------------------------------------------------------------------------------------
+    printf("IntGroup.ModInv() Results OK : ");
+    Timer::printResult("Inv",1000 * 256,0,t1 - t0);
 
-  for (int i = 0; i < 100000; i++) {
+    // ModMulK1 ------------------------------------------------------------------------------------
+
+    for(int i = 0; i < 100000; i++) {
+      a.Rand(BISIZE);
+      b.Rand(BISIZE);
+      c.ModMul(&a,&b);
+      d.ModMulK1(&a,&b);
+      if(!c.IsEqual(&d)) {
+        printf("ModMulK1() Wrong !\n");
+        printf("[%d] %s\n",i,c.GetBase16().c_str());
+        printf("[%d] %s\n",i,d.GetBase16().c_str());
+        return;
+      }
+    }
+
     a.Rand(BISIZE);
     b.Rand(BISIZE);
-    c.ModMul(&a,&b);
-    d.ModMulK1(&a,&b);
-    if (!c.IsEqual(&d)) {
-      printf("ModMulK1() Wrong !\n");
-      printf("[%d] %s\n", i, c.GetBase16().c_str());
-      printf("[%d] %s\n", i, d.GetBase16().c_str());
-      return;
+    t0 = Timer::get_tick();
+    for(int i = 0; i < 1000000; i++) {
+      a.AddOne();
+      b.AddOne();
+      c.ModMulK1(&a,&b);
     }
-  }
+    t1 = Timer::get_tick();
 
-  a.Rand(BISIZE);
-  b.Rand(BISIZE);
-  t0 = Timer::get_tick();
-  for (int i = 0; i < 1000000; i++) {
-    a.AddOne();
-    b.AddOne();
-    c.ModMulK1(&a, &b);
-  }
-  t1 = Timer::get_tick();
+    printf("ModMulK1() Results OK : ");
+    Timer::printResult("Mult",1000000,0,t1 - t0);
 
-  printf("ModMulK1() Results OK : ");
-  Timer::printResult("Mult", 1000000, 0, t1 - t0);
+    // ModSqrK1 ------------------------------------------------------------------------------------
 
-  // ModSqrK1 ------------------------------------------------------------------------------------
-
-  for (int i = 0; i < 100000; i++) {
-    a.Rand(BISIZE);
-    c.ModMul(&a, &a);
-    d.ModSquareK1(&a);
-    if (!c.IsEqual(&d)) {
-      printf("ModSquareK1() Wrong !\n");
-      printf("[%d] %s\n", i, c.GetBase16().c_str());
-      printf("[%d] %s\n", i, d.GetBase16().c_str());
-      return;
+    for(int i = 0; i < 100000; i++) {
+      a.Rand(BISIZE);
+      c.ModMul(&a,&a);
+      d.ModSquareK1(&a);
+      if(!c.IsEqual(&d)) {
+        printf("ModSquareK1() Wrong !\n");
+        printf("[%d] %s\n",i,c.GetBase16().c_str());
+        printf("[%d] %s\n",i,d.GetBase16().c_str());
+        return;
+      }
     }
-  }
 
-  a.Rand(BISIZE);
-  b.Rand(BISIZE);
-  t0 = Timer::get_tick();
-  for (int i = 0; i < 1000000; i++) {
-    a.AddOne();
-    b.AddOne();
-    c.ModSquareK1(&b);
-  }
-  t1 = Timer::get_tick();
-
-  printf("ModSquareK1() Results OK : ");
-  Timer::printResult("Sqr", 1000000, 0, t1 - t0);
-
-  // modInvCost is for 200000 iterations
-  double cost = movInvCost*5.0 / (t1-t0);
-  printf("ModInv() Cost : %.1f S\n",cost);
-
-  // ModMulK1 order -----------------------------------------------------------------------------
-  // InitK1() is done by secpK1
-  b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
-  Int::SetupField(&b);
-
-  for (int i = 0; i < 100000; i++) {
     a.Rand(BISIZE);
     b.Rand(BISIZE);
-    c.ModMul(&a,&b);
-    d.Set(&a);
-    d.ModMulK1order(&b);
-    if (!c.IsEqual(&d)) {
-      printf("ModMulK1order() Wrong !\n");
-      printf("[%d] %s\n", i, c.GetBase16().c_str());
-      printf("[%d] %s\n", i, d.GetBase16().c_str());
-      return;
+    t0 = Timer::get_tick();
+    for(int i = 0; i < 1000000; i++) {
+      a.AddOne();
+      b.AddOne();
+      c.ModSquareK1(&b);
     }
-  }
+    t1 = Timer::get_tick();
 
-  t0 = Timer::get_tick();
-  for (int i = 0; i < 1000000; i++) {
-    a.Rand(BISIZE);
-    b.Rand(BISIZE);
-    c.Set(&a);
-    c.ModMulK1order(&b);
-  }
-  t1 = Timer::get_tick();
+    printf("ModSquareK1() Results OK : ");
+    Timer::printResult("Sqr",1000000,0,t1 - t0);
 
-  printf("ModMulK1order() Results OK : ");
-  Timer::printResult("Mult", 1000000, 0, t1 - t0);
+    // modInvCost is for 200000 iterations
+    double cost = movInvCost * 5.0 / (t1 - t0);
+    printf("ModInv() Cost : %.1f S\n",cost);
+
+    // ModMulK1 order -----------------------------------------------------------------------------
+    // InitK1() is done by secpK1
+    b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    Int::SetupField(&b);
+
+    for(int i = 0; i < 100000; i++) {
+      a.Rand(BISIZE);
+      b.Rand(BISIZE);
+      c.ModMul(&a,&b);
+      d.Set(&a);
+      d.ModMulK1order(&b);
+      if(!c.IsEqual(&d)) {
+        printf("ModMulK1order() Wrong !\n");
+        printf("[%d] %s\n",i,c.GetBase16().c_str());
+        printf("[%d] %s\n",i,d.GetBase16().c_str());
+        return;
+      }
+    }
+
+    t0 = Timer::get_tick();
+    for(int i = 0; i < 1000000; i++) {
+      a.Rand(BISIZE);
+      b.Rand(BISIZE);
+      c.Set(&a);
+      c.ModMulK1order(&b);
+    }
+    t1 = Timer::get_tick();
+
+    printf("ModMulK1order() Results OK : ");
+    Timer::printResult("Mult",1000000,0,t1 - t0);
+
+  }
 
   // ModSqrt ------------------------------------------------------------------------------------
-  b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
-  Int::SetupField(&b);
 
   ok = true;
-  for (int i = 0; i < 100 && ok; i++) {
+  for (int i = 0; i < 1000 && ok; i++) {
 
     bool hasSqrt = false;
     while (!hasSqrt) {
-      a.Rand(BISIZE);
+      a.Rand(pSize);
       hasSqrt = !a.IsZero() && a.IsLower(Int::GetFieldCharacteristic()) && a.HasSqrt();
     }
 
@@ -1693,5 +1698,9 @@ void Int::Check() {
   if(!ok) return;
 
   printf("ModSqrt() Results OK !\n");
+
+  // Restore Secp256K1 prime
+  b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+  Int::SetupField(&b);
 
 }
