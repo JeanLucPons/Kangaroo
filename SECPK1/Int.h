@@ -229,6 +229,20 @@ static int64_t inline _mul128(int64_t a, int64_t b, int64_t *h) {
   return rlo;  
 }
 
+static uint64_t inline _udiv128(uint64_t hi, uint64_t lo, uint64_t d,uint64_t *r) {
+  uint64_t q;
+  uint64_t _r;
+  __asm__( "divq  %[d];" :"=d"(_r),"=a"(q) :"d"(hi),"a"(lo),[d]"rm"(d));
+  *r = _r;
+  return q;  
+}
+
+static uint64_t inline __rdtsc() {
+  uint32_t h;
+  uint32_t l;
+  __asm__( "rdtsc;" :"=d"(h),"=a"(l));
+  return (uint64_t)h << 32 | (uint64_t)l;
+}
 
 #define __shiftright128(a,b,n) ((a)>>(n))|((b)<<(64-(n)))
 #define __shiftleft128(a,b,n) ((b)<<(n))|((a)>>(64-(n)))

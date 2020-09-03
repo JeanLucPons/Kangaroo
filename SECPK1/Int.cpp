@@ -641,7 +641,7 @@ void Int::ShiftR64Bit() {
 
 }
 
-// ---------------------------------D---------------
+// ------------------------------------------------
 
 void Int::ShiftR(uint32_t n) {
 
@@ -1453,8 +1453,8 @@ void Int::Check() {
 
   // Modular arithmetic -------------------------------------------------------------------------------
   // SecpK1 prime
-  //b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
-  b.SetBase16("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED");
+  b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+  //b.SetBase16("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED");
   Int::SetupField(&b);
   printf("R1=%s\n",Int::GetR()->GetBase16().c_str());
   printf("R2=%s\n",Int::GetR2()->GetBase16().c_str());

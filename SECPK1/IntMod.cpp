@@ -179,7 +179,7 @@ inline void DivStep62(Int *u,Int *v,
 
 #endif
 
-#if 0
+#if 1
 
   #define SWAP(tmp,x,y) tmp = x; x = y; y = tmp;
 
@@ -247,7 +247,7 @@ inline void DivStep62(Int *u,Int *v,
 
 #endif
 
-#if 1
+#if 0
 
   #define SWAP_NEG(tmp,x,y) tmp = x; x = y; y = -tmp;
 
@@ -462,7 +462,7 @@ void Int::ModInv() {
 
     MatrixVecMul(&u,&v,uu,uv,vu,vv);
 
-#if 0
+#if 1
     // Make u,v positive
     // Required only for Pornin's method
     if(u.IsNegative()) {
