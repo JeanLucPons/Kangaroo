@@ -60,6 +60,7 @@ public:
   uint64_t IMult(int64_t a);
   uint64_t Mult(Int *a,uint64_t b);
   uint64_t IMult(Int *a, int64_t b);
+  void IMult(Int* a,int64_t b,int len);
   void Mult(Int *a,Int *b);
   void Div(Int *a,Int *mod = NULL);
   void MultModN(Int *a, Int *b, Int *n);
@@ -205,6 +206,7 @@ private:
   int  GetLowestBit();
   void CLEAR();
   void CLEARFF();
+  void DivStep62(Int* u,Int* v,int64_t* eta,int *pos,int64_t* uu,int64_t* uv,int64_t* vu,int64_t* vv);
 
 };
 
@@ -251,28 +253,14 @@ static uint64_t inline __rdtsc() {
 #define _subborrow_u64(a,b,c,d) __builtin_ia32_sbb_u64(a,b,c,(long long unsigned int*)d);
 #define _addcarry_u64(a,b,c,d) __builtin_ia32_addcarryx_u64(a,b,c,(long long unsigned int*)d);
 #define _byteswap_uint64 __builtin_bswap64
+#define LZC(x) __builtin_clzll(x)
+#define TZC(x) __builtin_ctzll(x)
 
 #else
 
 #include <intrin.h>
-
-static inline int __builtin_ctzll(unsigned long long x) {
-  unsigned long ret;
-  _BitScanForward64(&ret,x);
-  return (int)ret;
-}
-
-static inline int __builtin_clzll(unsigned long long x) {
-  unsigned long ret;
-  _BitScanReverse64(&ret,x);
-  return (int)ret;
-}
-
-static inline int __builtin_clzl(unsigned long x) {
-  unsigned long ret;
-  _BitScanReverse(&ret,x);
-  return (int)ret;
-}
+#define TZC(x) _tzcnt_u64(x)
+#define LZC(x) _lzcnt_u64(x)
 
 #endif
 
@@ -311,13 +299,13 @@ static void inline imm_imul(uint64_t* x,uint64_t y,uint64_t* dst,uint64_t* carry
   c = _addcarry_u64(c,_umul128(x[1],y,&h),carry,dst + 1); carry = h;
   c = _addcarry_u64(c,_umul128(x[2],y,&h),carry,dst + 2); carry = h;
   c = _addcarry_u64(c,_umul128(x[3],y,&h),carry,dst + 3); carry = h;
-  c = _addcarry_u64(c,_mul128(x[4],y,(int64_t*)&h),carry,dst + 4); carry = h;
 #if NB64BLOCK > 5
+  c = _addcarry_u64(c,_umul128(x[4],y,&h),carry,dst + 4); carry = h;
   c = _addcarry_u64(c,_umul128(x[5],y,&h),carry,dst + 5); carry = h;
   c = _addcarry_u64(c,_umul128(x[6],y,&h),carry,dst + 6); carry = h;
   c = _addcarry_u64(c,_umul128(x[7],y,&h),carry,dst + 7); carry = h;
-  c = _addcarry_u64(c,_umul128(x[8],y,&h),carry,dst + 8); carry = h;
 #endif
+  c = _addcarry_u64(c,_mul128(x[NB64BLOCK - 1],y,(int64_t*)&h),carry,dst + NB64BLOCK - 1); carry = h;
   * carryH = carry;
 
 }

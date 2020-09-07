@@ -263,6 +263,99 @@ void Int::MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t
 
 }
 
+/*
+void Int::MatrixVecMul(Int* u,Int* v,int64_t _11,int64_t _12,int64_t _21,int64_t _22,int len,bool *negu,bool *negv) {
+
+  Int t1,t2,t3,t4;
+  Int* du1;
+  Int* du2;
+  Int* dv1;
+  Int* dv2;
+  Int nu;
+  Int nv;
+  unsigned char c1;
+  unsigned char c2;
+  unsigned char c3;
+  unsigned char c4;
+  uint64_t h1,carry1;
+  uint64_t h2,carry2;
+  uint64_t h3,carry3;
+  uint64_t h4,carry4;
+
+  // Compute -u,-v
+  c1 = _subborrow_u64(0,0,u->bits64[0],nu.bits64 + 0);
+  c2 = _subborrow_u64(0,0,v->bits64[0],nv.bits64 + 0);
+  for(int i = 1; i <= len; i++) {
+    c1 = _subborrow_u64(c1,0,u->bits64[i],nu.bits64 + i);
+    c2 = _subborrow_u64(c2,0,v->bits64[i],nv.bits64 + i);
+  }
+
+  // Make _XY positive
+  if(_11 < 0) {
+    du1 = &nu;
+    _11 = -_11;
+  } else {
+    du1 = u;
+  }
+  if(_12 < 0) {
+    dv1 = &nv;
+    _12 = -_12;
+  } else {
+    dv1 = v;
+  }
+  if(_21 < 0) {
+    du2 = &nu;
+    _21 = -_21;
+  } else {
+    du2 = u;
+  }
+  if(_22 < 0) {
+    dv2 = &nv;
+    _22 = -_22;
+  } else {
+    dv2 = v;
+  }
+
+  // Compute product
+  t1.bits64[0] = _umul128(du1->bits64[0],_11,&h1); carry1 = h1;
+  t2.bits64[0] = _umul128(dv1->bits64[0],_12,&h2); carry2 = h2;
+  t3.bits64[0] = _umul128(du2->bits64[0],_21,&h3); carry3 = h3;
+  t4.bits64[0] = _umul128(dv2->bits64[0],_22,&h4); carry4 = h4;
+  c1 = 0; c2 = 0; c3 = 0; c4 = 0;
+
+  for(int i = 1; i <= len; i++) {
+    c1 = _addcarry_u64(c1,_umul128(du1->bits64[i],_11,&h1),carry1,t1.bits64 + i); carry1 = h1;
+    c2 = _addcarry_u64(c2,_umul128(dv1->bits64[i],_12,&h2),carry2,t2.bits64 + i); carry2 = h2;
+    c3 = _addcarry_u64(c3,_umul128(du2->bits64[i],_21,&h3),carry3,t3.bits64 + i); carry3 = h3;
+    c4 = _addcarry_u64(c4,_umul128(dv2->bits64[i],_22,&h4),carry4,t4.bits64 + i); carry4 = h4;
+  }
+
+  // Add
+  c1 = 0; c2 = 0;
+  for(int i = 0; i <= len; i++) {
+    c1 = _addcarry_u64(c1,t1.bits64[i],t2.bits64[i],u->bits64 + i);
+    c2 = _addcarry_u64(c2,t3.bits64[i],t4.bits64[i],v->bits64 + i);
+  }
+
+  *negu = (int64_t)u->bits64[len] < 0;
+  *negv = (int64_t)v->bits64[len] < 0;
+
+  if( *negu ) {
+    c1 = 0;
+    for(int i = 0; i <= len; i++)
+      c1 = _subborrow_u64(c1,0,u->bits64[i],u->bits64 + i);
+  }
+
+  if( *negv ) {
+    c1 = 0;
+    for(int i = 0; i <= len; i++)
+      c1 = _subborrow_u64(c1,0,v->bits64[i],v->bits64 + i);
+  }
+
+
+}
+*/
+
 // ------------------------------------------------
 
 bool Int::IsGreater(Int *a) {
@@ -744,6 +837,7 @@ uint64_t Int::IMult(Int *a, int64_t b) {
 
 }
 
+
 // ------------------------------------------------
 
 uint64_t Int::Mult(Int *a, uint64_t b) {
@@ -815,7 +909,7 @@ int Int::GetBitLength() {
   int i=NB64BLOCK-1;
   while(i>=0 && t.bits64[i]==0) i--;
   if(i<0) return 0;
-  return (64-__builtin_clzll(t.bits64[i])) + i*64;
+  return (int)((64-LZC(t.bits64[i])) + i*64);
 
 }
 
@@ -954,7 +1048,7 @@ void Int::Div(Int *a,Int *mod) {
   uint32_t qSize = tSize - dSize + 1;
 
   // D1 normalize the divisor (d!=0)
-  uint32_t shift = __builtin_clzll(d.bits64[dSize-1]);
+  uint32_t shift = (uint32_t)LZC(d.bits64[dSize-1]);
   d.ShiftL(shift);
   rem.ShiftL(shift);
 
@@ -1352,6 +1446,8 @@ bool Int::CheckInv(Int* a) {
       g.ModExp(&e);
 
       printf("ModInv() Results Wrong for %s\n",b.GetBase16().c_str());
+      printf(" Got: %s\n",c.GetBase16().c_str());
+      printf(" Exp: %s\n",g.GetBase16().c_str());
       ok = false;
     }
   }
@@ -1525,6 +1621,7 @@ void Int::Check() {
   for(int64_t i = 0; i <= 100000 && ok; i++) {
     a.Rand(pSize);
     ok = CheckInv(&a);
+    if(i%1000000==0) printf(".");
   }
 
   printf("Avg = %.2f\n",(double)totalCount/200000.0);
@@ -1533,7 +1630,7 @@ void Int::Check() {
   b.Rand(pSize-64);
   t0 = Timer::get_tick();
   uint64_t c0 = __rdtsc();
-  for (int i = 0; i < 200000; i++) {
+  for (int i = 0; i < 400000; i++) {
     a.Add(&b);
     a.ModInv();
   }
@@ -1541,8 +1638,8 @@ void Int::Check() {
   t1 = Timer::get_tick();
 
   printf("ModInv() Results OK : ");
-  Timer::printResult("Inv", 200000, 0, t1 - t0);
-  printf("ModInv() cycles : %.2f\n",(double)(c1-c0)/200000.0);
+  Timer::printResult("Inv", 400000, 0, t1 - t0);
+  printf("ModInv() cycles : %.2f\n",(double)(c1-c0)/400000.0);
   double movInvCost = (t1-t0);
 
   // Check of the Secp256K1 specific part

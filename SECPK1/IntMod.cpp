@@ -126,10 +126,7 @@ int64_t INV256[] = {
     -0LL,-33LL,-0LL,-11LL,-0LL,-173LL,-0LL,-215LL,-0LL,-89LL,-0LL,-3LL,-0LL,-165LL,-0LL,-15LL,
     -0LL,-17LL,-0LL,-123LL,-0LL,-29LL,-0LL,-199LL,-0LL,-73LL,-0LL,-115LL,-0LL,-21LL,-0LL,-255LL, };
 
-inline void DivStep62(Int *u,Int *v,
-  int64_t* eta,
-  int64_t* uu,int64_t* uv,
-  int64_t* vu,int64_t* vv) {
+void Int::DivStep62(Int* u,Int* v,int64_t* eta,int* pos,int64_t* uu,int64_t* uv,int64_t* vu,int64_t* vv) {
 
   // u' = (uu*u + uv*v) >> bitCount
   // v' = (vu*u + vv*v) >> bitCount
@@ -143,21 +140,29 @@ inline void DivStep62(Int *u,Int *v,
 
 #if 0
 
+  *uu = 1; *uv = 0;
+  *vu = 0; *vv = 1;
+
   #define SWAP_ADD(x,y) x+=y;y-=x;
   #define SWAP_SUB(x,y) x-=y;y+=x;
 
   // Former divstep62 (using __builtin_ctzll)
-  // Avg: 581 Kinv/s, Avg number of divstep62: 9.83
+  // Avg: 632 Kinv/s, Avg number of divstep62: 9.83
 
   bitCount = 62;
   int64_t nb0;
+  __m128i _u;
+  __m128i _v;
+  _u.m128i_u64[0] = 1;
+  _u.m128i_u64[1] = 0;
+  _v.m128i_u64[0] = 0;
+  _v.m128i_u64[1] = 1;
 
   while(true) {
 
-    int zeros = __builtin_ctzll(v0 | (UINT64_MAX << bitCount));
+    int zeros = TZC(v0 | (UINT64_MAX << bitCount));
     v0 >>= zeros;
-    *uu <<= zeros;
-    *uv <<= zeros;
+    _u = _mm_slli_epi64(_u,(int)zeros);
     bitCount -= zeros;
 
     if(bitCount <= 0)
@@ -165,17 +170,20 @@ inline void DivStep62(Int *u,Int *v,
 
     nb0 = (v0 + u0) & 0x3;
     if(nb0 == 0) {
-      SWAP_ADD(*vv,*uv);
-      SWAP_ADD(*vu,*uu);
+      _v = _mm_add_epi64(_v,_u);
+      _u = _mm_sub_epi64(_u,_v);
       SWAP_ADD(v0,u0);
     } else {
-      SWAP_SUB(*vv,*uv);
-      SWAP_SUB(*vu,*uu);
+      _v = _mm_sub_epi64(_v,_u);
+      _u = _mm_add_epi64(_u,_v);
       SWAP_SUB(v0,u0);
     }
 
   }
-
+  *uu = _u.m128i_u64[0];
+  *uv = _u.m128i_u64[1];
+  *vu = _v.m128i_u64[0];
+  *vv = _v.m128i_u64[1];
 
 #endif
 
@@ -185,65 +193,71 @@ inline void DivStep62(Int *u,Int *v,
 
   // divstep62 var time implementation (Thomas Pornin's method)
   // (see https://github.com/pornin/bingcd)
-  // Avg 653 Kinv/s, Avg number of divstep62: 6.13
+  // Avg 780 Kinv/s, Avg number of divstep62: 6.13
   // "Make u,v positive" in the macro loop must be enabled
 
-  int s;
-  int pos;
   uint64_t uh;
   uint64_t vh;
-  int64_t y,z;
   uint64_t w,x;
   unsigned char c = 0;
 
   // Extract 64 MSB of u and v
   // u and v must be positive
 
-  pos = NB64BLOCK - 2;
-  while(pos>=1 && (u->bits64[pos] | v->bits64[pos])==0) pos--;
-  if(pos==0) {
+  while(*pos>=1 && (u->bits64[*pos] | v->bits64[*pos])==0) (*pos)--;
+  if(*pos==0) {
     uh = u->bits64[0];
     vh = v->bits64[0];
   } else {
-    s = __builtin_clzll(u->bits64[pos] | v->bits64[pos]);
+    uint64_t s = LZC(u->bits64[*pos] | v->bits64[*pos]);
     if(s == 0) {
-      uh = u->bits64[pos];
-      vh = v->bits64[pos];
+      uh = u->bits64[*pos];
+      vh = v->bits64[*pos];
     } else {
-      uh = __shiftleft128(u->bits64[pos-1],u->bits64[pos],(uint8_t)s);
-      vh = __shiftleft128(v->bits64[pos-1],v->bits64[pos],(uint8_t)s);
+      uh = __shiftleft128(u->bits64[*pos-1],u->bits64[*pos],(uint8_t)s);
+      vh = __shiftleft128(v->bits64[*pos-1],v->bits64[*pos],(uint8_t)s);
     }
   }
 
   bitCount = 62;
 
+  __m128i _u;
+  __m128i _v;
+  __m128i _t;
+  _u.m128i_u64[0] = 1;
+  _u.m128i_u64[1] = 0;
+  _v.m128i_u64[0] = 0;
+  _v.m128i_u64[1] = 1;
+
   while(true) {
 
     // Use a sentinel bit to count zeros only up to bitCount
-    int zeros = __builtin_ctzll(v0 | (UINT64_MAX << bitCount));
+    uint64_t zeros = TZC(v0 | 1ULL << bitCount);
     vh >>= zeros;
     v0 >>= zeros;
-    *uu <<= zeros;
-    *uv <<= zeros;
-    bitCount -= zeros;
+    _u = _mm_slli_epi64(_u,(int)zeros);
+    bitCount -= (int)zeros;
 
     if(bitCount <= 0) {
       break;
     }
 
-    if(vh < uh) {
+    if( vh < uh ) {
       SWAP(w,uh,vh);
       SWAP(x,u0,v0);
-      SWAP(y,*uu,*vu);
-      SWAP(z,*uv,*vv);
+      SWAP(_t,_u,_v);
     }
 
     vh -= uh;
     v0 -= u0;
-    *vu -= *uu;
-    *vv -= *uv;
+    _v = _mm_sub_epi64(_v,_u);
 
   }
+
+  *uu = _u.m128i_u64[0];
+  *uv = _u.m128i_u64[1];
+  *vu = _v.m128i_u64[0];
+  *vv = _v.m128i_u64[1];
 
 #endif
 
@@ -255,14 +269,17 @@ inline void DivStep62(Int *u,Int *v,
   bitCount = 62;
   int64_t limit;
 
+  *uu = 1; *uv = 0;
+  *vu = 0; *vv = 1;
+
   // divstep62 var time implementation by Peter Dettman (based on Bernstein/Yang paper)
   // (see https://github.com/bitcoin-core/secp256k1/pull/767)
-  // Avg: 640 Kinv/s, Avg number of divstep62: 9.00
+  // Avg: 700 Kinv/s, Avg number of divstep62: 9.00
 
   while(true) {
 
     // Use a sentinel bit to count zeros only up to bitCount
-    int zeros = __builtin_ctzll(v0 | (UINT64_MAX << bitCount));
+    int zeros = TZC(v0 | (1ULL << bitCount));
 
     v0 >>= zeros;
     *uu <<= zeros;
@@ -341,8 +358,8 @@ void Int::ModInv() {
 
   // 256bit 
   //#define XCD 1               // ~97  kOps/s
-  //#define MONTGOMERY 1        // ~246 kOps/s
-  #define DRS62 1               // ~640 kOps/s
+  //#define MONTGOMERY 1        // ~360 kOps/s
+  #define DRS62 1                // ~780 kOps/s
 
   Int u(&_P);
   Int v(this);
@@ -427,14 +444,27 @@ void Int::ModInv() {
   r.Neg();
   r.Add(&_P);
 
-  for (int i = 0; i < k; i++) {
-    if (r.IsEven()) {
-      shiftR(1, r.bits64);
-    } else {
-      r.Add(&_P);
-      shiftR(1, r.bits64);
-    }
+  // Demontgomerise (divide by 2^k)
+  uint64_t ML;
+  uint64_t carryR;
+  while (k>=64) {
+    ML = r.bits64[0] * MM64;
+    imm_umul(_P.bits64,ML,s.bits64);
+    carryR = r.AddCh(&s,0);
+    r.ShiftR64Bit();
+    r.bits64[NB64BLOCK-1] = carryR;
+    k-=64;
   }
+  if(k>0) {
+    uint64_t mask = (1ULL << k) - 1;
+    ML = (r.bits64[0] * MM64) & mask;
+    imm_umul(_P.bits64,ML,s.bits64);
+    carryR = r.AddCh(&s,0);
+    shiftR(k,r.bits64,carryR);
+  }
+  if(r.IsGreater(&_P))
+    r.Sub(&_P);
+
   Set(&r);
 
 #endif
@@ -445,18 +475,17 @@ void Int::ModInv() {
   Int r0_P;
   Int s0_P;
 
-  int64_t  uu, uv, vu, vv;
   int64_t  eta = -1;
+  int64_t uu,uv,vu,vv;
   uint64_t carryS,carryR;
+  int pos = NB64BLOCK - 1;
+  while(pos >= 1 && (u.bits64[pos] | v.bits64[pos]) == 0) pos--;
 
   //printf("ModInv(%s)\n",GetBase16().c_str());
 
   while (!v.IsZero()) {
 
-    uu =  1; uv = 0;
-    vu =  0; vv = 1;
-
-    DivStep62(&u,&v,&eta,&uu,&uv,&vu,&vv);
+    DivStep62(&u,&v,&eta,&pos,&uu,&uv,&vu,&vv);
 
     // Now update BigInt variables
 
