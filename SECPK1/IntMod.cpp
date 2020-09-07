@@ -224,10 +224,17 @@ void Int::DivStep62(Int* u,Int* v,int64_t* eta,int* pos,int64_t* uu,int64_t* uv,
   __m128i _u;
   __m128i _v;
   __m128i _t;
+#ifdef WIN64
   _u.m128i_u64[0] = 1;
   _u.m128i_u64[1] = 0;
   _v.m128i_u64[0] = 0;
   _v.m128i_u64[1] = 1;
+#else
+  ((int64_t *)&_u)[0] = 1;
+  ((int64_t *)&_u)[1] = 0;
+  ((int64_t *)&_v)[0] = 0;
+  ((int64_t *)&_v)[1] = 1;
+#endif
 
   while(true) {
 
@@ -254,10 +261,17 @@ void Int::DivStep62(Int* u,Int* v,int64_t* eta,int* pos,int64_t* uu,int64_t* uv,
 
   }
 
+#ifdef WIN64
   *uu = _u.m128i_u64[0];
   *uv = _u.m128i_u64[1];
   *vu = _v.m128i_u64[0];
   *vv = _v.m128i_u64[1];
+#else
+  *uu = ((int64_t *)&_u)[0];
+  *uv = ((int64_t *)&_u)[1];
+  *vu = ((int64_t *)&_v)[0];
+  *vv = ((int64_t *)&_v)[1];
+#endif
 
 #endif
 
