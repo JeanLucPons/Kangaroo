@@ -1550,7 +1550,9 @@ void Int::Check() {
   // Modular arithmetic -------------------------------------------------------------------------------
   // SecpK1 prime
   b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+  //b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
   //b.SetBase16("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED");
+  //b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDC7");
   Int::SetupField(&b);
   printf("R1=%s\n",Int::GetR()->GetBase16().c_str());
   printf("R2=%s\n",Int::GetR2()->GetBase16().c_str());
@@ -1592,12 +1594,23 @@ void Int::Check() {
   }
 
   a.Set(&_ONE);
-  for(int64_t i=0;i<pSize-1 && ok;i++) {
+  for(int64_t i = 0; i < pSize - 1 && ok; i++) {
     ok = CheckInv(&a);
     b = a;
     b.ModNeg();
     ok = CheckInv(&b);
     a.ShiftL(1);
+  }
+
+  a.Set(&_ONE);
+  for(int64_t i = 0; i < pSize - 1 && ok; i++) {
+    ok = CheckInv(&a);
+    b = a;
+    b.ModNeg();
+    ok = CheckInv(&b);
+    a.ShiftL(1);
+    if(i%2==0 && i>0)
+      a.AddOne();
   }
 
   a.Set(Int::GetFieldCharacteristic());
@@ -1642,6 +1655,30 @@ void Int::Check() {
   printf("ModInv() cycles : %.2f\n",(double)(c1-c0)/400000.0);
   double movInvCost = (t1-t0);
 
+  // ModSqrt ------------------------------------------------------------------------------------
+
+  ok = true;
+  for(int i = 0; i < 1000 && ok; i++) {
+
+    bool hasSqrt = false;
+    while(!hasSqrt) {
+      a.Rand(pSize);
+      hasSqrt = !a.IsZero() && a.IsLower(Int::GetFieldCharacteristic()) && a.HasSqrt();
+    }
+
+    c.Set(&a);
+    a.ModSqrt();
+    b.ModSquare(&a);
+    if(!b.IsEqual(&c)) {
+      printf("ModSqrt() wrong !\n");
+      ok = false;
+    }
+
+  }
+  if(!ok) return;
+
+  printf("ModSqrt() Results OK !\n");
+
   // Check of the Secp256K1 specific part
   b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
   if( Int::GetFieldCharacteristic()->IsEqual(&b) ) {
@@ -1684,8 +1721,8 @@ void Int::Check() {
     // ModMulK1 ------------------------------------------------------------------------------------
 
     for(int i = 0; i < 100000; i++) {
-      a.Rand(BISIZE);
-      b.Rand(BISIZE);
+      a.Rand(pSize);
+      b.Rand(pSize);
       c.ModMul(&a,&b);
       d.ModMulK1(&a,&b);
       if(!c.IsEqual(&d)) {
@@ -1696,8 +1733,8 @@ void Int::Check() {
       }
     }
 
-    a.Rand(BISIZE);
-    b.Rand(BISIZE);
+    a.Rand(pSize);
+    b.Rand(pSize);
     t0 = Timer::get_tick();
     for(int i = 0; i < 1000000; i++) {
       a.AddOne();
@@ -1712,7 +1749,7 @@ void Int::Check() {
     // ModSqrK1 ------------------------------------------------------------------------------------
 
     for(int i = 0; i < 100000; i++) {
-      a.Rand(BISIZE);
+      a.Rand(pSize);
       c.ModMul(&a,&a);
       d.ModSquareK1(&a);
       if(!c.IsEqual(&d)) {
@@ -1723,8 +1760,8 @@ void Int::Check() {
       }
     }
 
-    a.Rand(BISIZE);
-    b.Rand(BISIZE);
+    a.Rand(pSize);
+    b.Rand(pSize);
     t0 = Timer::get_tick();
     for(int i = 0; i < 1000000; i++) {
       a.AddOne();
@@ -1746,8 +1783,8 @@ void Int::Check() {
     Int::SetupField(&b);
 
     for(int i = 0; i < 100000; i++) {
-      a.Rand(BISIZE);
-      b.Rand(BISIZE);
+      a.Rand(pSize);
+      b.Rand(pSize);
       c.ModMul(&a,&b);
       d.Set(&a);
       d.ModMulK1order(&b);
@@ -1761,8 +1798,8 @@ void Int::Check() {
 
     t0 = Timer::get_tick();
     for(int i = 0; i < 1000000; i++) {
-      a.Rand(BISIZE);
-      b.Rand(BISIZE);
+      a.Rand(pSize);
+      b.Rand(pSize);
       c.Set(&a);
       c.ModMulK1order(&b);
     }
@@ -1772,30 +1809,6 @@ void Int::Check() {
     Timer::printResult("Mult",1000000,0,t1 - t0);
 
   }
-
-  // ModSqrt ------------------------------------------------------------------------------------
-
-  ok = true;
-  for (int i = 0; i < 1000 && ok; i++) {
-
-    bool hasSqrt = false;
-    while (!hasSqrt) {
-      a.Rand(pSize);
-      hasSqrt = !a.IsZero() && a.IsLower(Int::GetFieldCharacteristic()) && a.HasSqrt();
-    }
-
-    c.Set(&a);
-    a.ModSqrt();
-    b.ModSquare(&a);
-    if (!b.IsEqual(&c)) {
-      printf("ModSqrt() wrong !\n");
-      ok = false;
-    }
-
-  }
-  if(!ok) return;
-
-  printf("ModSqrt() Results OK !\n");
 
   // Restore Secp256K1 prime
   b.SetBase16("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");

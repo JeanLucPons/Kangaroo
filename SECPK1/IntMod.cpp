@@ -224,6 +224,7 @@ void Int::DivStep62(Int* u,Int* v,int64_t* eta,int* pos,int64_t* uu,int64_t* uv,
   __m128i _u;
   __m128i _v;
   __m128i _t;
+
 #ifdef WIN64
   _u.m128i_u64[0] = 1;
   _u.m128i_u64[1] = 0;
@@ -884,11 +885,22 @@ void Int::ModMulK1(Int *a, Int *b) {
 
 
   uint64_t ah, al;
-  uint64_t t[5];
+  uint64_t t[NB64BLOCK];
+#if BISIZE==256
   uint64_t r512[8];
   r512[5] = 0;
   r512[6] = 0;
   r512[7] = 0;
+#else
+  uint64_t r512[12];
+  r512[5] = 0;
+  r512[6] = 0;
+  r512[7] = 0;
+  r512[8] = 0;
+  r512[9] = 0;
+  r512[10] = 0;
+  r512[11] = 0;
+#endif
 
   // 256*256 multiplier
   imm_umul(a->bits64, b->bits64[0], r512);
@@ -928,6 +940,12 @@ void Int::ModMulK1(Int *a, Int *b) {
 
   // Probability of carry here or that this>P is very very unlikely
   bits64[4] = 0; 
+#if BISIZE==512
+  bits64[5] = 0;
+  bits64[6] = 0;
+  bits64[7] = 0;
+  bits64[8] = 0;
+#endif
 
 }
 
@@ -945,11 +963,23 @@ void Int::ModMulK1(Int *a) {
 #endif
 
   uint64_t ah, al;
-  uint64_t t[5];
+  uint64_t t[NB64BLOCK];
+#if BISIZE==256
   uint64_t r512[8];
   r512[5] = 0;
   r512[6] = 0;
   r512[7] = 0;
+#else
+  uint64_t r512[12];
+  r512[5] = 0;
+  r512[6] = 0;
+  r512[7] = 0;
+  r512[8] = 0;
+  r512[9] = 0;
+  r512[10] = 0;
+  r512[11] = 0;
+#endif
+
 
   // 256*256 multiplier
   imm_umul(a->bits64, bits64[0], r512);
@@ -988,6 +1018,12 @@ void Int::ModMulK1(Int *a) {
   c = _addcarry_u64(c, r512[3], 0, bits64 + 3);
   // Probability of carry here or that this>P is very very unlikely
   bits64[4] = 0;
+#if BISIZE==512
+  bits64[5] = 0;
+  bits64[6] = 0;
+  bits64[7] = 0;
+  bits64[8] = 0;
+#endif
 
 }
 
@@ -1004,11 +1040,25 @@ void Int::ModSquareK1(Int *a) {
   unsigned char c;
 #endif
 
-  uint64_t r512[8];
   uint64_t u10, u11;
   uint64_t t1;
   uint64_t t2;
-  uint64_t t[5];
+  uint64_t t[NB64BLOCK];
+#if BISIZE==256
+  uint64_t r512[8];
+  r512[5] = 0;
+  r512[6] = 0;
+  r512[7] = 0;
+#else
+  uint64_t r512[12];
+  r512[5] = 0;
+  r512[6] = 0;
+  r512[7] = 0;
+  r512[8] = 0;
+  r512[9] = 0;
+  r512[10] = 0;
+  r512[11] = 0;
+#endif
 
 
   //k=0
@@ -1106,6 +1156,12 @@ void Int::ModSquareK1(Int *a) {
   c = _addcarry_u64(c, r512[3], 0, bits64 + 3);
   // Probability of carry here or that this>P is very very unlikely
   bits64[4] = 0;
+#if BISIZE==512
+  bits64[5] = 0;
+  bits64[6] = 0;
+  bits64[7] = 0;
+  bits64[8] = 0;
+#endif
 
 }
 
@@ -1171,8 +1227,8 @@ void Int::ModMulK1order(Int *a) {
   ML = pr.bits64[0] * MM64o;
   imm_umul(_O->bits64, ML, p.bits64);
   c = pr.AddC(&p);
-  memcpy(t.bits64, pr.bits64 + 1, 32);
-  t.bits64[4] = c;
+  memcpy(t.bits64,pr.bits64 + 1,8 * (NB64BLOCK - 1));
+  t.bits64[NB64BLOCK - 1] = c;
 
   for (int i = 1; i < 4; i++) {
 
@@ -1190,15 +1246,14 @@ void Int::ModMulK1order(Int *a) {
   else
     Set(&t);
 
-
   // Normalize
 
   imm_umul(_R2o.bits64, bits64[0], pr.bits64);
   ML = pr.bits64[0] * MM64o;
   imm_umul(_O->bits64, ML, p.bits64);
   c = pr.AddC(&p);
-  memcpy(t.bits64, pr.bits64 + 1, 32);
-  t.bits64[4] = c;
+  memcpy(t.bits64,pr.bits64 + 1,8 * (NB64BLOCK - 1));
+  t.bits64[NB64BLOCK - 1] = c;
 
   for (int i = 1; i < 4; i++) {
 

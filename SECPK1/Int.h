@@ -60,7 +60,6 @@ public:
   uint64_t IMult(int64_t a);
   uint64_t Mult(Int *a,uint64_t b);
   uint64_t IMult(Int *a, int64_t b);
-  void IMult(Int* a,int64_t b,int len);
   void Mult(Int *a,Int *b);
   void Div(Int *a,Int *mod = NULL);
   void MultModN(Int *a, Int *b, Int *n);
