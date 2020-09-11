@@ -50,6 +50,7 @@ __global__ void check_gpu() {
   uint64_t R[5];
   bool ok = true;
 
+  /*
   for(uint64_t i=0;i<10000 && ok;i++) {
 
     Load(R,N);
@@ -60,6 +61,24 @@ __global__ void check_gpu() {
     if(!_IsOne(R)) {
       ok = false;
       printf("ModInv wrong %d\n",(int)i);
+      printf("N = %016llx %016llx %016llx %016llx %016llx\n",N[4],N[3],N[2],N[1],N[0]);
+      printf("I = %016llx %016llx %016llx %016llx %016llx\n",I[4],I[3],I[2],I[1],I[0]);
+      printf("R = %016llx %016llx %016llx %016llx %016llx\n",R[4],R[3],R[2],R[1],R[0]);
+    }
+
+    N[0]++;
+
+  }
+  */
+  I[4] = 0;
+  R[4] = 0;
+  for(uint64_t i = 0; i < 100000 && ok; i++) {
+
+    _ModSqr(I,N);
+    _ModMult(R,N,N);
+    if(!_IsEqual(I,R)) {
+      ok = false;
+      printf("_ModSqr wrong %d\n",(int)i);
       printf("N = %016llx %016llx %016llx %016llx %016llx\n",N[4],N[3],N[2],N[1],N[0]);
       printf("I = %016llx %016llx %016llx %016llx %016llx\n",I[4],I[3],I[2],I[1],I[0]);
       printf("R = %016llx %016llx %016llx %016llx %016llx\n",R[4],R[3],R[2],R[1],R[0]);

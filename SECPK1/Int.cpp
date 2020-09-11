@@ -1773,8 +1773,8 @@ void Int::Check() {
     printf("ModSquareK1() Results OK : ");
     Timer::printResult("Sqr",1000000,0,t1 - t0);
 
-    // modInvCost is for 200000 iterations
-    double cost = movInvCost * 5.0 / (t1 - t0);
+    // modInvCost is for 400000 iterations
+    double cost = (1000000.0/400000.0) * movInvCost / (t1 - t0);
     printf("ModInv() Cost : %.1f S\n",cost);
 
     // ModMulK1 order -----------------------------------------------------------------------------

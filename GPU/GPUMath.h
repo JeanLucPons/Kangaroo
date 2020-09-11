@@ -195,6 +195,8 @@ __device__ void LoadKangaroos(uint64_t *a,uint64_t px[GPU_GRP_SIZE][4],uint64_t 
 __device__ void LoadKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][2]) {
 #endif
 
+  __syncthreads();
+
   for(int g = 0; g<GPU_GRP_SIZE; g++) {
     
     uint64_t *x64 = (uint64_t *)px[g];
@@ -222,6 +224,50 @@ __device__ void LoadKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t
 
 }
 
+__device__ void LoadDists(uint64_t* a,uint64_t dist[GPU_GRP_SIZE][2]) {
+
+  __syncthreads();
+
+  for(int g = 0; g < GPU_GRP_SIZE; g++) {
+
+    uint64_t* d64 = (uint64_t*)dist[g];
+    uint32_t stride = g * KSIZE * blockDim.x;
+
+    d64[0] = (a)[IDX + 8 * blockDim.x + stride];
+    d64[1] = (a)[IDX + 9 * blockDim.x + stride];
+
+  }
+
+}
+
+__device__ void LoadKangaroo(uint64_t* a,uint32_t stride,uint64_t px[4],uint64_t py[4]) {
+
+  uint64_t* x64 = (uint64_t*)px;
+  uint64_t* y64 = (uint64_t*)py;
+
+  x64[0] = (a)[IDX + 0 * blockDim.x + stride];
+  x64[1] = (a)[IDX + 1 * blockDim.x + stride];
+  x64[2] = (a)[IDX + 2 * blockDim.x + stride];
+  x64[3] = (a)[IDX + 3 * blockDim.x + stride];
+
+  y64[0] = (a)[IDX + 4 * blockDim.x + stride];
+  y64[1] = (a)[IDX + 5 * blockDim.x + stride];
+  y64[2] = (a)[IDX + 6 * blockDim.x + stride];
+  y64[3] = (a)[IDX + 7 * blockDim.x + stride];
+
+}
+
+__device__ void LoadKangaroo(uint64_t* a,uint32_t stride,uint64_t px[4]) {
+
+  uint64_t* x64 = (uint64_t*)px;
+
+  x64[0] = (a)[IDX + 0 * blockDim.x + stride];
+  x64[1] = (a)[IDX + 1 * blockDim.x + stride];
+  x64[2] = (a)[IDX + 2 * blockDim.x + stride];
+  x64[3] = (a)[IDX + 3 * blockDim.x + stride];
+
+}
+
 // ---------------------------------------------------------------------------------------
 
 #ifdef USE_SYMMETRY
@@ -229,6 +275,8 @@ __device__ void StoreKangaroos(uint64_t *a,uint64_t px[GPU_GRP_SIZE][4],uint64_t
 #else
 __device__ void StoreKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_t py[GPU_GRP_SIZE][4],uint64_t dist[GPU_GRP_SIZE][2]) {
 #endif
+
+  __syncthreads();
 
   for(int g = 0; g < GPU_GRP_SIZE; g++) {
     uint64_t *x64 = (uint64_t *)px[g];
@@ -252,6 +300,38 @@ __device__ void StoreKangaroos(uint64_t * a,uint64_t px[GPU_GRP_SIZE][4],uint64_
 #ifdef USE_SYMMETRY
     (a)[IDX + 10 * blockDim.x + stride] = jumps[g];
 #endif
+  }
+
+}
+
+__device__ void StoreKangaroo(uint64_t* a,uint32_t stride,uint64_t px[4],uint64_t py[4]) {
+
+  uint64_t* x64 = (uint64_t*)px;
+  uint64_t* y64 = (uint64_t*)py;
+
+  (a)[IDX + 0 * blockDim.x + stride] = x64[0];
+  (a)[IDX + 1 * blockDim.x + stride] = x64[1];
+  (a)[IDX + 2 * blockDim.x + stride] = x64[2];
+  (a)[IDX + 3 * blockDim.x + stride] = x64[3];
+
+  (a)[IDX + 4 * blockDim.x + stride] = y64[0];
+  (a)[IDX + 5 * blockDim.x + stride] = y64[1];
+  (a)[IDX + 6 * blockDim.x + stride] = y64[2];
+  (a)[IDX + 7 * blockDim.x + stride] = y64[3];
+
+}
+
+__device__ void StoreDists(uint64_t* a,uint64_t dist[GPU_GRP_SIZE][2]) {
+
+  __syncthreads();
+
+  for(int g = 0; g < GPU_GRP_SIZE; g++) {
+    uint64_t* d64 = (uint64_t*)dist[g];
+    uint32_t stride = g * KSIZE * blockDim.x;
+
+    (a)[IDX + 8 * blockDim.x + stride] = d64[0];
+    (a)[IDX + 9 * blockDim.x + stride] = d64[1];
+
   }
 
 }
@@ -731,7 +811,6 @@ __device__ void _ModMult(uint64_t *r,uint64_t *a,uint64_t *b) {
 
   uint64_t r512[8];
   uint64_t t[NBBLOCK];
-  uint64_t ah,al;
 
   r512[5] = 0;
   r512[6] = 0;
@@ -764,6 +843,8 @@ __device__ void _ModMult(uint64_t *r,uint64_t *a,uint64_t *b) {
   UADDC1(r512[1],t[1]);
   UADDC1(r512[2],t[2]);
   UADDC1(r512[3],t[3]);
+
+  uint64_t ah,al;
 
   // Reduce from 320 to 256 
   UADD1(t[4],0ULL);
@@ -829,7 +910,115 @@ __device__ void _ModSqr(uint64_t *rp,const uint64_t *up) {
 
   uint64_t r512[8];
 
-  uint64_t u10,u11;
+#if 1
+
+  // 256*256 square multiplier
+  uint64_t SL,SH;
+
+  {
+  // Line 0 (5 limbs)
+  uint64_t r01L,r01H;
+  uint64_t r02L,r02H;
+  uint64_t r03L,r03H;
+
+  UMULLO(SL,up[0],up[0]);
+  UMULHI(SH,up[0],up[0]);
+  UMULLO(r01L,up[0],up[1]);
+  UMULHI(r01H,up[0],up[1]);
+  UMULLO(r02L,up[0],up[2]);
+  UMULHI(r02H,up[0],up[2]);
+  UMULLO(r03L,up[0],up[3]);
+  UMULHI(r03H,up[0],up[3]);
+
+  r512[0] = SL;
+  r512[1] = r01L;
+  r512[2] = r02L;
+  r512[3] = r03L;
+
+  UADDO1(r512[1],SH);
+  UADDC1(r512[2],r01H);
+  UADDC1(r512[3],r02H);
+  UADD(r512[4],r03H,0ULL);
+
+  // Line 1 (6 limbs)
+  uint64_t r12L,r12H;
+  uint64_t r13L,r13H;
+
+  UMULLO(SL,up[1],up[1]);
+  UMULHI(SH,up[1],up[1]);
+  UMULLO(r12L,up[1],up[2]);
+  UMULHI(r12H,up[1],up[2]);
+  UMULLO(r13L,up[1],up[3]);
+  UMULHI(r13H,up[1],up[3]);
+
+  UADDO1(r512[1],r01L);
+  UADDC1(r512[2],SL);
+  UADDC1(r512[3],r12L);
+  UADDC1(r512[4],r13L);
+  UADD(r512[5],r13H,0ULL);
+
+  UADDO1(r512[2],r01H);
+  UADDC1(r512[3],SH);
+  UADDC1(r512[4],r12H);
+  UADD1(r512[5],0ULL);
+
+  // Line 2 (7 lims)
+  uint64_t r23L,r23H;
+
+  UMULLO(SL,up[2],up[2]);
+  UMULHI(SH,up[2],up[2]);
+  UMULLO(r23L,up[2],up[3]);
+  UMULHI(r23H,up[2],up[3]);
+
+  UADDO1(r512[2],r02L);
+  UADDC1(r512[3],r12L);
+  UADDC1(r512[4],SL);
+  UADDC1(r512[5],r23L);
+  UADD(r512[6],r23H,0ULL);
+
+  UADDO1(r512[3],r02H);
+  UADDC1(r512[4],r12H);
+  UADDC1(r512[5],SH);
+  UADD1(r512[6],0ULL);
+
+  // Line 3 (8 limbs)
+
+  UMULLO(SL,up[3],up[3]);
+  UMULHI(SH,up[3],up[3]);
+
+  UADDO1(r512[3],r03L);
+  UADDC1(r512[4],r13L);
+  UADDC1(r512[5],r23L);
+  UADDC1(r512[6],SL);
+  UADD(r512[7],SH,0ULL);
+
+  UADDO1(r512[4],r03H);
+  UADDC1(r512[5],r13H);
+  UADDC1(r512[6],r23H);
+  UADD1(r512[7],0ULL);
+  }
+
+  uint64_t t[NBBLOCK];
+
+  // Reduce from 512 to 320 
+  UMult(t,(r512 + 4),0x1000003D1ULL);
+  UADDO1(r512[0],t[0]);
+  UADDC1(r512[1],t[1]);
+  UADDC1(r512[2],t[2]);
+  UADDC1(r512[3],t[3]);
+
+  // Reduce from 320 to 256
+  UADD1(t[4],0ULL);
+  UMULLO(SL,t[4],0x1000003D1ULL);
+  UMULHI(SH,t[4],0x1000003D1ULL);
+  UADDO(rp[0],r512[0],SL);
+  UADDC(rp[1],r512[1],SH);
+  UADDC(rp[2],r512[2],0ULL);
+  UADD(rp[3],r512[3],0ULL);
+
+#endif
+
+#if 0
 
   uint64_t r0;
   uint64_t r1;
@@ -839,6 +1028,7 @@ __device__ void _ModSqr(uint64_t *rp,const uint64_t *up) {
   uint64_t t1;
   uint64_t t2;
 
+  uint64_t u10,u11;
 
   //k=0
   UMULLO(r512[0],up[0],up[0]);
@@ -928,34 +1118,6 @@ __device__ void _ModSqr(uint64_t *rp,const uint64_t *up) {
 
   //k=7
   r512[7] = r1;
-
-#if 1
-
-  // Reduce from 512 to 320 
-  UMULLO(r0,r512[4],0x1000003D1ULL);
-  UMULLO(r1,r512[5],0x1000003D1ULL);
-  MADDO(r1,r512[4],0x1000003D1ULL,r1);
-  UMULLO(t2,r512[6],0x1000003D1ULL);
-  MADDC(t2,r512[5],0x1000003D1ULL,t2);
-  UMULLO(r3,r512[7],0x1000003D1ULL);
-  MADDC(r3,r512[6],0x1000003D1ULL,r3);
-  MADD(r4,r512[7],0x1000003D1ULL,0ULL);
-
-  UADDO1(r512[0],r0);
-  UADDC1(r512[1],r1);
-  UADDC1(r512[2],t2);
-  UADDC1(r512[3],r3);
-
-  // Reduce from 320 to 256
-  UADD1(r4,0ULL);
-  UMULLO(u10,r4,0x1000003D1ULL);
-  UMULHI(u11,r4,0x1000003D1ULL);
-  UADDO(rp[0],r512[0],u10);
-  UADDC(rp[1],r512[1],u11);
-  UADDC(rp[2],r512[2],0ULL);
-  UADD(rp[3],r512[3],0ULL);
-
-#else
 
   uint64_t z1,z2,z3,z4,z5,z6,z7,z8;
 
