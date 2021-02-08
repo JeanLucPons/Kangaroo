@@ -62,6 +62,7 @@ void printUsage() {
   printf(" -l: List cuda enabled devices\n");
   printf(" -check: Check GPU kernel vs CPU\n");
   printf(" -stride: Use sparse range with a given stride\n");
+  printf(" -checksum: Use sparse range with a given checksum\n");
   printf(" inFile: intput configuration file\n");
   exit(0);
 
@@ -165,6 +166,7 @@ static string serverIP = "";
 static string outputFile = "";
 static bool splitWorkFile = false;
 static string stride = "";
+static string checksum = "";
 
 int main(int argc, char* argv[]) {
 
@@ -304,7 +306,11 @@ int main(int argc, char* argv[]) {
       CHECKARG("-stride",1);
       stride = string(argv[a]);
       a++;
-    } else if(a == argc - 1) {
+    } else if(strcmp(argv[a],"-checksum") == 0) {
+           CHECKARG("-checksum",1);
+           checksum = string(argv[a]);
+           a++;
+         } else if(a == argc - 1) {
       configFile = string(argv[a]);
       a++;
     } else {
@@ -356,6 +362,9 @@ int main(int argc, char* argv[]) {
     }
     if (stride.length()>0){
 	  v->SetStride(stride);
+    }
+    if (checksum.length()>0){
+      v->SetChecksum(checksum);
     }
     if(serverMode)
       v->RunServer();

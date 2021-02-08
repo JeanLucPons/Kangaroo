@@ -52,9 +52,13 @@ public:
   Int maxRange;
   Int rangeInit;
   Int rangeEnd;
+  Int checksum;
+  Int rangeInitWChecksum;
   
   bool isStride;
   void SetStride(Int *stride, Int *rangeStart, Int *rangeEnd);
+  bool isChecksum;
+  void SetChecksum(Int *checksum);
 
 private:
 

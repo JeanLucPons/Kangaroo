@@ -69,6 +69,13 @@ void Secp256K1::SetStride(Int *stride, Int *rangeStart, Int *rangeEnd){
     ::printf("Jump: %s\n", this->jump.GetBase16().c_str());
 }
 
+void Secp256K1::SetChecksum(Int *checksum){
+    isChecksum = true;
+    ::printf("checksum: \n");
+    this->checksum = checksum;
+    this->rangeInitWChecksum.SetBase16((char *)rangeInit.GetBase16().append(checksum->GetBase16()).c_str());
+}
+
 Point Secp256K1::ComputePublicKey(Int *privKey,bool reduce) {
 
   int i = 0;
@@ -82,13 +89,22 @@ if (isStride){
   if (maxRange.IsGreaterOrEqual(privKey)){
       Int diff = privKey;
       diff.Mult(&jump);
+      if (isChecksum){
+        diff.Add(&checksum);
+        diff.SetBase16((char *)diff.GetBase16().substr(0, diff.GetBase16().length()-8).c_str());
+      }
       pKey = diff;
   }else{
    if (privKey->IsGreaterOrEqual(&rangeInit) && rangeEnd.IsGreaterOrEqual(privKey) ){
       Int diff = privKey;
       diff.Sub(&rangeInit);
       diff.Mult(&jump);
-      diff.Add(&rangeInit);
+      if (isChecksum){
+        diff.Add(&rangeInitWChecksum);
+        diff.SetBase16((char *)diff.GetBase16().substr(0, diff.GetBase16().length()-8).c_str());
+      }else{
+        diff.Add(&rangeInit);
+      }
       pKey = diff;
       }
   }
