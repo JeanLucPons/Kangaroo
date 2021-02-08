@@ -12,23 +12,23 @@ Special parameters:
 ```
 
 Usage:
-This fork allows search with stride different than 1, so it could be useful for solving WIFs with missing characters.
-For example, let's take WIF: **5HrdZxkxnVst8Q3qCLJkeiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu** which encodes the private key _0552e025571c01bcda0297c22731d74becbd30d07e4ec355c741825fffc0a672_.
-Decoded WIF shows checksum **524412ca**
-The corresponding public key is _04777c026b8085951da7117395bf269c055f36bf2ddf623281962855edee36d4e73bec2fa87b122a0f1b2841ef4f7afdec2443f89c151ee2597feac18ae0d62bdf_
+This fork allows search with stride different than 1, so it could be useful for solving WIFs with missing characters.\
+For example, let's take WIF: **5HrdZxkxnVst8Q3qCLJkeiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu** which encodes the private key _0552e025571c01bcda0297c22731d74becbd30d07e4ec355c741825fffc0a672_.\
+Decoded WIF shows checksum **524412ca**\
+The corresponding public key is _04777c026b8085951da7117395bf269c055f36bf2ddf623281962855edee36d4e73bec2fa87b122a0f1b2841ef4f7afdec2443f89c151ee2597feac18ae0d62bdf_ 
 
 # Search without checksum (_large_ stride)
-Let's take WIF **5HrdZxkxnVst8Q_____keiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu**
-Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q11111keiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcd9eda59365a2fb3ae0bd7547dfeeeb13d971d848bcbf0467**
-Now, we must calculate the number of WIFs in our range. Beause we have 5 missing characters, it will be 58^5 = 656356768 (271f35a0 hex)
+Let's take WIF **5HrdZxkxnVst8Q_____keiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu**\
+Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q11111keiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcd9eda59365a2fb3ae0bd7547dfeeeb13d971d848bcbf0467**\
+Now, we must calculate the number of WIFs in our range. Beause we have 5 missing characters, it will be 58^5 = 656356768 (271f35a0 hex)\
 To have the end of range for Kangaroo, we must calculate _fake end_ which is _start_ + _range_
 ```
 new BigInteger("0552e025571c01bcd9eda59365a2fb3ae0bd7547dfeeeb13d971d848bcbf0467",16).add(new BigInteger("656356768",10)).toString(16) =
 552e025571c01bcd9eda59365a2fb3ae0bd7547dfeeeb13d971d848e3de3a07
 ```
 
-We check where is the most right unknown character - it's position will tell us what is the stride. In our case it is 58^32 = **af820335d9b3d9cf58b911d87035677fb7f528100000000**
-Because that kind of WIFs encodes checksum, we must observe if stride _collides_ with checksum. Fortunately - not, because the last 8 characters (length of checksum) are 0s. We may remove these zeros and get _shorter_ stride.
+We check where is the most right unknown character - it's position will tell us what is the stride. In our case it is 58^32 = **af820335d9b3d9cf58b911d87035677fb7f528100000000**\
+Because WIFs encodes checksum, we must observe if stride _collides_ with checksum. Fortunately - not, because the last 8 characters (length of checksum) are 0s. We may remove these zeros and get _shorter_ stride.\
 The final configuration file is:
 ```
 552e025571c01bcd9eda59365a2fb3ae0bd7547dfeeeb13d971d848bcbf0467
@@ -63,18 +63,18 @@ Key# 0 [2N]Pub:  0x03777C026B8085951DA7117395BF269C055F36BF2DDF623281962855EDEE3
 ```
 
 # Search with checksum (_small_ stride)
-Let's take WIF **5HrdZxkxnVst8Q3qCLJkeiLe1k4Am____hqQVUYVxVSBkf5VfUu**
-Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q3qCLJkeiLe1k4Am1111hqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcda0297c22731d74becbd30cfb218f04dc91299473f61ffde**
-Now, we must calculate the number of WIFs in our range. Beause we have 4 missing characters, it will be 58^4 = 11316496
+Let's take WIF **5HrdZxkxnVst8Q3qCLJkeiLe1k4Am____hqQVUYVxVSBkf5VfUu**\
+Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q3qCLJkeiLe1k4Am1111hqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcda0297c22731d74becbd30cfb218f04dc91299473f61ffde**\
+Now, we must calculate the number of WIFs in our range. Beause we have 4 missing characters, it will be 58^4 = 11316496\
 To have the end of range for Kangaroo, we must calculate _fake end_ which is _start_ + _range_
 ```
 new BigInteger("0552e025571c01bcda0297c22731d74becbd30cfb218f04dc91299473f61ffde",16).add(new BigInteger("11316496",10)).toString(16) =
 552e025571c01bcda0297c22731d74becbd30cfb218f04dc9129947400eacee
 ```
-We check where is the most right unknown character - it's position will tell us what is the stride. In our case it is 58^18 = **2b85840fc1d6a480ae7fa240000**
-Unfortunately the stride collides with checksum (last 8 characters are not 0s). It means that for our calculations we must take into account **the proper checksum** And this is difficult part, because the _real_ checksum is unknown. In our test it is known, but in real-life it could be needed to see how many possibilites there are. For example, in this case, playing with missing characters of WIF we may observe that last 4 characters of checksum are fixed. The first 4 could be changed, BUT the 4th character gets only 4 values. It means that if we want to use this method for real-life problem, we may need to do calculations for 16*16*16*4 checksums (in fact will ne less operations needed, because many checksums will generate the same private key in addition to the stride). 
-
-Because stride collides with checksum, we will have to use the full (long) value and pass checksum as a parameter.
+We check where is the most right unknown character - it's position will tell us what is the stride. In our case it is 58^18 = **2b85840fc1d6a480ae7fa240000**\
+Unfortunately the stride collides with checksum (last 8 characters are not 0s). It means that for our calculations we must take into account **the proper checksum** And this is difficult part, because the _real_ checksum is unknown. In our test it is known, but in real-life it could be needed to see how many possibilites there are. For example, in this case, playing with missing characters of WIF we may observe that last 4 characters of checksum are fixed. The first 4 could be changed, BUT the 4th character gets only 4 values. It means that if we want to use this method for real-life problem, we may need to do calculations for 16*16*16*4 checksums (in fact will ne less operations needed, because many checksums will generate the same private key in addition to the stride). \
+\
+Because stride collides with checksum, we will have to use the full (long) value and pass checksum as a parameter.\
 The final configuration file is:
 ```
 552e025571c01bcda0297c22731d74becbd30cfb218f04dc91299473f61ffde
