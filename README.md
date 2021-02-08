@@ -4,7 +4,7 @@ A Pollard's kangaroo interval ECDLP solver for SECP256K1 (based on VanitySearch 
 **This program is limited to a 125bit interval search.**
 
 
-#Fork for: Sparse range (search with stride)
+# Fork for: Sparse range (search with stride)
 Special parameters:
 ```
     -stride
@@ -17,7 +17,7 @@ For example, let's take WIF: **5HrdZxkxnVst8Q3qCLJkeiLe1k4AmSDaAhqQVUYVxVSBkf5Vf
 Decoded WIF shows checksum **524412ca**
 The corresponding public key is _04777c026b8085951da7117395bf269c055f36bf2ddf623281962855edee36d4e73bec2fa87b122a0f1b2841ef4f7afdec2443f89c151ee2597feac18ae0d62bdf_
 
-#Search without checksum (_large_ stride)
+# Search without checksum (_large_ stride)
 Let's take WIF **5HrdZxkxnVst8Q_____keiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu**
 Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q11111keiLe1k4AmSDaAhqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcd9eda59365a2fb3ae0bd7547dfeeeb13d971d848bcbf0467**
 Now, we must calculate the number of WIFs in our range. Beause we have 5 missing characters, it will be 58^5 = 656356768 (271f35a0 hex)
@@ -62,7 +62,7 @@ Key# 0 [2N]Pub:  0x03777C026B8085951DA7117395BF269C055F36BF2DDF623281962855EDEE3
    RealPriv: 0x552E025571C01BCDA0297C22731D74BECBD30D07E4EC355C741825FFFC0A672
 ```
 
-#Search with checksum (_small_ stride)
+# Search with checksum (_small_ stride)
 Let's take WIF **5HrdZxkxnVst8Q3qCLJkeiLe1k4Am____hqQVUYVxVSBkf5VfUu**
 Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q3qCLJkeiLe1k4Am1111hqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcda0297c22731d74becbd30cfb218f04dc91299473f61ffde**
 Now, we must calculate the number of WIFs in our range. Beause we have 4 missing characters, it will be 58^4 = 11316496
@@ -110,7 +110,7 @@ Key# 0 [2N]Pub:  0x03777C026B8085951DA7117395BF269C055F36BF2DDF623281962855EDEE3
 ```
 
  
-#End Fork description 
+# End Fork description 
  
  
 # Feature
