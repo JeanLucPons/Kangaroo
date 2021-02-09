@@ -86,17 +86,14 @@ Point Secp256K1::ComputePublicKey(Int *privKey,bool reduce) {
 Int pKey = privKey;
 
 if (isStride){
+  Int diff = privKey;
   if (maxRange.IsGreaterOrEqual(privKey)){
-      Int diff = privKey;
       diff.Mult(&jump);
       if (isChecksum){
         diff.Add(&checksum);
         diff.SetBase16((char *)diff.GetBase16().substr(0, diff.GetBase16().length()-8).c_str());
       }
-      pKey = diff;
-  }else{
-   if (privKey->IsGreaterOrEqual(&rangeInit) && rangeEnd.IsGreaterOrEqual(privKey) ){
-      Int diff = privKey;
+  }else if (privKey->IsGreaterOrEqual(&rangeInit) && rangeEnd.IsGreaterOrEqual(privKey) ){
       diff.Sub(&rangeInit);
       diff.Mult(&jump);
       if (isChecksum){
@@ -105,9 +102,8 @@ if (isStride){
       }else{
         diff.Add(&rangeInit);
       }
-      pKey = diff;
       }
-  }
+  pKey = diff;
 }
   // Search first significant byte
   for (i = 0; i < 32; i++) {
