@@ -62,7 +62,7 @@ Key# 0 [2N]Pub:  0x03777C026B8085951DA7117395BF269C055F36BF2DDF623281962855EDEE3
    RealPriv: 0x552E025571C01BCDA0297C22731D74BECBD30D07E4EC355C741825FFFC0A672
 ```
 
-# Search with checksum (_small_ stride)
+# Search with checksum (_small_ stride) - unstable!
 Let's take WIF **5HrdZxkxnVst8Q3qCLJkeiLe1k4Am____hqQVUYVxVSBkf5VfUu**\
 Now, we may find the first WIF to be tested, it will be 5HrdZxkxnVst8Q3qCLJkeiLe1k4Am1111hqQVUYVxVSBkf5VfUu. When we decode it, we find the private key which is the beginning of our range: **0552e025571c01bcda0297c22731d74becbd30cfb218f04dc91299473f61ffde**\
 Now, we must calculate the number of WIFs in our range. Beause we have 4 missing characters, it will be 58^4 = 11316496\
