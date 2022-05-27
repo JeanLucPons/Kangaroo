@@ -57,7 +57,7 @@ public:
   
   bool isStride;
   void SetStride(Int *stride, Int *rangeStart, Int *rangeEnd);
-  bool isChecksum;
+  bool isChecksum = false;
   void SetChecksum(Int *checksum);
 
 private:

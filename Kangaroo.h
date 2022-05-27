@@ -248,7 +248,7 @@ private:
   Int stride;
   bool isStride;
   Int checksum;
-  bool isChecksum;
+  bool isChecksum = false;
 
   uint64_t dMask;
   uint32_t dpSize;
