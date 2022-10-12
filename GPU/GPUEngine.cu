@@ -40,19 +40,52 @@ __global__ void comp_kangaroos(uint64_t *kangaroos,uint32_t maxFound,uint32_t *f
 }
 
 // ---------------------------------------------------------------------------------------
-
+//#define GPU_CHECK
 #ifdef GPU_CHECK
 __global__ void check_gpu() {
 
-  uint64_t mask = 0x1;
+  // Check ModInv
+  uint64_t N[5] = { 0x0BE3D7593BE1147CULL,0x4952AAF512875655ULL,0x08884CCAACCB9B53ULL,0x9EAE2E2225044292ULL,0ULL };
+  uint64_t I[5];
+  uint64_t R[5];
+  bool ok = true;
 
-  for(int i=0;i<63;i++) {
-    float f = (float)(mask);
-    int zeros = (*(uint32_t*)(&f) >> 23) - 127;
-    if(zeros!=i) {
-      printf("Warning, trailing zero count wrong for %d, recompile with -DNOFASTCTZ\n",zeros);  
+  /*
+  for(uint64_t i=0;i<10000 && ok;i++) {
+
+    Load(R,N);
+    _ModInv(R);
+    Load(I,R);
+    _ModMult(R,N);
+    SubP(R);
+    if(!_IsOne(R)) {
+      ok = false;
+      printf("ModInv wrong %d\n",(int)i);
+      printf("N = %016llx %016llx %016llx %016llx %016llx\n",N[4],N[3],N[2],N[1],N[0]);
+      printf("I = %016llx %016llx %016llx %016llx %016llx\n",I[4],I[3],I[2],I[1],I[0]);
+      printf("R = %016llx %016llx %016llx %016llx %016llx\n",R[4],R[3],R[2],R[1],R[0]);
     }
-    mask = mask << 1;
+
+    N[0]++;
+
+  }
+  */
+  I[4] = 0;
+  R[4] = 0;
+  for(uint64_t i = 0; i < 100000 && ok; i++) {
+
+    _ModSqr(I,N);
+    _ModMult(R,N,N);
+    if(!_IsEqual(I,R)) {
+      ok = false;
+      printf("_ModSqr wrong %d\n",(int)i);
+      printf("N = %016llx %016llx %016llx %016llx %016llx\n",N[4],N[3],N[2],N[1],N[0]);
+      printf("I = %016llx %016llx %016llx %016llx %016llx\n",I[4],I[3],I[2],I[1],I[0]);
+      printf("R = %016llx %016llx %016llx %016llx %016llx\n",R[4],R[3],R[2],R[1],R[0]);
+    }
+
+    N[0]++;
+
   }
 
 }
@@ -203,7 +236,18 @@ GPUEngine::GPUEngine(int nbThreadGroup,int nbThreadPerGroup,int gpuId,uint32_t m
   wildOffset.SetInt32(0);
 
 #ifdef GPU_CHECK
-  check_gpu<<<1,1>>>();
+
+  double minT = 1e9;
+  for(int i=0;i<5;i++) {
+    double t0 = Timer::get_tick();
+    check_gpu<<<1,1>>>();
+    cudaThreadSynchronize();
+    double t1 = Timer::get_tick();
+    if( (t1-t0)<minT ) minT = (t1-t0);
+  }
+  printf("Cuda: %.3f ms\n",minT*1000.0);
+  exit(0);
+
 #endif
 
 }
