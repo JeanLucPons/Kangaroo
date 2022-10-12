@@ -64,6 +64,8 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
   this->keyIdx = 0;
   this->splitWorkfile = splitWorkfile;
   this->pid = Timer::getPID();
+  this->isStride = false;
+  this->isChecksum = false;
 
   CPU_GRP_SIZE = 1024;
 
@@ -78,6 +80,29 @@ Kangaroo::Kangaroo(Secp256K1 *secp,int32_t initDPSize,bool useGpu,string &workFi
 #endif
 
 }
+
+// ----------------------------------------------------------------------------
+
+void Kangaroo::SetStride(std::string &stride){
+//    ::printf("Stride %s\n", stride.c_str());
+    Int _stride;
+    _stride.SetBase16((char *)stride.c_str());
+    secp->SetStride(&_stride, &rangeStart, &rangeEnd);
+    this->isStride = true;
+    this->stride = _stride;
+}
+
+// ----------------------------------------------------------------------------
+
+void Kangaroo::SetChecksum(std::string &checksum){
+//    ::printf("Stride %s\n", stride.c_str());
+    Int _checksum;
+    _checksum.SetBase16((char *)checksum.c_str());
+    secp->SetChecksum(&_checksum);
+    this->isChecksum = true;
+    this->checksum = _checksum;
+}
+
 
 // ----------------------------------------------------------------------------
 
@@ -193,11 +218,26 @@ bool Kangaroo::Output(Int *pk,char sInfo,int sType) {
   if(!needToClose)
     ::printf("\n");
 
+::fprintf(f," verify PK %s  \n", pk->GetBase16().c_str());
   Point PR = secp->ComputePublicKey(pk);
 
   ::fprintf(f,"Key#%2d [%d%c]Pub:  0x%s \n",keyIdx,sType,sInfo,secp->GetPublicKeyHex(true,keysToSearch[keyIdx]).c_str());
   if(PR.equals(keysToSearch[keyIdx])) {
     ::fprintf(f,"       Priv: 0x%s \n",pk->GetBase16().c_str());
+    if (this->isStride){
+      Int realK = pk;
+      realK.Sub(&rangeStart);
+      realK.Mult(&stride);
+      if (this->isChecksum){
+              Int rangeInitWChecksum;
+              rangeInitWChecksum.SetBase16((char *)rangeStart.GetBase16().append(checksum.GetBase16()).c_str());
+              realK.Add(&rangeInitWChecksum);
+              realK.SetBase16((char *)realK.GetBase16().substr(0, realK.GetBase16().length()-8).c_str());
+      }else{
+        realK.Add(&rangeStart);
+      }
+      ::fprintf(f,"   RealPriv: 0x%s \n",realK.GetBase16().c_str());
+    }
   } else {
     ::fprintf(f,"       Failed !\n");
     if(needToClose)

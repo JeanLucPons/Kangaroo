@@ -145,6 +145,8 @@ public:
   void CheckWorkFile(int nbCore,std::string& fileName);
   void CheckPartition(int nbCore,std::string& partName);
   bool FillEmptyPartFromFile(std::string& partName,std::string& fileName,bool printStat);
+  void SetStride(std::string &stride);
+  void SetChecksum(std::string &checksum);
 
   // Threaded procedures
   void SolveKeyCPU(TH_PARAM *p);
@@ -242,6 +244,11 @@ private:
   Int rangeWidthDiv2;
   Int rangeWidthDiv4;
   Int rangeWidthDiv8;
+
+  Int stride;
+  bool isStride;
+  Int checksum;
+  bool isChecksum = false;
 
   uint64_t dMask;
   uint32_t dpSize;

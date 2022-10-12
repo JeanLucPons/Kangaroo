@@ -47,6 +47,18 @@ public:
 
   Point G;                 // Generator
   Int   order;             // Curve order
+  
+  Int jump;
+  Int maxRange;
+  Int rangeInit;
+  Int rangeEnd;
+  Int checksum;
+  Int rangeInitWChecksum;
+  
+  bool isStride;
+  void SetStride(Int *stride, Int *rangeStart, Int *rangeEnd);
+  bool isChecksum = false;
+  void SetChecksum(Int *checksum);
 
 private:
 
