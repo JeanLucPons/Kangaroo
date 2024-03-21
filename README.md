@@ -422,15 +422,9 @@ Next puzzles to solve:
 0248D313B0398D4923CDCA73B8CFA6532B91B96703902FC8B32FD438A3B7CD7F55
 ```
 
-#120, 119bits private key [2<sup>119</sup>,2<sup>120</sup>-1], [17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT](https://www.blockchain.com/btc/address/17s2b9ksz5y7abUm92cHwG8jEPCzK3dLnT) **1.20BTC**
+#130, 129bits private key [2<sup>119</sup>,2<sup>120</sup>-1], [1Fo65aKq8s8iquMt6weF1rku1moWVEd5Ua](https://www.blockchain.com/explorer/addresses/btc/1Fo65aKq8s8iquMt6weF1rku1moWVEd5Ua) **13.0BTC**
 
-```
-800000000000000000000000000000
-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-02CEB6CBBCDBDF5EF7150682150F4CE2C6F4807B349827DCDBDD1F2EFA885A2630
-```
-
-Expected time: ~2 months on 256 Tesla V100.
+Expected time: several years on 256 Tesla V100 (Not possible with this program without modification)
 
 [Up to #160](https://raw.githubusercontent.com/JeanLucPons/Kangaroo/master/puzzle32.txt)
 
