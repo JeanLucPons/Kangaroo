@@ -159,7 +159,7 @@ bool Kangaroo::LoadWork(string &fileName) {
       return false;
 
     keysToSearch.clear();
-    Point key;
+    int keyCount = 0;
 
     // Read global param
     uint32_t dp;
@@ -167,18 +167,21 @@ bool Kangaroo::LoadWork(string &fileName) {
     if(initDPSize < 0) initDPSize = dp;
     ::fread(&rangeStart.bits64,32,1,fRead); rangeStart.bits64[4] = 0;
     ::fread(&rangeEnd.bits64,32,1,fRead); rangeEnd.bits64[4] = 0;
+    ::fread(&keyCount,sizeof(int),1,fRead);
+    for(int i = 0; i < keyCount; i++){
+      Point key;
     ::fread(&key.x.bits64,32,1,fRead); key.x.bits64[4] = 0;
     ::fread(&key.y.bits64,32,1,fRead); key.y.bits64[4] = 0;
-    ::fread(&offsetCount,sizeof(uint64_t),1,fRead);
-    ::fread(&offsetTime,sizeof(double),1,fRead);
 
-    key.z.SetInt32(1);
     if(!secp->EC(key)) {
       ::printf("LoadWork: key does not lie on elliptic curve\n");
       return false;
     }
-
+      key.z.SetInt32(1);
     keysToSearch.push_back(key);
+    }
+    ::fread(&offsetCount,sizeof(uint64_t),1,fRead);
+    ::fread(&offsetTime,sizeof(double),1,fRead);
 
     ::printf("Start:%s\n",rangeStart.GetBase16().c_str());
     ::printf("Stop :%s\n",rangeEnd.GetBase16().c_str());
@@ -378,13 +381,16 @@ bool Kangaroo::SaveHeader(string fileName,FILE* f,int type,uint64_t totalCount,d
   ::fwrite(&version,sizeof(uint32_t),1,f);
 
   if(type==HEADW) {
-
+    int keyCount = (int)keysToSearch.size();
     // Save global param
     ::fwrite(&dpSize,sizeof(uint32_t),1,f);
     ::fwrite(&rangeStart.bits64,32,1,f);
     ::fwrite(&rangeEnd.bits64,32,1,f);
-    ::fwrite(&keysToSearch[keyIdx].x.bits64,32,1,f);
-    ::fwrite(&keysToSearch[keyIdx].y.bits64,32,1,f);
+    ::fwrite(&keyCount,sizeof(int),1,f);
+    for(int i = 0; i < keyCount; i++){
+      ::fwrite(&keysToSearch[i].x.bits64,32,1,f);
+      ::fwrite(&keysToSearch[i].y.bits64,32,1,f);
+    }
     ::fwrite(&totalCount,sizeof(uint64_t),1,f);
     ::fwrite(&totalTime,sizeof(double),1,f);
 
